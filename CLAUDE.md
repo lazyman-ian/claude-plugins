@@ -147,3 +147,17 @@ claude mcp list              # List active MCP servers
 | sosumi | Full docs, HIG | ios-swift-plugin |
 | XcodeBuildMCP | Simulator control | ios-swift-plugin |
 | dev-flow | Workflow tools | dev-flow |
+
+## Plugin Migration
+
+When moving plugins from local to marketplace:
+1. Remove from `~/.claude/plugins/known_marketplaces.json`
+2. Remove from `~/.claude/plugins/installed_plugins.json`
+3. Delete `~/.claude/plugins/cache/<old-marketplace>/`
+
+## Skill Description Pattern
+
+Third-person + "This skill should be used when...":
+```yaml
+description: Removes AI-generated code slop. This skill should be used when user says "clean up", "deslop", "清理代码".
+```
