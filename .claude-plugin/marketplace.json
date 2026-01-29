@@ -41,6 +41,17 @@
       },
       "source": "./utils-plugin",
       "category": "development"
+    },
+    {
+      "name": "research",
+      "description": "Research tools: Perplexity AI search, Braintrust session analysis, RepoPrompt codebase exploration",
+      "version": "1.2.0",
+      "author": {
+        "name": "lazyman",
+        "email": "nickyuan94@gmail.com"
+      },
+      "source": "./research-plugin",
+      "category": "research"
     }
   ]
 }
