@@ -30,6 +30,17 @@
       "source": "./ios-swift-plugin",
       "category": "development",
       "homepage": "https://github.com/lazyman-ian/ios-swift-plugin"
+    },
+    {
+      "name": "utils",
+      "description": "Utility tools: deslop (remove AI code slop), search-code, loop detection, alias conflict detection",
+      "version": "1.2.0",
+      "author": {
+        "name": "lazyman",
+        "email": "nickyuan94@gmail.com"
+      },
+      "source": "./utils-plugin",
+      "category": "development"
     }
   ]
 }
