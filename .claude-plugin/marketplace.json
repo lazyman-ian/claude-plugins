@@ -1,0 +1,23 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "lazyman-ian",
+  "description": "Development tools for Claude Code by lazyman",
+  "owner": {
+    "name": "lazyman",
+    "email": "nickyuan94@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "dev-flow",
+      "description": "Unified development workflow: planning → coding → commit → PR → release with full automation",
+      "source": "./dev-flow",
+      "category": "development"
+    },
+    {
+      "name": "ios-swift-plugin",
+      "description": "iOS/Swift development toolkit with SwiftUI, Concurrency, WidgetKit skills",
+      "source": "./ios-swift-plugin",
+      "category": "development"
+    }
+  ]
+}
