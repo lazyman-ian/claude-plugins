@@ -13,8 +13,10 @@ Claude Code plugin for code quality, search, and safety hooks.
 - `/search <pattern>` - Smart code search
 
 ### Hooks
-- **loop-detection** - Warns when same tool called 8+ times in last 10 calls
-- **alias-conflict-detector** - Detects bash alias conflicts (find→fd, ls→eza, cat→bat)
+- **tool-enforcer** (PreToolUse) - Suggests native tools over Bash commands
+- **loop-detection** (PostToolUse) - Warns when same tool called 8+ times
+- **alias-conflict-detector** (PostToolUse) - Detects bash alias conflicts
+- **context-warning** (Stop) - Warns when context usage >70%
 
 ## Installation
 
