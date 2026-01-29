@@ -8,8 +8,8 @@ Development tools for Claude Code.
 
 | Plugin | Description | Version |
 |--------|-------------|---------|
-| [dev-flow](./dev-flow) | Development workflow: planning → coding → commit → PR → release | 3.12.0 |
-| [ios-swift-plugin](./ios-swift-plugin) | iOS/Swift toolkit: SwiftUI, Concurrency, WidgetKit | 1.0.0 |
+| [dev-flow](./dev-flow) | Development workflow: planning → coding → commit → PR → release | 3.13.0 |
+| [ios-swift-plugin](./ios-swift-plugin) | iOS/Swift toolkit: SwiftUI, Concurrency, WidgetKit | 1.1.0 |
 
 ## Installation
 
