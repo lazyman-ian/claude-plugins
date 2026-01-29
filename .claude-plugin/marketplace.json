@@ -10,7 +10,7 @@
     {
       "name": "dev-flow",
       "description": "Unified development workflow: planning → coding → commit → PR → release with VDD (Verification-Driven Development)",
-      "version": "3.12.0",
+      "version": "3.13.0",
       "author": {
         "name": "lazyman",
         "email": "nickyuan94@gmail.com"
@@ -22,7 +22,7 @@
     {
       "name": "ios-swift-plugin",
       "description": "iOS/Swift development toolkit: SwiftUI, Swift Concurrency, WidgetKit, performance optimization",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": {
         "name": "lazyman",
         "email": "nickyuan94@gmail.com"
