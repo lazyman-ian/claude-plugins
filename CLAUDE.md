@@ -6,8 +6,8 @@ lazyman-ian marketplace for Claude Code plugins.
 
 | Plugin | Version | Skills | Commands | Agents | MCP |
 |--------|---------|--------|----------|--------|-----|
-| dev-flow | 3.12.0 | 5 | 21 | 12 | Yes |
-| ios-swift-plugin | 1.0.0 | 10 | 4 | 2 | No |
+| dev-flow | 3.13.0 | 5 | 21 | 12 | Yes |
+| ios-swift-plugin | 1.1.0 | 10 | 4 | 2 | No |
 
 ### dev-flow
 Development workflow automation: planning → coding → commit → PR → release
@@ -97,3 +97,38 @@ git -C ~/.claude/plugins/marketplaces/lazyman-ian submodule update --remote && r
 # Check submodule status
 git submodule status
 ```
+
+## Skill Audit
+
+```bash
+# Batch audit all skills
+for f in <plugin>/skills/*/SKILL.md; do
+  name=$(dirname "$f" | xargs basename)
+  lines=$(wc -l < "$f" | tr -d ' ')
+  tools=$(grep -q "allowed-tools" "$f" && echo "✅" || echo "❌")
+  echo "$lines $tools $name"
+done | sort -rn
+```
+
+**Checklist**: name, description (EN+CN triggers, 3rd person), allowed-tools, <500 lines
+
+## Version Upgrade
+
+Update these files when bumping version:
+- `<plugin>/.claude-plugin/plugin.json`
+- `.claude-plugin/marketplace.json`
+- `<plugin>/README.md` (badge)
+- `<plugin>/docs/GUIDE.md`
+
+## MCP Tools
+
+```bash
+claude mcp list              # List active MCP servers
+```
+
+| MCP | Purpose | Plugin |
+|-----|---------|--------|
+| apple-docs | Symbol/API lookup | ios-swift-plugin |
+| sosumi | Full docs, HIG | ios-swift-plugin |
+| XcodeBuildMCP | Simulator control | ios-swift-plugin |
+| dev-flow | Workflow tools | dev-flow |
