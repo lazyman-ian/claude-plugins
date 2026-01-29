@@ -1,6 +1,6 @@
 ---
 name: search-code
-description: Unified code search interface for files, content, symbols, and patterns. Use when user says "find", "search", "where is", "look for", "查找", "搜索", "哪里用了", "在哪定义". Auto-selects optimal tool (Glob, Grep, AST).
+description: Provides unified code search for files, content, symbols, and patterns. This skill should be used when user says "find", "search", "where is", "look for", "查找", "搜索", "哪里用了", "在哪定义". Auto-selects optimal tool (Glob, Grep, AST).
 model: haiku
 allowed-tools: [Glob, Grep, Bash, Read]
 ---
