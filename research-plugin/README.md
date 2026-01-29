@@ -7,11 +7,13 @@ Claude Code plugin for research, documentation lookup, and session analysis.
 ### Skills
 - **research-agent** - Research using Perplexity, Context7, Firecrawl
 - **rp-explorer** - Token-efficient codebase exploration with RepoPrompt
+- **token-analyzer** - Analyze token usage patterns and suggest optimizations
 
 ### Commands
 - `/research <query>` - Research topics using Perplexity AI
 - `/analyze` - Analyze Claude Code sessions from Braintrust
 - `/explore` - Explore codebase using RepoPrompt
+- `/summary` - Quick session summary for handoff
 
 ### Agents
 - **research-agent** - External documentation and best practices research

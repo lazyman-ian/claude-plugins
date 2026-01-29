@@ -8,8 +8,8 @@ lazyman-ian marketplace for Claude Code plugins.
 |--------|---------|--------|----------|--------|-------|-----|
 | dev-flow | 3.13.0 | 5 | 21 | 12 | 3 | Yes |
 | ios-swift-plugin | 1.1.0 | 10 | 4 | 2 | 2 | No |
-| utils | 1.2.0 | 2 | 2 | 0 | 2 | No |
-| research | 1.2.0 | 2 | 3 | 3 | 0 | No |
+| utils | 1.3.0 | 2 | 2 | 0 | 4 | No |
+| research | 1.3.0 | 3 | 4 | 3 | 0 | No |
 
 ### dev-flow (submodule)
 Development workflow automation: planning → coding → commit → PR → release
@@ -25,12 +25,12 @@ iOS/Swift development toolkit
 Code quality and safety tools
 - Skills: deslop, search-code
 - Commands: /deslop, /search
-- Hooks: loop-detection, alias-conflict-detector
+- Hooks: tool-enforcer (PreToolUse), loop-detection, alias-conflict-detector, context-warning (Stop)
 
 ### research (built-in)
 External research and analysis tools
-- Skills: research-agent, rp-explorer
-- Commands: /research, /analyze, /explore
+- Skills: research-agent, rp-explorer, token-analyzer
+- Commands: /research, /analyze, /explore, /summary
 - Agents: research-agent, repo-research-analyst, braintrust-analyst
 - Requires: Perplexity API, Braintrust API, RepoPrompt app
 
