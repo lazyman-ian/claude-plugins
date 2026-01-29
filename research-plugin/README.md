@@ -21,8 +21,7 @@ Claude Code plugin for research, documentation lookup, and session analysis.
 ## Installation
 
 ```bash
-# Clone or symlink to ~/.claude/plugins/
-ln -s /path/to/research-plugin ~/.claude/plugins/research
+claude plugins add research@lazyman-ian
 ```
 
 ## Requirements

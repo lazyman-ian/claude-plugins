@@ -19,7 +19,7 @@ Claude Code plugin for code quality, search, and safety hooks.
 ## Installation
 
 ```bash
-ln -s /path/to/utils-plugin ~/.claude/plugins/utils
+claude plugins add utils@lazyman-ian
 ```
 
 ## Usage

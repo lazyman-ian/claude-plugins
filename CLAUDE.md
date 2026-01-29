@@ -4,20 +4,35 @@ lazyman-ian marketplace for Claude Code plugins.
 
 ## Plugins Overview
 
-| Plugin | Version | Skills | Commands | Agents | MCP |
-|--------|---------|--------|----------|--------|-----|
-| dev-flow | 3.13.0 | 5 | 21 | 12 | Yes |
-| ios-swift-plugin | 1.1.0 | 10 | 4 | 2 | No |
+| Plugin | Version | Skills | Commands | Agents | Hooks | MCP |
+|--------|---------|--------|----------|--------|-------|-----|
+| dev-flow | 3.13.0 | 5 | 21 | 12 | 3 | Yes |
+| ios-swift-plugin | 1.1.0 | 10 | 4 | 2 | 2 | No |
+| utils | 1.2.0 | 2 | 2 | 0 | 2 | No |
+| research | 1.2.0 | 2 | 3 | 3 | 0 | No |
 
-### dev-flow
+### dev-flow (submodule)
 Development workflow automation: planning → coding → commit → PR → release
 - Key commands: `/dev`, `/dev commit`, `/dev pr`, `/dev release`
 - MCP server: `scripts/mcp-server.cjs`
 
-### ios-swift-plugin
+### ios-swift-plugin (submodule)
 iOS/Swift development toolkit
 - Skills: swiftui-expert, swift-concurrency, ios-widget-developer, etc.
 - Commands: xcode-test, swift-audit, swift-fix-issue, app-changelog
+
+### utils (built-in)
+Code quality and safety tools
+- Skills: deslop, search-code
+- Commands: /deslop, /search
+- Hooks: loop-detection, alias-conflict-detector
+
+### research (built-in)
+External research and analysis tools
+- Skills: research-agent, rp-explorer
+- Commands: /research, /analyze, /explore
+- Agents: research-agent, repo-research-analyst, braintrust-analyst
+- Requires: Perplexity API, Braintrust API, RepoPrompt app
 
 ## Plugin Manifest Rules
 
