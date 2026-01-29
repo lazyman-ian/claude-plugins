@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "lazyman-ian",
-  "description": "Development tools for Claude Code by lazyman",
+  "description": "Development workflow and iOS/Swift plugins for Claude Code",
   "owner": {
     "name": "lazyman",
     "email": "nickyuan94@gmail.com"
@@ -9,15 +9,27 @@
   "plugins": [
     {
       "name": "dev-flow",
-      "description": "Unified development workflow: planning → coding → commit → PR → release with full automation",
+      "description": "Unified development workflow: planning → coding → commit → PR → release with VDD (Verification-Driven Development)",
+      "version": "3.12.0",
+      "author": {
+        "name": "lazyman",
+        "email": "nickyuan94@gmail.com"
+      },
       "source": "./dev-flow",
-      "category": "development"
+      "category": "development",
+      "homepage": "https://github.com/lazyman-ian/dev-flow"
     },
     {
       "name": "ios-swift-plugin",
-      "description": "iOS/Swift development toolkit with SwiftUI, Concurrency, WidgetKit skills",
+      "description": "iOS/Swift development toolkit: SwiftUI, Swift Concurrency, WidgetKit, performance optimization",
+      "version": "1.0.0",
+      "author": {
+        "name": "lazyman",
+        "email": "nickyuan94@gmail.com"
+      },
       "source": "./ios-swift-plugin",
-      "category": "development"
+      "category": "development",
+      "homepage": "https://github.com/lazyman-ian/ios-swift-plugin"
     }
   ]
 }
