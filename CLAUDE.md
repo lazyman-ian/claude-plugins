@@ -106,10 +106,10 @@ git -C <plugin> add . && git -C <plugin> commit -m "..." && git -C <plugin> push
 git add <plugin> && git commit -m "chore: update <plugin>" && git push
 
 # 4. Sync marketplace
-git -C ~/.claude/plugins/marketplaces/lazyman-ian submodule update --remote
-rm -rf ~/.claude/plugins/cache/lazyman-ian/
+git -C ~/.claude/plugins/marketplaces/lazyman-ian pull
 
-# 5. Restart Claude Code and test with /plugin
+# 5. Reinstall if cache was cleared (see Quick Commands)
+# 6. Restart Claude Code and test
 ```
 
 ## Quick Commands
