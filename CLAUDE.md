@@ -85,6 +85,15 @@ color: yellow  # optional
 
 Must wrap in `"hooks"` object.
 
+## Hook Input Fields
+
+| Hook Type | Tool Field | Input Field |
+|-----------|-----------|-------------|
+| PreToolUse | `.tool_name` | `.tool_input.*` |
+| PostToolUse | `.tool_name` | `.tool_input.*` |
+
+**错误示例**: `.tool`, `.params.command` (会导致 hook 失败)
+
 ## Development Workflow
 
 ```bash
@@ -106,8 +115,12 @@ rm -rf ~/.claude/plugins/cache/lazyman-ian/
 ## Quick Commands
 
 ```bash
-# Sync all
-git -C ~/.claude/plugins/marketplaces/lazyman-ian submodule update --remote && rm -rf ~/.claude/plugins/cache/lazyman-ian/
+# Sync submodules
+git -C ~/.claude/plugins/marketplaces/lazyman-ian pull
+
+# After cache cleared, reinstall affected plugins
+claude plugins remove utils@lazyman-ian && claude plugins add utils@lazyman-ian
+claude plugins remove research@lazyman-ian && claude plugins add research@lazyman-ian
 
 # Check submodule status
 git submodule status
