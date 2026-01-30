@@ -6,8 +6,7 @@ set -eo pipefail  # 移除 -u 避免 unbound variable 错误
 
 # 读取输入
 input=$(cat)
-tool=$(echo "$input" | jq -r '.tool // empty')
-params=$(echo "$input" | jq -r '.params // {}')
+tool=$(echo "$input" | jq -r '.tool_name // empty')
 
 # 只处理 Bash 工具
 if [[ "$tool" != "Bash" ]]; then
@@ -16,7 +15,7 @@ if [[ "$tool" != "Bash" ]]; then
 fi
 
 # 提取命令
-command=$(echo "$params" | jq -r '.command // ""')
+command=$(echo "$input" | jq -r '.tool_input.command // ""')
 
 # 检测冲突（不使用关联数组，兼容旧版 bash）
 conflicts=()
