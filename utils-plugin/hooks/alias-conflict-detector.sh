@@ -51,7 +51,8 @@ if [[ ${#conflicts[@]} -gt 0 ]]; then
     message+="$conflict\n"
   done
 
-  echo "{\"result\":\"continue\",\"message\":\"$message\"}"
+  # Use jq for proper JSON escaping of newlines and special characters
+  echo "{\"result\":\"continue\",\"message\":$(echo -e "$message" | jq -Rs .)}"
 else
   echo '{"result":"continue"}'
 fi
