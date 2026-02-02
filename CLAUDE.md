@@ -15,6 +15,7 @@ lazyman-ian marketplace for Claude Code plugins.
 Development workflow automation: planning → coding → commit → PR → release
 - Key commands: `/dev`, `/dev commit`, `/dev pr`, `/dev release`
 - MCP server: `scripts/mcp-server.cjs`
+- StatusLine: `scripts/statusline.sh` (multi-line: context | git | tools | tasks | agents)
 
 ### ios-swift-plugin (submodule)
 iOS/Swift development toolkit
