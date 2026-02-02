@@ -2,11 +2,13 @@
 # Alias Conflict Detector Hook
 # 检测 Bash 命令中的 alias 冲突
 
-set -eo pipefail  # 移除 -u 避免 unbound variable 错误
+set -o pipefail
 
 # 读取输入
 input=$(cat)
-tool=$(echo "$input" | jq -r '.tool_name // empty')
+
+# 安全解析 JSON，失败时返回默认值
+tool=$(echo "$input" | jq -r '.tool_name // empty' 2>/dev/null || echo "")
 
 # 只处理 Bash 工具
 if [[ "$tool" != "Bash" ]]; then
@@ -15,7 +17,7 @@ if [[ "$tool" != "Bash" ]]; then
 fi
 
 # 提取命令
-command=$(echo "$input" | jq -r '.tool_input.command // ""')
+command=$(echo "$input" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")
 
 # 检测冲突（不使用关联数组，兼容旧版 bash）
 conflicts=()

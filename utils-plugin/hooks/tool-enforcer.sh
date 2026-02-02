@@ -6,10 +6,10 @@
 # Based on command-tools.md decision tree
 ###
 
-set -e
+set -o pipefail
 
 input=$(cat)
-tool=$(echo "$input" | jq -r '.tool_name // empty')
+tool=$(echo "$input" | jq -r '.tool_name // empty' 2>/dev/null || echo "")
 
 # Only process Bash tool
 if [ "$tool" != "Bash" ]; then
@@ -17,7 +17,7 @@ if [ "$tool" != "Bash" ]; then
     exit 0
 fi
 
-command=$(echo "$input" | jq -r '.tool_input.command // ""')
+command=$(echo "$input" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")
 suggestions=()
 
 # Check for ls (should use Glob)

@@ -5,13 +5,13 @@
 # Warns when context usage exceeds 70% to encourage shorter conversations
 ###
 
-set -e
+set -o pipefail
 
 input=$(cat)
 
-# Extract context info from stop event
-context_used=$(echo "$input" | jq -r '.context_used // 0')
-context_limit=$(echo "$input" | jq -r '.context_limit // 200000')
+# Extract context info from stop event (安全解析 JSON)
+context_used=$(echo "$input" | jq -r '.context_used // 0' 2>/dev/null || echo "0")
+context_limit=$(echo "$input" | jq -r '.context_limit // 200000' 2>/dev/null || echo "200000")
 
 # Calculate percentage
 if [ "$context_limit" -gt 0 ]; then
