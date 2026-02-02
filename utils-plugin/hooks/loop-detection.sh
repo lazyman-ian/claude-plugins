@@ -6,13 +6,13 @@
 # Warns to prevent token waste from stuck loops
 ###
 
-set -e
+set -o pipefail
 
 # Read input from stdin
 input=$(cat)
 
-# Extract tool name
-tool_name=$(echo "$input" | jq -r '.tool_name // empty')
+# Extract tool name (安全解析 JSON)
+tool_name=$(echo "$input" | jq -r '.tool_name // empty' 2>/dev/null || echo "")
 
 # Skip if no tool name
 if [ -z "$tool_name" ]; then
