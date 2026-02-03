@@ -4,15 +4,17 @@
 
 ## 快速安装
 
-```bash
-# 1. 添加 marketplace（GitHub 直接添加）
-claude marketplace add lazyman-ian https://github.com/lazyman-ian/claude-plugins.git
+在 Claude Code 会话内执行：
+
+```
+# 1. 添加 marketplace（从 GitHub）
+/plugin marketplace add lazyman-ian/claude-plugins
 
 # 2. 安装插件
-claude plugins add dev-flow@lazyman-ian
-claude plugins add ios-swift-plugin@lazyman-ian
-claude plugins add utils@lazyman-ian
-claude plugins add research@lazyman-ian
+/plugin install dev-flow@lazyman-ian
+/plugin install ios-swift-plugin@lazyman-ian
+/plugin install utils@lazyman-ian
+/plugin install research@lazyman-ian
 ```
 
 ## 带 Submodule 的 Marketplace
@@ -23,8 +25,8 @@ claude plugins add research@lazyman-ian
 
 Claude Code 会自动处理 submodule：
 
-```bash
-claude marketplace add lazyman-ian https://github.com/lazyman-ian/claude-plugins.git
+```
+/plugin marketplace add lazyman-ian/claude-plugins
 ```
 
 ### 方法 2: 本地安装
@@ -39,11 +41,11 @@ git clone --recursive https://github.com/lazyman-ian/claude-plugins.git
 cd claude-plugins
 git submodule update --init --recursive
 
-# 3. 添加本地 marketplace
-claude marketplace add lazyman-ian /path/to/claude-plugins
+# 3. 在 Claude Code 内添加本地 marketplace
+/plugin marketplace add /path/to/claude-plugins
 
 # 4. 安装插件
-claude plugins add dev-flow@lazyman-ian
+/plugin install dev-flow@lazyman-ian
 ```
 
 ## 常见问题
@@ -54,12 +56,12 @@ claude plugins add dev-flow@lazyman-ian
 
 **解决**:
 ```bash
-# 更新 submodule
+# 手动更新 submodule
 git submodule update --init --recursive
 
-# 重新安装 marketplace
-claude marketplace remove lazyman-ian
-claude marketplace add lazyman-ian /path/to/claude-plugins
+# 然后重新安装 marketplace
+/plugin marketplace remove lazyman-ian
+/plugin marketplace add lazyman-ian/claude-plugins
 ```
 
 ### 问题 2: 本地路径变更
@@ -67,12 +69,12 @@ claude marketplace add lazyman-ian /path/to/claude-plugins
 **症状**: 移动仓库后插件失效
 
 **解决**:
-```bash
+```
 # 1. 移除旧的 marketplace
-claude marketplace remove lazyman-ian
+/plugin marketplace remove lazyman-ian
 
 # 2. 使用新路径重新添加
-claude marketplace add lazyman-ian /new/path/to/claude-plugins
+/plugin marketplace add /new/path/to/claude-plugins
 ```
 
 ### 问题 3: 版本不同步
@@ -117,12 +119,12 @@ claude --plugin-dir /path/to/ios-swift-plugin
 
 ## 验证安装
 
-```bash
+```
 # 查看已安装的 marketplace
-claude marketplace list
+/plugin marketplace list
 
 # 查看已安装的插件
-claude plugins list
+/plugin list
 
 # 测试插件
 /dev-flow:dev       # 应显示 workflow 状态
@@ -131,11 +133,24 @@ claude plugins list
 
 ## 卸载
 
-```bash
+```
 # 移除插件
-claude plugins remove dev-flow@lazyman-ian
-claude plugins remove ios-swift-plugin@lazyman-ian
+/plugin uninstall dev-flow@lazyman-ian
+/plugin uninstall ios-swift-plugin@lazyman-ian
 
 # 移除 marketplace
-claude marketplace remove lazyman-ian
+/plugin marketplace remove lazyman-ian
 ```
+
+## 命令参考
+
+| 命令 | 说明 |
+|------|------|
+| `/plugin marketplace add owner/repo` | 从 GitHub 添加 marketplace |
+| `/plugin marketplace add /path/to/dir` | 从本地路径添加 marketplace |
+| `/plugin marketplace list` | 列出已添加的 marketplaces |
+| `/plugin marketplace remove <name>` | 移除 marketplace |
+| `/plugin install plugin@marketplace` | 安装插件 |
+| `/plugin uninstall plugin@marketplace` | 卸载插件 |
+| `/plugin list` | 列出已安装插件 |
+| `claude --plugin-dir /path` | 命令行直接加载插件（开发用） |

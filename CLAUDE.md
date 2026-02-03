@@ -82,10 +82,10 @@ Single-file bundle architecture (`mcp-server/src/index.ts` → `scripts/mcp-serv
 
 See [INSTALL.md](./INSTALL.md) for detailed installation instructions including submodule handling.
 
-Quick install:
-```bash
-claude marketplace add lazyman-ian https://github.com/lazyman-ian/claude-plugins.git
-claude plugins add dev-flow@lazyman-ian
+Quick install (in Claude Code):
+```
+/plugin marketplace add lazyman-ian/claude-plugins
+/plugin install dev-flow@lazyman-ian
 ```
 
 ## Development Workflow

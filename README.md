@@ -15,15 +15,17 @@ Development tools for Claude Code.
 
 ## Installation
 
-```bash
+In Claude Code:
+
+```
 # Add marketplace (one-time)
-claude marketplace add lazyman-ian https://github.com/lazyman-ian/claude-plugins.git
+/plugin marketplace add lazyman-ian/claude-plugins
 
 # Install plugins
-claude plugins add dev-flow@lazyman-ian
-claude plugins add ios-swift-plugin@lazyman-ian
-claude plugins add utils@lazyman-ian
-claude plugins add research@lazyman-ian
+/plugin install dev-flow@lazyman-ian
+/plugin install ios-swift-plugin@lazyman-ian
+/plugin install utils@lazyman-ian
+/plugin install research@lazyman-ian
 ```
 
 See [INSTALL.md](./INSTALL.md) for detailed installation guide including submodule handling.
