@@ -1,79 +1,130 @@
-# claude-plugins
+# CLAUDE.md
 
-lazyman-ian marketplace for Claude Code plugins.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Plugins Overview
+## Project Overview
 
-| Plugin | Version | Skills | Commands | Agents | Hooks | MCP |
-|--------|---------|--------|----------|--------|-------|-----|
-| dev-flow | 3.13.0 | 5 | 21 | 12 | 3 | Yes |
-| ios-swift-plugin | 1.1.0 | 10 | 4 | 2 | 2 | No |
-| utils | 1.3.0 | 2 | 2 | 0 | 4 | No |
-| research | 1.3.0 | 3 | 4 | 3 | 0 | No |
+lazyman-ian marketplace for Claude Code plugins. This is a plugin directory (not a monorepo) containing 4 plugins: 2 git submodules (dev-flow, ios-swift-plugin) and 2 built-in plugins (utils, research).
 
-### dev-flow (submodule)
-Development workflow automation: planning → coding → commit → PR → release
-- Key commands: `/dev`, `/dev commit`, `/dev pr`, `/dev release`
-- MCP server: `scripts/mcp-server.cjs`
-- StatusLine: `scripts/statusline.sh` (multi-line: context | git | tools | tasks | agents)
+| Plugin | Version | Type | Purpose |
+|--------|---------|------|---------|
+| dev-flow | 3.14.0 | submodule | Development workflow: planning → coding → commit → PR → release |
+| ios-swift-plugin | 1.1.0 | submodule | iOS/Swift toolkit: SwiftUI, Concurrency, WidgetKit |
+| utils | 1.3.0 | built-in | Code quality: deslop, search-code, safety hooks |
+| research | 1.3.0 | built-in | Research: Perplexity AI, Braintrust, RepoPrompt |
 
-### ios-swift-plugin (submodule)
-iOS/Swift development toolkit
-- Skills: swiftui-expert, swift-concurrency, ios-widget-developer, etc.
-- Commands: xcode-test, swift-audit, swift-fix-issue, app-changelog
+## Build Commands
 
-### utils (built-in)
-Code quality and safety tools
-- Skills: deslop, search-code
-- Commands: /deslop, /search
-- Hooks: tool-enforcer (PreToolUse), loop-detection, alias-conflict-detector, context-warning (Stop)
+### dev-flow MCP Server (TypeScript)
 
-### research (built-in)
-External research and analysis tools
-- Skills: research-agent, rp-explorer, token-analyzer
-- Commands: /research, /analyze, /explore, /summary
-- Agents: research-agent, repo-research-analyst, braintrust-analyst
-- Requires: Perplexity API, Braintrust API, RepoPrompt app
-
-## Plugin Manifest Rules
-
-**Supported fields**:
-```json
-{
-  "name": "plugin-name",
-  "version": "1.0.0",
-  "description": "...",
-  "author": { "name": "..." },
-  "skills": "./skills/",
-  "commands": "./commands/",
-  "mcpServers": "./.mcp.json",
-  "lspServers": "./.lsp.json"
-}
+```bash
+cd dev-flow/mcp-server
+npm install
+npm run bundle    # Bundle to scripts/mcp-server.cjs (required for plugin)
+npm run build     # TypeScript compile to dist/
+npm run dev       # Run with ts-node
 ```
 
-**Auto-discovered** (don't declare):
-- `agents/` directory
-- `hooks/hooks.json`
+### ios-swift-plugin ConcurrencyGuard (Swift)
 
-**Invalid fields**:
-- `bundledMcpServers`
-- `agents`
-- `hooks`
+```bash
+cd ios-swift-plugin/tools/ConcurrencyGuard
+swift build -c release
+```
 
-## Agent Frontmatter
+### utils & research
+
+No build required (Python scripts and markdown skills).
+
+## Architecture
+
+### Plugin System Structure
+
+Each plugin follows this structure:
+
+```
+plugin-name/
+├── .claude-plugin/plugin.json    # Plugin manifest
+├── skills/                        # Skill definitions (SKILL.md)
+├── commands/                      # Command definitions
+├── agents/                        # Agent prompts (auto-discovered)
+└── hooks/hooks.json              # Hook configurations (auto-discovered)
+```
+
+### Marketplace Registry
+
+`.claude-plugin/marketplace.json` defines the plugin registry. Plugins reference submodules via `"source": "./dev-flow"`.
+
+### Key Directories
+
+| Directory | Purpose |
+|-----------|---------|
+| `dev-flow/` | Submodule: workflow automation with MCP server |
+| `ios-swift-plugin/` | Submodule: iOS/Swift toolkit |
+| `utils-plugin/` | Built-in: code quality hooks |
+| `research-plugin/` | Built-in: research tools |
+| `thoughts/` | Shared schemas and handoff documents |
+
+### dev-flow MCP Server Architecture
+
+Single-file bundle architecture (`mcp-server/src/index.ts` → `scripts/mcp-server.cjs`):
+
+| Module | Purpose |
+|--------|---------|
+| `detector.ts` | Project type detection (ios/android/web) |
+| `git/workflow.ts` | Git status, phase detection |
+| `platforms/ios.ts` | SwiftLint, SwiftFormat commands |
+| `platforms/android.ts` | ktlint, ktfmt commands |
+| `continuity/` | Ledgers, reasoning, task-sync |
+| `coordination/` | Multi-agent coordination, handoffs |
+
+## Installation
+
+See [INSTALL.md](./INSTALL.md) for detailed installation instructions including submodule handling.
+
+Quick install:
+```bash
+claude marketplace add lazyman-ian https://github.com/lazyman-ian/claude-plugins.git
+claude plugins add dev-flow@lazyman-ian
+```
+
+## Development Workflow
+
+### Submodule Changes
+
+```bash
+# 1. Edit in submodule
+git -C <plugin> add . && git -C <plugin> commit -m "..." && git -C <plugin> push
+
+# 2. Update main repo
+git add <plugin> && git commit -m "chore: update <plugin>" && git push
+
+# 3. Sync marketplace
+git -C ~/.claude/plugins/marketplaces/lazyman-ian pull
+```
+
+### Plugin Manifest Rules
+
+**Supported fields**: `name`, `version`, `description`, `author`, `skills`, `commands`, `mcpServers`, `lspServers`
+
+**Auto-discovered** (don't declare): `agents/` directory, `hooks/hooks.json`
+
+**Invalid fields**: `bundledMcpServers`, `agents`, `hooks`
+
+### Agent Frontmatter
 
 ```yaml
 ---
 name: agent-name
 description: What it does. Triggers on "keyword", "关键词".
-model: sonnet  # sonnet, opus, haiku (NOT inherit)
+model: sonnet  # sonnet, opus, haiku
 color: yellow  # optional
 ---
 ```
 
 **Invalid**: `tools: [...]`
 
-## Hooks Format
+### Hooks Format
 
 ```json
 {
@@ -84,54 +135,25 @@ color: yellow  # optional
 }
 ```
 
-Must wrap in `"hooks"` object.
+Must wrap in `"hooks"` object. Use `.tool_name` and `.tool_input.*` for input fields.
 
-## Hook Input Fields
+### Skill Requirements
 
-| Hook Type | Tool Field | Input Field |
-|-----------|-----------|-------------|
-| PreToolUse | `.tool_name` | `.tool_input.*` |
-| PostToolUse | `.tool_name` | `.tool_input.*` |
-
-**错误示例**: `.tool`, `.params.command` (会导致 hook 失败)
-
-## Development Workflow
-
-```bash
-# 1. Edit source in /Users/lazyman/work/claude-plugins/<plugin>/
-
-# 2. Commit and push
-git -C <plugin> add . && git -C <plugin> commit -m "..." && git -C <plugin> push
-
-# 3. Update main repo
-git add <plugin> && git commit -m "chore: update <plugin>" && git push
-
-# 4. Sync marketplace
-git -C ~/.claude/plugins/marketplaces/lazyman-ian pull
-
-# 5. Reinstall if cache was cleared (see Quick Commands)
-# 6. Restart Claude Code and test
-```
+- SKILL.md < 500 lines
+- Frontmatter with `name`, `description` (EN+CN triggers), `allowed-tools`
+- Description pattern: "This skill should be used when..."
 
 ## Quick Commands
 
 ```bash
-# Sync submodules
-git -C ~/.claude/plugins/marketplaces/lazyman-ian pull
-
-# After cache cleared, reinstall affected plugins
-claude plugins remove utils@lazyman-ian && claude plugins add utils@lazyman-ian
-claude plugins remove research@lazyman-ian && claude plugins add research@lazyman-ian
-
 # Check submodule status
 git submodule status
-```
 
-## Skill Audit
+# Reinstall after cache clear
+claude plugins remove utils@lazyman-ian && claude plugins add utils@lazyman-ian
 
-```bash
-# Batch audit all skills
-for f in <plugin>/skills/*/SKILL.md; do
+# Audit all skills
+for f in */skills/*/SKILL.md; do
   name=$(dirname "$f" | xargs basename)
   lines=$(wc -l < "$f" | tr -d ' ')
   tools=$(grep -q "allowed-tools" "$f" && echo "✅" || echo "❌")
@@ -139,15 +161,12 @@ for f in <plugin>/skills/*/SKILL.md; do
 done | sort -rn
 ```
 
-**Checklist**: name, description (EN+CN triggers, 3rd person), allowed-tools, <500 lines
-
-## Version Upgrade
+## Version Upgrade Checklist
 
 Update these files when bumping version:
 - `<plugin>/.claude-plugin/plugin.json`
 - `.claude-plugin/marketplace.json`
 - `<plugin>/README.md` (badge)
-- `<plugin>/docs/GUIDE.md`
 
 ## MCP Tools
 
@@ -161,17 +180,3 @@ claude mcp list              # List active MCP servers
 | sosumi | Full docs, HIG | ios-swift-plugin |
 | XcodeBuildMCP | Simulator control | ios-swift-plugin |
 | dev-flow | Workflow tools | dev-flow |
-
-## Plugin Migration
-
-When moving plugins from local to marketplace:
-1. Remove from `~/.claude/plugins/known_marketplaces.json`
-2. Remove from `~/.claude/plugins/installed_plugins.json`
-3. Delete `~/.claude/plugins/cache/<old-marketplace>/`
-
-## Skill Description Pattern
-
-Third-person + "This skill should be used when...":
-```yaml
-description: Removes AI-generated code slop. This skill should be used when user says "clean up", "deslop", "清理代码".
-```

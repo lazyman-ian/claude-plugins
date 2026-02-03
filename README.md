@@ -8,16 +8,16 @@ Development tools for Claude Code.
 
 | Plugin | Description | Version |
 |--------|-------------|---------|
-| [dev-flow](./dev-flow) | Development workflow: planning → coding → commit → PR → release | 3.13.0 |
+| [dev-flow](./dev-flow) | Development workflow: planning → coding → commit → PR → release | 3.14.0 |
 | [ios-swift-plugin](./ios-swift-plugin) | iOS/Swift toolkit: SwiftUI, Concurrency, WidgetKit | 1.1.0 |
-| [utils](./utils-plugin) | Code quality: deslop, search-code, safety hooks | 1.2.0 |
-| [research](./research-plugin) | Research: Perplexity AI, Braintrust, RepoPrompt | 1.2.0 |
+| [utils](./utils-plugin) | Code quality: deslop, search-code, safety hooks | 1.3.0 |
+| [research](./research-plugin) | Research: Perplexity AI, Braintrust, RepoPrompt | 1.3.0 |
 
 ## Installation
 
 ```bash
 # Add marketplace (one-time)
-claude plugins add-marketplace lazyman-ian --github lazyman-ian/claude-plugins
+claude marketplace add lazyman-ian https://github.com/lazyman-ian/claude-plugins.git
 
 # Install plugins
 claude plugins add dev-flow@lazyman-ian
@@ -25,6 +25,8 @@ claude plugins add ios-swift-plugin@lazyman-ian
 claude plugins add utils@lazyman-ian
 claude plugins add research@lazyman-ian
 ```
+
+See [INSTALL.md](./INSTALL.md) for detailed installation guide including submodule handling.
 
 ## Structure
 
