@@ -70,7 +70,7 @@
 claude --plugin-dir /path/to/dev-flow
 ```
 
-See [INSTALL.md](../INSTALL.md) for detailed installation guide including submodule handling.
+See [INSTALL.md](../INSTALL.md) for detailed installation guide.
 
 ### Verify
 
@@ -321,7 +321,7 @@ dev-flow-plugin/
 ├── skills/                      # 8 skills
 ├── commands/                    # 21 commands
 ├── agents/                      # 12 agents
-├── hooks/                       # 3 hooks
+├── hooks/                       # 5 hook types
 └── docs/                        # Documentation
 ```
 

@@ -8,7 +8,7 @@ Development tools for Claude Code.
 
 | Plugin | Description | Version |
 |--------|-------------|---------|
-| [dev-flow](./dev-flow) | Development workflow: planning → coding → commit → PR → release | 3.14.0 |
+| [dev-flow](./dev-flow) | Development workflow + cross-platform team orchestration | 3.15.0 |
 | [ios-swift-plugin](./ios-swift-plugin) | iOS/Swift toolkit: SwiftUI, Concurrency, WidgetKit | 1.1.0 |
 | [utils](./utils-plugin) | Code quality: deslop, search-code, safety hooks | 1.3.0 |
 | [research](./research-plugin) | Research: Perplexity AI, Braintrust, RepoPrompt | 1.3.0 |

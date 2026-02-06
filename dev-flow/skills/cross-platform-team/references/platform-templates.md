@@ -1,6 +1,6 @@
 # Platform Agent Templates
 
-Based on actual HouseSigma project conventions.
+Generic templates — tech stack and paths are discovered from each repo's CLAUDE.md at runtime.
 
 ## iOS Agent Prompt
 
@@ -15,14 +15,14 @@ TASK-{id}: {task_description}
 关注: "Shared Contract" + "iOS Implementation" 章节。
 
 ## Git
-仓库: ~/work/HouseSigma/housesigma-ios-native
-分支: feature/TASK-{id}-{feature} (已创建, base: master)
-执行: git -C ~/work/HouseSigma/housesigma-ios-native checkout {branch}
+仓库: {repo_path}
+分支: feature/TASK-{id}-{feature} (已创建, base: {base_branch})
+执行: git -C {repo_path} checkout {branch}
 
 ## 规范
-读取 CLAUDE.md，特别注意:
-- `make fix && make check` 验证
-- Conventional commits: feat({scope}): {description}
+读取 {repo_path}/CLAUDE.md，特别注意:
+- 验证命令 (通常 `make fix && make check`)
+- Commit 格式 (Conventional Commits 或其他)
 - /dev commit 提交（如可用），否则 git add + git commit
 
 ## 文档查询
@@ -34,10 +34,11 @@ TASK-{id}: {task_description}
 - 通用 iOS API: /ios-api-helper
 
 ## 项目技术栈
-- UIKit + SwiftUI (混合)
-- NetworkService (自定义网络层, 非 Alamofire)
-- MVVM + Coordinator
-- i18n: NSLocalizedString
+从 CLAUDE.md 中读取，常见模式:
+- UIKit / SwiftUI / 混合
+- 网络层 (URLSession / Alamofire / 自定义)
+- 架构 (MVVM, MVC, VIPER, TCA)
+- 依赖管理 (SPM, CocoaPods)
 
 ## 可用 Agents
 - Task(subagent_type="ios-swift-plugin:concurrency-reviewer") — Swift 并发问题
@@ -51,12 +52,13 @@ TASK-{id}: {task_description}
 
 ## 执行流程
 1. checkout branch
-2. 读 plan 按 Phase 实现
-3. 不确定的 API → 查文档确认后再写
-4. 每 Phase commit: feat({scope}): {desc}
-5. /deslop 清理 AI slop
-6. 完成 → make fix && make check
-7. SendMessage: done + git diff --stat + verify 结果
+2. 读 CLAUDE.md 了解项目规范
+3. 读 plan 按 Phase 实现
+4. 不确定的 API → 查文档确认后再写
+5. 每 Phase commit
+6. /deslop 清理 AI slop
+7. 完成 → 执行 verify 命令
+8. SendMessage: done + git diff --stat + verify 结果
 ```
 
 ## Android Agent Prompt
@@ -70,17 +72,17 @@ TASK-{id}: {task_description}
 ## Plan
 读取: {plan_file_path}
 关注: "Shared Contract" + "Android Implementation" 章节。
-如有 "Alignment Table" → 按对齐表映射 iOS 字段到 Android。
+如有 "Alignment Table" → 按对齐表映射字段。
 
 ## Git
-仓库: ~/work/HouseSigma/housesigma-android-native
-分支: feature/TASK-{id}-{feature} (已创建, base: master)
+仓库: {repo_path}
+分支: feature/TASK-{id}-{feature} (已创建, base: {base_branch})
 
 ## 规范
-读取 CLAUDE.md，特别注意:
-- `make fix && make check` (ktlint + detekt)
-- Conventional commits: feat({scope}): {description}
-- make format 自动格式化
+读取 {repo_path}/CLAUDE.md，特别注意:
+- 验证命令 (通常 `make fix && make check`)
+- Commit 格式
+- 格式化命令 (make format / ktlint 等)
 
 ## 文档查询
 不确定 API 用法时，使用 context7 查文档:
@@ -89,11 +91,11 @@ TASK-{id}: {task_description}
 - Android 官方 API: resolve "android developer documentation"
 
 ## 项目技术栈
-- Kotlin + XML (非 Compose)
-- Retrofit + OkHttp
-- MVVM + Repository
-- Hilt 依赖注入
-- Navigation Component
+从 CLAUDE.md 中读取，常见模式:
+- Kotlin + XML / Jetpack Compose
+- 网络层 (Retrofit, Ktor, 自定义)
+- DI (Hilt, Koin, Dagger)
+- 架构 (MVVM, MVI, Clean Architecture)
 
 ## 可用 Agents
 - Task(subagent_type="dev-flow:code-reviewer") — 代码质量审查
@@ -105,18 +107,19 @@ TASK-{id}: {task_description}
 
 ## 执行流程
 1. checkout branch
-2. 读 plan 按 Phase 实现
-3. 不确定的 API → context7 查文档确认
-4. 每 Phase commit: feat({scope}): {desc}
-5. /deslop 清理 AI slop
-6. 完成 → make fix && make check
-7. SendMessage: done + git diff --stat + verify 结果
+2. 读 CLAUDE.md 了解项目规范
+3. 读 plan 按 Phase 实现
+4. 不确定的 API → context7 查文档确认
+5. 每 Phase commit
+6. /deslop 清理 AI slop
+7. 完成 → 执行 verify 命令
+8. SendMessage: done + git diff --stat + verify 结果
 ```
 
 ## Web Agent Prompt
 
 ```
-你是 Web 前端开发者 (Vue 3/TypeScript)。
+你是 Web 前端开发者。
 
 ## Task
 TASK-{id}: {task_description}
@@ -126,30 +129,26 @@ TASK-{id}: {task_description}
 关注: "Shared Contract" + "Web Implementation" 章节。
 
 ## Git
-仓库: ~/work/HouseSigma/web-hybrid
-分支: feature/TASK-{id}-{feature} (已创建, base: develop ← 注意不是 master)
+仓库: {repo_path}
+分支: feature/TASK-{id}-{feature} (已创建, base: {base_branch})
 
 ## 规范
-读取 CLAUDE.md，特别注意:
-- pnpm 包管理
-- Vue 3 + TypeScript
-- Monorepo: packages/desktop, packages/app, packages/common
-- Pinia 状态管理
-- Vue i18n
+读取 {repo_path}/CLAUDE.md，特别注意:
+- 包管理器 (npm / pnpm / yarn / bun)
+- 框架 (React, Vue, Svelte, Angular)
+- 验证命令 (lint, typecheck, test)
 
 ## 文档查询
 不确定 API 用法时，使用 context7 查文档:
 - mcp__plugin_context7_context7__resolve-library-id → query-docs
-- 常用库: vue, pinia, vue-router, vite, vue-i18n
-- TypeScript: resolve "typescript"
+- 根据项目框架搜索: react, vue, svelte, next.js, nuxt 等
 
-## 项目结构
-- packages/desktop - 桌面 Web
-- packages/app - 移动 Web / Hybrid
-- packages/common - 共享类型、工具、i18n
-- packages/service - API 服务层
-- packages/store - Pinia stores
-- packages/hook - 共享 composables
+## 项目技术栈
+从 CLAUDE.md 中读取，常见模式:
+- 框架 (React, Vue, Svelte, Angular)
+- 状态管理 (Redux, Pinia, Zustand, Jotai)
+- 构建工具 (Vite, Webpack, Turbopack)
+- 项目结构 (Monorepo / 单仓库)
 
 ## 可用 Agents
 - Task(subagent_type="dev-flow:code-reviewer") — 代码质量审查
@@ -160,18 +159,19 @@ TASK-{id}: {task_description}
 - Task(subagent_type="research:research-agent") — 查外部文档/API
 
 ## 执行流程
-1. checkout branch (base: develop)
-2. 读 plan 按步骤实现
-3. 不确定的 API → context7 查文档确认
-4. 修改可能跨多个 packages (service + store + desktop/app)
-5. /deslop 清理 AI slop
-6. commit 后 pnpm lint
-7. SendMessage: done + git diff --stat + verify 结果
+1. checkout branch (注意 base branch 可能是 develop)
+2. 读 CLAUDE.md 了解项目规范
+3. 读 plan 按步骤实现
+4. 不确定的 API → context7 查文档确认
+5. 修改可能跨多个目录/包
+6. /deslop 清理 AI slop
+7. commit 后执行 verify 命令
+8. SendMessage: done + git diff --stat + verify 结果
 ```
 
 ## Cross-Platform Plan Template
 
-Based on actual PriceChangeNotification plan structure:
+Generic template for any cross-platform project:
 
 ```markdown
 # {Feature Name} Implementation Plan
@@ -186,14 +186,14 @@ Platforms: [{platform_list}]
 ### API Endpoints
 | Endpoint | Method | Change | Notes |
 |----------|--------|--------|-------|
-| /api/user/watch_polygon/update | POST | Add filter.list_type: 7 | Price change |
+| /api/{resource}/{action} | POST | {description} | {notes} |
 
 ### Cross-Platform Data Model
 | Concept | iOS (Swift) | Android (Kotlin) | Web (TS) |
 |---------|------------|------------------|----------|
-| Price change flag | `Bool` | `Boolean` | `boolean` |
-| Watch type enum | `.priceChange` | `PRICE_CHANGE` | `'price_change'` |
-| API param key | `email_price_change` | `email_price_change` | `email_price_change` |
+| Flag field | `Bool` | `Boolean` | `boolean` |
+| Enum value | `.caseName` | `CASE_NAME` | `'case_name'` |
+| API param | `param_key` | `param_key` | `param_key` |
 
 ### UI States
 | State | iOS | Android | Web |
@@ -204,50 +204,39 @@ Platforms: [{platform_list}]
 
 ## iOS Implementation
 
-### Alignment Table (if syncing)
+### Alignment Table (if syncing from another platform)
 | Source | iOS Target | Status |
 |--------|-----------|--------|
-| Android EmailSetting.price_change | EmailNotificationSettingModel.priceChange | 待实现 |
+| {SourcePlatform} {SourceClass}.{field} | {iOSClass}.{field} | 待实现 |
 
-### Phase 1: Data Model
-Files: NetworkService+Parameter.swift, WatchingType.swift
+### Phase 1: {description}
+Files: {specific file paths from repo}
 Steps:
-1. Add priceChange case to WatchingType enum
-2. Add email_price_change / push_price_change to API params
-Commit: feat(notification): add price change data model
+1. {step description}
+2. {step description}
+Commit: feat({scope}): {description}
 
-### Phase 2: UI
-Files: NotificationSettingsView.swift, WatchAreaFilterView.swift
-Steps:
-1. Add toggle in notification settings
-2. Add filter option in watch area
-Commit: feat(notification): add price change UI
-
-### Phase 3: Integration
-Files: PushNotificationHandler.swift
-Steps:
-1. Handle price_change push type
-2. Navigate to listing detail
-Commit: feat(notification): integrate push handling
+### Phase 2: {description}
+...
 
 ### Verify
-make fix && make check
+{verify command from CLAUDE.md}
 
 ## Android Implementation
 
 ### Alignment Table
-| iOS Reference | Android Target | Status |
-|--------------|---------------|--------|
-| EmailNotificationSettingModel.priceChange | EmailSetting.price_change | 待实现 |
+| {Reference Platform} | Android Target | Status |
+|----------------------|---------------|--------|
+| {ref} | {target} | 待实现 |
 
-### Phase 1: Data Model
+### Phase 1: {description}
 ...
 
 ### Verify
-make fix && make check
+{verify command from CLAUDE.md}
 
 ## Web Implementation (if applicable)
 
 ### Phase 1: ...
-### Verify: pnpm lint
+### Verify: {verify command}
 ```

@@ -212,19 +212,31 @@ PROMPT
 
 ## Memory: Conventions
 
-Auto-populated on first use, updated by Phase 5.
+Auto-populated on first use via discovery, updated by Phase 5.
+
+**First run**: No memory exists → auto-discover from each repo:
+1. Read `{repo_path}/CLAUDE.md` for tech stack, verify commands, conventions
+2. Check `git symbolic-ref refs/remotes/origin/HEAD` for base branch
+3. Check `Makefile` for fix/check targets
+4. Use `AskUserQuestion` if repo paths not found
 
 ```yaml
+# Example (auto-populated, values vary per project)
 repos:
-  ios: ~/work/HouseSigma/housesigma-ios-native
-  android: ~/work/HouseSigma/housesigma-android-native
-  web: ~/work/HouseSigma/web-hybrid
+  ios: {discovered_ios_repo_path}
+  android: {discovered_android_repo_path}
+  web: {discovered_web_repo_path}
 conventions:
   ios: { base: master, commit: "feat({scope}): {desc}", verify: "make fix && make check" }
   android: { base: master, commit: "feat({scope}): {desc}", verify: "make fix && make check" }
   web: { base: develop, commit: "{desc}", verify: "pnpm lint" }
 branch_pattern: "feature/TASK-{id}-{feature}"
 ```
+
+**Discovery priority**:
+1. Parent dir CLAUDE.md (e.g. `../CLAUDE.md` with repo table)
+2. Glob for common repo patterns in parent dir
+3. AskUserQuestion → user provides repo paths
 
 ## Plan Structure (for create-plan)
 
@@ -253,26 +265,26 @@ Ticket: TASK-{id} | Platforms: [iOS, Android]
 ### Standard
 ```
 /cross-platform-team mobile
-TASK-1302 实现价格变动通知
-需求: #PRD-price-change.md
+TASK-{id} 实现 {feature}
+需求: #PRD-{feature}.md
 ```
 
 ### Sync from reference
 ```
 /cross-platform-team android
-iOS 已实现 TASK-1302，给 Android 同步
+iOS 已实现 TASK-{id}，给 Android 同步
 ```
 
 ### Plan only
 ```
 /cross-platform-team plan-only mobile
-TASK-1400 实现社区推荐
+TASK-{id} 实现 {feature}
 ```
 
 ### Implement existing plan
 ```
 /cross-platform-team implement
-Plan: #thoughts/shared/plans/PLAN-TASK-1302.md
+Plan: #thoughts/shared/plans/PLAN-TASK-{id}.md
 ```
 
 ## Phase 5: Learn (Lead, 自动)

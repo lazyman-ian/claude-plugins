@@ -63,7 +63,7 @@ plugin-name/
 | `ios-swift-plugin/` | iOS/Swift toolkit |
 | `utils-plugin/` | Built-in: code quality hooks |
 | `research-plugin/` | Built-in: research tools |
-| `thoughts/` | Shared schemas and handoff documents |
+| `thoughts/` | Config optimizations, cross-platform plans |
 
 ### dev-flow MCP Server Architecture
 
