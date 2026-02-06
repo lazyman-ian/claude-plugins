@@ -1,6 +1,0 @@
-[submodule "dev-flow"]
-	path = dev-flow
-	url = git@github-100.com:lazyman-ian/dev-flow.git
-[submodule "ios-swift-plugin"]
-	path = ios-swift-plugin
-	url = git@github-100.com:lazyman-ian/ios-swift-plugin.git

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "ios-swift-local",
+  "description": "Local iOS/Swift development plugins",
+  "owner": {
+    "name": "lazyman",
+    "email": "nickyuan94@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "ios-swift-plugin",
+      "description": "iOS/Swift development toolkit with SwiftUI, Concurrency, WidgetKit skills",
+      "version": "1.0.0",
+      "author": {
+        "name": "lazyman",
+        "email": "nickyuan94@gmail.com"
+      },
+      "source": "./",
+      "category": "development"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22c55e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#10b981;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="60" cy="60" r="56" fill="url(#grad1)" />
+
+  <!-- Flow arrows -->
+  <g fill="white" opacity="0.9">
+    <!-- Top arrow (plan) -->
+    <path d="M35 35 L60 25 L60 32 L75 32 L75 38 L60 38 L60 45 Z" />
+
+    <!-- Middle arrow (code) -->
+    <path d="M30 55 L30 65 L70 65 L70 72 L85 60 L70 48 L70 55 Z" />
+
+    <!-- Bottom arrow (release) -->
+    <path d="M85 85 L60 95 L60 88 L45 88 L45 82 L60 82 L60 75 Z" />
+  </g>
+
+  <!-- Center checkmark -->
+  <circle cx="60" cy="60" r="15" fill="url(#grad2)" />
+  <path d="M52 60 L57 65 L68 54" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

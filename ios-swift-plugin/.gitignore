@@ -1,0 +1,18 @@
+# Build artifacts
+.build/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+
+# Local settings
+.claude/*.local.md
+
+# ConcurrencyGuard build
+tools/ConcurrencyGuard/.build/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+*.swp
