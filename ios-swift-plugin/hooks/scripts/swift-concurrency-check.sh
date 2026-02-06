@@ -2,14 +2,14 @@
 # Swift Concurrency Check - PostToolUse Hook
 # Checks edited Swift files for concurrency issues
 
-set -eo pipefail
+set -o pipefail
 
 # Read input from stdin
 input=$(cat)
 
-# Extract tool info
-tool_name=$(echo "$input" | jq -r '.tool_name // ""')
-file_path=$(echo "$input" | jq -r '.tool_input.file_path // ""')
+# Extract tool info (with fallback for jq failures)
+tool_name=$(echo "$input" | jq -r '.tool_name // ""' 2>/dev/null || echo "")
+file_path=$(echo "$input" | jq -r '.tool_input.file_path // ""' 2>/dev/null || echo "")
 
 # Only check Swift files
 if [[ ! "$file_path" =~ \.swift$ ]]; then

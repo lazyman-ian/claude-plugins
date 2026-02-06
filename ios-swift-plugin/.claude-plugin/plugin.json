@@ -1,6 +1,6 @@
 {
   "name": "ios-swift-plugin",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Comprehensive iOS/Swift development toolkit with skills, commands, agents, and automated validation. Features SwiftUI best practices, Swift Concurrency patterns, WidgetKit development, and performance optimization.",
   "author": {
     "name": "lazyman",

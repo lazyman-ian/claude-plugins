@@ -22,7 +22,7 @@
     {
       "name": "ios-swift-plugin",
       "description": "iOS/Swift development toolkit: SwiftUI, Swift Concurrency, WidgetKit, performance optimization",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": {
         "name": "lazyman",
         "email": "nickyuan94@gmail.com"
