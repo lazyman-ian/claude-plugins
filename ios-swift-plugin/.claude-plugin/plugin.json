@@ -1,0 +1,23 @@
+{
+  "name": "ios-swift-plugin",
+  "version": "1.1.0",
+  "description": "Comprehensive iOS/Swift development toolkit with skills, commands, agents, and automated validation. Features SwiftUI best practices, Swift Concurrency patterns, WidgetKit development, and performance optimization.",
+  "author": {
+    "name": "lazyman",
+    "url": "https://github.com/lazyman-ian"
+  },
+  "repository": "https://github.com/lazyman-ian/ios-swift-plugin",
+  "license": "MIT",
+  "keywords": [
+    "ios",
+    "swift",
+    "swiftui",
+    "xcode",
+    "concurrency",
+    "widgetkit",
+    "performance",
+    "testing"
+  ],
+  "skills": "./skills/",
+  "commands": "./commands/"
+}

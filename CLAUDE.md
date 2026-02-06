@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-lazyman-ian marketplace for Claude Code plugins. This is a plugin directory (not a monorepo) containing 4 plugins: 2 git submodules (dev-flow, ios-swift-plugin) and 2 built-in plugins (utils, research).
+lazyman-ian marketplace for Claude Code plugins. Contains 4 plugins in a single repository.
 
-| Plugin | Version | Type | Purpose |
-|--------|---------|------|---------|
-| dev-flow | 3.15.0 | submodule | Development workflow: planning → coding → commit → PR → release + cross-platform team |
-| ios-swift-plugin | 1.1.0 | submodule | iOS/Swift toolkit: SwiftUI, Concurrency, WidgetKit |
-| utils | 1.3.0 | built-in | Code quality: deslop, search-code, safety hooks |
-| research | 1.3.0 | built-in | Research: Perplexity AI, Braintrust, RepoPrompt |
+| Plugin | Version | Purpose |
+|--------|---------|---------|
+| dev-flow | 3.15.0 | Development workflow: planning → coding → commit → PR → release + cross-platform team |
+| ios-swift-plugin | 1.1.0 | iOS/Swift toolkit: SwiftUI, Concurrency, WidgetKit |
+| utils | 1.3.0 | Code quality: deslop, search-code, safety hooks |
+| research | 1.3.0 | Research: Perplexity AI, Braintrust, RepoPrompt |
 
 ## Build Commands
 
@@ -53,14 +53,14 @@ plugin-name/
 
 ### Marketplace Registry
 
-`.claude-plugin/marketplace.json` defines the plugin registry. Plugins reference submodules via `"source": "./dev-flow"`.
+`.claude-plugin/marketplace.json` defines the plugin registry. Plugins reference directories via `"source": "./dev-flow"`.
 
 ### Key Directories
 
 | Directory | Purpose |
 |-----------|---------|
-| `dev-flow/` | Submodule: workflow automation with MCP server |
-| `ios-swift-plugin/` | Submodule: iOS/Swift toolkit |
+| `dev-flow/` | Workflow automation with MCP server |
+| `ios-swift-plugin/` | iOS/Swift toolkit |
 | `utils-plugin/` | Built-in: code quality hooks |
 | `research-plugin/` | Built-in: research tools |
 | `thoughts/` | Shared schemas and handoff documents |
@@ -80,7 +80,7 @@ Single-file bundle architecture (`mcp-server/src/index.ts` → `scripts/mcp-serv
 
 ## Installation
 
-See [INSTALL.md](./INSTALL.md) for detailed installation instructions including submodule handling.
+See [INSTALL.md](./INSTALL.md) for detailed installation instructions.
 
 Quick install (in Claude Code):
 ```
@@ -89,22 +89,6 @@ Quick install (in Claude Code):
 ```
 
 ## Development Workflow
-
-### Submodule Changes
-
-```bash
-# 1. Edit in submodule
-git -C <plugin> add . && git -C <plugin> commit -m "..." && git -C <plugin> push
-
-# 2. Update main repo
-git add <plugin> && git commit -m "chore: update <plugin>" && git push
-
-# 3. Sync marketplace
-git -C ~/.claude/plugins/marketplaces/lazyman-ian pull --recurse-submodules
-
-# 4. Refresh plugin cache (in Claude Code, or restart session)
-# /plugin remove <plugin>@lazyman-ian && /plugin add <plugin>@lazyman-ian
-```
 
 ### Plugin Manifest Rules
 
@@ -155,9 +139,6 @@ Must wrap in `"hooks"` object. Use `.tool_name` and `.tool_input.*` for input fi
 ## Quick Commands
 
 ```bash
-# Check submodule status
-git submodule status
-
 # Reinstall after cache clear
 claude plugins remove utils@lazyman-ian && claude plugins add utils@lazyman-ian
 

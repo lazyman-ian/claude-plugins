@@ -1,0 +1,192 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+dev-flow-plugin (v3.15.0) is a Claude Code plugin providing unified development workflow automation: planning → coding → commit → PR → release. Features VDD (Verification-Driven Development), multi-agent collaboration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
+
+## Build & Development
+
+```bash
+# MCP Server
+cd mcp-server
+npm install
+npm run bundle    # Bundle to scripts/mcp-server.cjs (required for plugin)
+npm run build     # TypeScript compile to dist/ (for development)
+npm run dev       # Run with ts-node
+
+# No tests currently configured
+```
+
+## Architecture
+
+### Plugin Structure
+
+```
+.claude-plugin/plugin.json  # Plugin manifest (v3.15.0)
+.mcp.json                   # MCP server config → scripts/mcp-server.cjs
+skills/                     # 8 skills (SKILL.md + references/)
+commands/                   # 21 command definitions (includes /verify, /init, /extract-knowledge)
+agents/                     # 12 agent prompts
+hooks/hooks.json            # 3 hooks (SessionStart, PreCompact, PostToolUse)
+templates/thoughts/schema/  # JSON schemas for meta-iterate and handoff outputs
+docs/                       # keybindings.md, hooks-setup.md
+```
+
+### MCP Server (mcp-server/src/)
+
+Single-file bundle architecture using `@modelcontextprotocol/sdk`:
+
+| Module | Purpose |
+|--------|---------|
+| `index.ts` | Server entry, 18 MCP tools |
+| `detector.ts` | Project type detection (ios/android/web) |
+| `git/workflow.ts` | Git status, phase detection |
+| `git/build-control.ts` | PR draft/ready, change analysis |
+| `git/version.ts` | Version info, release notes |
+| `platforms/ios.ts` | SwiftLint, SwiftFormat, test/verify |
+| `platforms/android.ts` | ktlint, ktfmt, test/verify |
+| `continuity/` | Ledgers, reasoning, branch, task-sync |
+| `coordination/` | Multi-agent coordination, handoffs, aggregation |
+
+### Platform Extension
+
+To add a new platform (e.g., Python, Go, Rust):
+
+1. **Update `detector.ts`**: Add detection logic based on project files
+2. **Create `platforms/xxx.ts`**: Implement lint/format/build commands
+
+```typescript
+// Example: platforms/python.ts
+export function getPythonCommands(): PlatformCommands {
+  return {
+    lint: 'ruff check .',
+    format: 'black .',
+    check: 'ruff check . && mypy .'
+  };
+}
+```
+
+| Platform | Detection Files | Lint | Format |
+|----------|----------------|------|--------|
+| iOS | `*.xcodeproj`, `Podfile` | SwiftLint | SwiftFormat |
+| Android | `build.gradle`, `AndroidManifest.xml` | ktlint | ktfmt |
+| Python | `pyproject.toml`, `requirements.txt` | ruff, mypy | black |
+| Go | `go.mod` | golangci-lint | gofmt |
+| Rust | `Cargo.toml` | clippy | rustfmt |
+| Node | `package.json` | eslint | prettier |
+
+### Key MCP Tools
+
+| Tool | Tokens | Purpose |
+|------|--------|---------|
+| `dev_status` | ~30 | Quick status: `PHASE\|✅0\|next` |
+| `dev_flow` | ~100 | Full status table |
+| `dev_config` | ~50 | Platform commands with test/verify (auto-detected) |
+| `dev_ledger` | ~50 | Task continuity management |
+| `dev_tasks` | ~30 | Sync ledger with Task Management |
+| `dev_defaults` | ~20 | Auto-infer scope from changes |
+| `dev_coordinate` | ~40 | Multi-agent task planning/dispatch |
+| `dev_handoff` | ~50 | Handoff document management |
+| `dev_aggregate` | ~60 | Aggregate results for PR |
+
+### Workflow Phases
+
+```
+IDLE → DEVELOPING → READY_TO_PUSH → WAITING_QA → PR_OPEN → READY_TO_RELEASE
+```
+
+### Skill Architecture Pattern
+
+Skills use Reference File Architecture for progressive loading:
+
+```
+skill/
+├── SKILL.md           # < 150 lines, frontmatter + overview
+└── references/        # Detailed docs loaded on demand
+```
+
+Required frontmatter:
+```yaml
+---
+name: skill-name
+description: What it does. Use when "[triggers]", "[中文触发词]".
+allowed-tools: [specific, tools, only]
+---
+```
+
+## Plugin Manifest Rules
+
+**Unsupported fields** (will cause validation error):
+- `bundledMcpServers` - Use `mcpServers: "./.mcp.json"` instead
+- `agents` - Auto-discovered from agents/ directory
+- `hooks` - Auto-discovered from hooks/hooks.json
+
+## Key Patterns
+
+### Continuity System
+
+- **Ledgers**: `thoughts/ledgers/CONTINUITY_CLAUDE-*.md` - Track task state across sessions
+- **Reasoning**: `.git/claude/commits/<hash>/reasoning.md` - Document commit decisions
+- **Task Sync**: Bridge ledger state with Claude Code Task Management tools
+- Both stored in git for persistence
+
+### Hook Integration
+
+- `SessionStart`: Load active ledger context
+- `PreCompact`: Backup transcript before context compaction
+- `PostToolUse(Bash)`: Dev workflow reminders
+
+### Agent Orchestration
+
+Agents in `agents/` are spawned via Task tool for complex operations:
+- `plan-agent.md` - Create implementation plans
+- `implement-agent.md` - TDD execution
+- `code-reviewer.md` - PR review
+- `evaluate/diagnose/propose/apply/verify-agent.md` - Meta-iterate cycle (includes `discover` for new skill opportunities)
+
+## Conventions
+
+- Commit messages: `type(scope): subject` (Conventional Commits)
+- Scope auto-inferred via `dev_defaults(action="scope")`
+- All `/dev-flow:*` commands use MCP tools internally
+- Platform detection is automatic based on project files
+- **No Makefile required**: `dev_config` returns platform-specific commands automatically
+
+## Command Adaptation
+
+The `dev_config` MCP tool returns platform-specific commands with this priority:
+
+```
+1. .dev-flow.json (project config) → highest priority
+2. Makefile with fix/check targets → second priority
+3. Auto-detect (iOS/Android) → fallback
+```
+
+### Custom Platform via .dev-flow.json
+
+Users can add any platform support without modifying plugin code:
+
+```json
+{
+  "platform": "python",
+  "commands": {
+    "fix": "black . && ruff check --fix .",
+    "check": "ruff check . && mypy ."
+  },
+  "scopes": ["api", "models", "utils"]
+}
+```
+
+### Makefile Convention
+
+If project has `Makefile` with `fix:` and `check:` targets, plugin uses `make fix/check` automatically.
+
+### Output Format
+
+```
+dev_config → python|fix:black .|check:ruff .|scopes:api,models|src:custom
+           → makefile|fix:make fix|check:make check|scopes:|src:Makefile
+           → ios|fix:swiftlint --fix|check:swiftlint|scopes:...|src:auto
+```

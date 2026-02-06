@@ -28,7 +28,7 @@ In Claude Code:
 /plugin install research@lazyman-ian
 ```
 
-See [INSTALL.md](./INSTALL.md) for detailed installation guide including submodule handling.
+See [INSTALL.md](./INSTALL.md) for detailed installation guide.
 
 ## Structure
 
@@ -36,8 +36,8 @@ See [INSTALL.md](./INSTALL.md) for detailed installation guide including submodu
 claude-plugins/
 ├── .claude-plugin/
 │   └── marketplace.json    # Plugin registry
-├── dev-flow/               # Submodule: workflow automation
-├── ios-swift-plugin/       # Submodule: iOS/Swift toolkit
+├── dev-flow/               # Workflow automation
+├── ios-swift-plugin/       # iOS/Swift toolkit
 ├── utils-plugin/           # Built-in: code quality tools
 ├── research-plugin/        # Built-in: research tools
 ├── CLAUDE.md               # Development guide

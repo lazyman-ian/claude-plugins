@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "dev-flow-local",
+  "description": "Local development workflow plugins",
+  "owner": {
+    "name": "guoyuan94",
+    "email": "nickyuan94@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "dev-flow",
+      "description": "Unified development workflow: planning → coding → commit → PR → release with full automation",
+      "version": "3.11.1",
+      "author": {
+        "name": "guoyuan94",
+        "email": "nickyuan94@gmail.com"
+      },
+      "source": "./",
+      "category": "development"
+    }
+  ]
+}

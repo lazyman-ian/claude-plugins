@@ -1,0 +1,43 @@
+.claude/settings.local.json
+.claude/tsc-cache/
+.claude/cache/
+thoughts/
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+*.js.map
+
+# Keep bundled files for self-contained plugin
+!scripts/mcp-server.cjs
+!hooks/dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# Cache
+.cache/
+__pycache__/
+*.pyc
+
+# Test outputs
+coverage/
+.nyc_output/
