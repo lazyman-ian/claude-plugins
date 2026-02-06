@@ -10,6 +10,19 @@ allowed-tools: [Read, Glob, Grep, Bash, Skill, Task, TeamCreate, TeamDelete, Sen
 
 Pure orchestration layer. Composes existing skills — does NOT reimplement them.
 
+## Model Strategy
+
+Optimized model selection per phase for cost and quality:
+
+| Phase | Model | Reasoning | Cost Impact |
+|-------|-------|-----------|-------------|
+| **1a: Planning** | `opus` | Complex architecture, API design, multi-platform alignment | Higher cost, deeper reasoning |
+| **1b: Review** | `sonnet` (default) | Balanced verification, code inspection | Medium cost |
+| **3: Implementation** | `sonnet` (default) | Code generation, balanced quality | Medium cost |
+| **Quick tasks** | `haiku` (optional) | Simple operations like tests | Lower cost |
+
+**Estimated savings**: 40-50% compared to all-opus, with minimal quality impact.
+
 ## Skill Composition Map
 
 ```
@@ -64,21 +77,41 @@ Pure orchestration layer. Composes existing skills — does NOT reimplement them
 
 ## Workflow
 
-### Phase 1a: Draft Plan (Lead, 串行)
+### Phase 1a: Draft Plan (Lead, 串行, use **opus**)
+
+**Model Strategy**: Use opus for deep reasoning in planning phase.
 
 1. Resolve platforms (see Platform Resolution)
-2. If research needed → `Skill("research", "调研 {topic}")`
+2. If research needed → Spawn research agent with opus:
+   ```
+   Task({
+     subagent_type: "research:research-agent",
+     name: "researcher",
+     model: "opus",  # Deep analysis
+     prompt: "调研 {topic}"
+   })
+   ```
 3. 查文档确认关键 API:
    - iOS API → `mcp__apple-docs__` 或 `mcp__sosumi__`
    - 第三方库 → `mcp__plugin_context7_context7__` (resolve-library-id → query-docs)
    - 平台专属问题 → 对应 skill (如 `/swiftui-expert`)
-4. Create plan → `Skill("create-plan", "跨平台 plan for TASK-{id}")`
-   - Instruct create-plan to include per-platform sections
+4. Create plan with opus → Spawn planning agent:
+   ```
+   Task({
+     subagent_type: "dev-flow:plan-agent",
+     name: "planner",
+     model: "opus",  # Complex architectural decisions
+     prompt: "Create cross-platform plan for TASK-{id}"
+   })
+   ```
+   - Instruct plan-agent to include per-platform sections
    - Plan template: see `references/platform-templates.md`
 
-### Phase 1b: Team Plan Review (并行)
+### Phase 1b: Team Plan Review (并行, use **sonnet**)
 
 Plan 自审 — 各平台 reviewer 从自己仓库视角验证 plan 质量。
+
+**Model Strategy**: Use sonnet (default) for balanced review tasks.
 
 ```
 TeamCreate({ team_name: "TASK-{id}-review" })
@@ -88,6 +121,7 @@ Task({
   subagent_type: "Explore",         # Read-only agent, no edits
   team_name: "TASK-{id}-review",
   name: "{platform}-reviewer",
+  # model: sonnet (default, no need to specify)
   prompt: <<PROMPT
 审查 {plan_path} 中 "Platform: {Platform}" 章节。
 仓库: {repo_path}
@@ -143,9 +177,11 @@ This uses `/dev start` which handles:
 - Ledger creation
 - Context setup
 
-### Phase 3: Implement (Team, 并行)
+### Phase 3: Implement (Team, 并行, use **sonnet**)
 
-Spawn teammates, each instructed to use existing skills:
+Spawn teammates, each instructed to use existing skills.
+
+**Model Strategy**: Use sonnet (default) for implementation — balanced quality and cost.
 
 ```
 TeamCreate({ team_name: "TASK-{id}" })
@@ -155,6 +191,7 @@ Task({
   subagent_type: "general-purpose",
   team_name: "TASK-{id}",
   name: "{platform}-dev",
+  # model: sonnet (default, inherited from parent)
   prompt: <<PROMPT
 你是 {platform} 开发者，在 {repo_path} 实现 TASK-{id}。
 
