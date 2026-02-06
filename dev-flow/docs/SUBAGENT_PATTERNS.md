@@ -251,7 +251,7 @@ description: Implementation agent for single task. Internal skill used by orches
 user-invocable: false    # 隐藏 slash 菜单
 context: fork            # 隔离 context
 model: opus              # 复杂任务用强模型
-allowed-tools: [Read, Glob, Grep, Edit, Write, Bash, TodoWrite]
+allowed-tools: [Read, Glob, Grep, Edit, Write, Bash, TaskCreate, TaskUpdate]
 ---
 ```
 
@@ -262,7 +262,7 @@ allowed-tools: [Read, Glob, Grep, Edit, Write, Bash, TodoWrite]
 name: implement-plan
 description: Execute plans with agent orchestration.
 context: fork            # 编排器也隔离
-allowed-tools: [Read, Glob, Grep, Edit, Write, Bash, Task, TodoWrite]
+allowed-tools: [Read, Glob, Grep, Edit, Write, Bash, Task, TaskCreate, TaskUpdate]
 ---
 ```
 

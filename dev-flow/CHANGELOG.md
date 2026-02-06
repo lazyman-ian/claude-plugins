@@ -5,6 +5,30 @@ All notable changes to dev-flow plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.16.0] - 2026-02-07
+
+### Added
+
+- **agent-team skill**: Generic Agent Team orchestration extracted from cross-platform-team
+  - 4-phase workflow: Plan → Setup → Execute → Close
+  - Model strategy: opus (planning), sonnet (implementation), haiku (quick tasks)
+  - Teammate prompt template, error handling, resumable agents
+  - `references/team-patterns.md`: Fan-out, Pipeline, Master-Worker, Review-Chain patterns
+- **evaluate-agent**: `memory: user` for cross-session baseline comparison
+- **verify-agent**: `memory: user` for tracking improvement effects across sessions
+- **Task metrics** (v2.1.31+): evaluate-agent extracts `token_count`, `tool_uses`, `duration` per subagent
+
+### Changed
+
+- **cross-platform-team**: Refactored to extend agent-team, removed duplicate orchestration logic (354 → 307 lines)
+- **agent-team + cross-platform-team**: Aligned with create-plan/implement-plan features:
+  - Plan frontmatter v2.0 awareness (phases metadata, auto-task creation)
+  - validate-agent post-plan option
+  - `dev_coordinate` conflict detection before parallel execution
+  - `dev_aggregate` PR summary in close phase
+  - TDD mode reference in teammate prompts
+- **meta-iterate**: Added Task metrics as data source for agent efficiency analysis
+
 ## [3.15.0] - 2026-02-06
 
 ### Added

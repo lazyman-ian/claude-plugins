@@ -30,7 +30,7 @@ Important guidelines and sub-task patterns.
 - Include "what we're NOT doing"
 
 ### 5. Track Progress
-- Use TodoWrite to track planning tasks
+- Use TaskCreate to track planning tasks
 - Update todos as you complete research
 - Mark tasks complete when done
 

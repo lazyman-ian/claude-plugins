@@ -174,6 +174,7 @@ evaluate (Braintrust)   ─┘
 | Tool call traces | Diagnose: specific tool issues |
 | Token usage | Propose: context optimization |
 | Error patterns | Propose: error handling rules |
+| **Task metrics** (v2.1.31+) | Agent efficiency: token_count, tool_uses, duration per subagent |
 
 ### `/meta-iterate insights` 单独使用
 
@@ -197,6 +198,7 @@ evaluate (Braintrust)   ─┘
 | `dev_reasoning` | Record iteration decisions |
 | Insights facets | 宏观数据: 摩擦、目标、结果 (always) |
 | `braintrust_analyze.py` | 微观数据: 工具调用、token (default) |
+| Task metrics (v2.1.31+) | Subagent 效率: token_count, tool_uses, duration |
 | Local JSONL parsing | Fallback when Braintrust unavailable |
 
 ## Skill Development Guide

@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.15.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.16.0-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/Claude_Code-2.1.19+-purple.svg" alt="Claude Code">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
   <img src="https://img.shields.io/badge/platforms-iOS%20%7C%20Android%20%7C%20Custom-orange.svg" alt="Platforms">
@@ -376,7 +376,7 @@ dev-flow-plugin/
 │       ├── git/                 # Git operations
 │       ├── platforms/           # iOS, Android
 │       └── coordination/        # Multi-Agent
-├── skills/                      # 8 skills
+├── skills/                      # 9 skills
 ├── commands/                    # 21 commands
 ├── agents/                      # 12 agents
 ├── hooks/                       # 5 hook types

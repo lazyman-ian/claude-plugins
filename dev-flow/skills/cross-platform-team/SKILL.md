@@ -8,20 +8,9 @@ allowed-tools: [Read, Glob, Grep, Bash, Skill, Task, TeamCreate, TeamDelete, Sen
 
 # Cross-Platform Team
 
-Pure orchestration layer. Composes existing skills — does NOT reimplement them.
+Cross-platform extension of the `agent-team` skill. Adds multi-repo platform resolution, shared contracts, plan review, and convention sync.
 
-## Model Strategy
-
-Optimized model selection per phase for cost and quality:
-
-| Phase | Model | Reasoning | Cost Impact |
-|-------|-------|-----------|-------------|
-| **1a: Planning** | `opus` | Complex architecture, API design, multi-platform alignment | Higher cost, deeper reasoning |
-| **1b: Review** | `sonnet` (default) | Balanced verification, code inspection | Medium cost |
-| **3: Implementation** | `sonnet` (default) | Code generation, balanced quality | Medium cost |
-| **Quick tasks** | `haiku` (optional) | Simple operations like tests | Lower cost |
-
-**Estimated savings**: 40-50% compared to all-opus, with minimal quality impact.
+**Base orchestration** (team lifecycle, task graphs, model selection, teammate coordination): see `agent-team` skill.
 
 ## Skill Composition Map
 
@@ -29,211 +18,160 @@ Optimized model selection per phase for cost and quality:
 /cross-platform-team orchestrates:
 │
 ├─ Phase 1a (Lead)
-│  ├─ /research          ← 如需调研 API/技术方案
-│  └─ /create-plan       ← 生成跨平台 plan
+│  ├─ /research          ← API/tech research if needed
+│  └─ /create-plan       ← Generate cross-platform plan
 │
-├─ Phase 1b (Team 并行, plan review)
-│  ├─ ios-reviewer       ← 验证 iOS 章节: 文件存在? API 对齐? 步骤完整?
-│  ├─ android-reviewer   ← 验证 Android 章节
-│  └─ Lead 汇总修正 → 迭代 plan
+├─ Phase 1b (Team, plan review)
+│  ├─ ios-reviewer       ← Verify iOS section: files, API alignment, steps
+│  ├─ android-reviewer   ← Verify Android section
+│  └─ Lead merges fixes → iterate plan
 │
-├─ Phase 1c: User 审核 (已自审过的高质量 plan)
+├─ Phase 1c: User review (pre-vetted plan)
 │
 ├─ Phase 2 (Lead)
-│  └─ /dev start         ← 各仓库创建分支 + ledger
+│  └─ /dev start         ← Create branch + ledger per repo
 │
-├─ Phase 3 (Teammates 并行)
-│  ├─ /implement-plan    ← 按 plan 实现各自平台
-│  ├─ /dev commit        ← 提交代码
-│  ├─ /deslop            ← 清理 AI slop
-│  ├─ /self-check        ← 验证代码质量
-│  └─ agents (可选)      ← 平台专属 agent 深度检查
+├─ Phase 3 (Teammates, parallel)
+│  ├─ /implement-plan    ← Execute platform section from plan
+│  ├─ /dev commit        ← Commit per phase
+│  ├─ /deslop            ← Clean AI slop
+│  └─ /self-check        ← Quality verification
 │
-└─ Phase 4 (Lead)
-   ├─ /dev pr            ← 各仓库创建 PR
-   └─ /describe          ← 生成 PR 描述
+├─ Phase 4 (Lead)
+│  ├─ /dev pr            ← Create PR per repo
+│  └─ /describe          ← Generate PR description
+│
+└─ Phase 5 (Lead, auto)
+   └─ Learn              ← Update stats + convention sync
 ```
-
-**Teammates 是完整 Claude 实例，可直接使用所有已安装 skills。**
 
 ## Documentation & Reference Tools
 
-规划和实现时查阅官方文档，避免猜测 API。
-
-| 平台 | 文档工具 | 用途 |
-|------|---------|------|
-| iOS | `mcp__apple-docs__*` | Symbol 搜索、API 详情 (choose_technology → search_symbols → get_documentation) |
-| iOS | `mcp__sosumi__*` | 完整文档 + HIG (searchAppleDocumentation → fetchAppleDocumentation) |
-| Any | `mcp__plugin_context7_context7__*` | 任意库文档 (resolve-library-id → query-docs) |
-| iOS | `/swiftui-expert`, `/swift-concurrency`, `/ios-api-helper` | 平台专属 skills |
-| Android | context7: `kotlin`, `android`, `retrofit`, `hilt` | Kotlin/Android 库 |
-| Web | context7: `vue`, `pinia`, `vue-router`, `vite` | Vue 生态 |
-
-### 使用时机
-
-- **Phase 1a (create-plan)**: Lead 查文档确认 API 可行性，写入 plan
-- **Phase 1b (review)**: Reviewer 查文档验证 plan 中的 API 调用是否正确
-- **Phase 3 (implement)**: Teammate 实现时查文档确认用法
+| Platform | Tool | Usage |
+|----------|------|-------|
+| iOS | `mcp__apple-docs__*` | choose_technology → search_symbols → get_documentation |
+| iOS | `mcp__sosumi__*` | searchAppleDocumentation → fetchAppleDocumentation |
+| Any | `mcp__plugin_context7_context7__*` | resolve-library-id → query-docs |
+| iOS | `/swiftui-expert`, `/swift-concurrency`, `/ios-api-helper` | Platform skills |
+| Android | context7: `kotlin`, `android`, `retrofit`, `hilt` | Kotlin/Android |
+| Web | context7: `vue`, `pinia`, `vue-router`, `vite` | Vue ecosystem |
 
 ## Workflow
 
-### Phase 1a: Draft Plan (Lead, 串行, use **opus**)
-
-**Model Strategy**: Use opus for deep reasoning in planning phase.
+### Phase 1a: Draft Plan (Lead, opus)
 
 1. Resolve platforms (see Platform Resolution)
-2. If research needed → Spawn research agent with opus:
-   ```
-   Task({
-     subagent_type: "research:research-agent",
-     name: "researcher",
-     model: "opus",  # Deep analysis
-     prompt: "调研 {topic}"
-   })
-   ```
-3. 查文档确认关键 API:
-   - iOS API → `mcp__apple-docs__` 或 `mcp__sosumi__`
-   - 第三方库 → `mcp__plugin_context7_context7__` (resolve-library-id → query-docs)
-   - 平台专属问题 → 对应 skill (如 `/swiftui-expert`)
-4. Create plan with opus → Spawn planning agent:
-   ```
-   Task({
-     subagent_type: "dev-flow:plan-agent",
-     name: "planner",
-     model: "opus",  # Complex architectural decisions
-     prompt: "Create cross-platform plan for TASK-{id}"
-   })
-   ```
-   - Instruct plan-agent to include per-platform sections
+2. Research if needed → spawn research agent (model: opus)
+3. Verify key APIs via documentation tools
+4. Create plan with per-platform sections → `/create-plan` or plan-agent (model: opus)
+   - `/create-plan` generates frontmatter v2.0 with phases metadata per platform
    - Plan template: see `references/platform-templates.md`
+5. Optional: validate tech choices → `Task(subagent_type="dev-flow:validate-agent")`
 
-### Phase 1b: Team Plan Review (并行, use **sonnet**)
+### Phase 1b: Team Plan Review (parallel, sonnet)
 
-Plan 自审 — 各平台 reviewer 从自己仓库视角验证 plan 质量。
-
-**Model Strategy**: Use sonnet (default) for balanced review tasks.
+Platform-specific reviewers validate plan quality from each repo's perspective.
 
 ```
 TeamCreate({ team_name: "TASK-{id}-review" })
 
-# Per platform reviewer (lightweight, read-only)
 Task({
-  subagent_type: "Explore",         # Read-only agent, no edits
+  subagent_type: "Explore",         # Read-only, no edits
   team_name: "TASK-{id}-review",
   name: "{platform}-reviewer",
-  # model: sonnet (default, no need to specify)
   prompt: <<PROMPT
-审查 {plan_path} 中 "Platform: {Platform}" 章节。
-仓库: {repo_path}
+Review {plan_path} section "Platform: {Platform}".
+Repo: {repo_path}
 
-## 检查清单
-1. 文件存在性: plan 中列出的目标文件在仓库中是否存在?
-   - Glob/Grep 搜索确认 (新建文件标注 [NEW])
-2. API 对齐: Shared Contract 中的 API 参数/字段,
-   在该平台代码中对应什么? 找到实际代码位置。
-3. 数据模型: plan 中的类型映射是否正确?
-   (如 iOS Bool vs Android Boolean)
-4. 步骤完整性: 是否有遗漏的步骤?
-   (如缺少 i18n、缺少 push handling、缺少 UI 入口)
-5. 依赖检查: 是否需要先修改其他文件才能开始?
-6. Verify 命令: plan 中的 verify 是否与 CLAUDE.md/Makefile 一致?
+## Checklist
+1. File existence: do target files exist? (mark [NEW] for new files)
+2. API alignment: Shared Contract fields match platform code?
+3. Data models: type mappings correct? (iOS Bool vs Android Boolean)
+4. Step completeness: missing i18n, push handling, UI entry?
+5. Dependencies: prerequisite file changes?
+6. Verify command: matches CLAUDE.md/Makefile?
 
-## 输出格式
-SendMessage 给 lead:
-- ✅ 通过的检查项
-- ⚠️ 需要补充/修正的项 (附具体建议)
-- 📍 找到的实际代码位置 (file:line)
+## Output (SendMessage to lead)
+- Pass items
+- Items needing fix (with suggestions)
+- Actual code locations (file:line)
 PROMPT
 })
 ```
 
-**Lead 汇总 reviewer 反馈 → 修正 plan → 迭代直到无 ⚠️**
+Lead merges reviewer feedback → fixes plan → iterates until no warnings.
 
 ### Phase 1c: User Review
 
-经过 team 自审的 plan 质量更高。User 只需关注:
-- 业务逻辑是否正确
-- 优先级是否合理
-- 是否需要增减平台
+After team self-review, plan quality is higher. User focuses on:
+- Business logic correctness
+- Priority ordering
+- Platform inclusion/exclusion
 
-**对比**:
+### Phase 2: Prepare (Lead)
 
-| | 无自审 | 有自审 |
-|---|--------|--------|
-| User 看到 | 粗糙 plan, 需多轮修改 | 已验证的 plan, 通常 1 轮通过 |
-| 文件路径 | 可能是猜的 | 已在仓库中确认 |
-| API 映射 | 可能遗漏 | 已找到实际代码位置 |
-| 步骤完整性 | 可能缺步骤 | reviewer 已补全 |
+Per target repo: `Skill("dev", "start TASK-{id}-{feature} in {repo_path}")`
 
-### Phase 2: Prepare (Lead, 串行)
+### Phase 3: Implement (Team, parallel, sonnet)
 
-For each target repo:
+Before spawning, detect cross-platform file conflicts:
 ```
-Skill("dev", "start TASK-{id}-{feature} in {repo_path}")
+dev_coordinate(action='plan', mode='fan-out', tasks=[
+  { id: 'ios', targetFiles: ['{ios plan target_files}'] },
+  { id: 'android', targetFiles: ['{android plan target_files}'] }
+])
 ```
 
-This uses `/dev start` which handles:
-- Branch creation (with repo-specific base branch)
-- Ledger creation
-- Context setup
-
-### Phase 3: Implement (Team, 并行, use **sonnet**)
-
-Spawn teammates, each instructed to use existing skills.
-
-**Model Strategy**: Use sonnet (default) for implementation — balanced quality and cost.
+Spawn per-platform teammate using `agent-team` patterns:
 
 ```
 TeamCreate({ team_name: "TASK-{id}" })
 
-# Per platform teammate:
 Task({
   subagent_type: "general-purpose",
   team_name: "TASK-{id}",
   name: "{platform}-dev",
-  # model: sonnet (default, inherited from parent)
   prompt: <<PROMPT
-你是 {platform} 开发者，在 {repo_path} 实现 TASK-{id}。
+You are {platform} developer at {repo_path} implementing TASK-{id}.
 
-## 执行步骤
+## Steps
 1. git -C {repo_path} checkout {branch}
-2. 读取 {repo_path}/CLAUDE.md
-3. 使用 /implement-plan 执行:
-   Plan: {plan_path}
-   只实现 "Platform: {Platform}" 章节
-4. 每完成一个 Phase → 使用 /dev commit 提交
-5. 全部完成 → 使用 /self-check 验证
-6. SendMessage 给 lead: done + git diff --stat 结果
+2. Read {repo_path}/CLAUDE.md
+3. /implement-plan — execute "Platform: {Platform}" section from {plan_path}
+   (plan has frontmatter v2.0 — implement-plan auto-creates tasks from phases)
+4. Each phase done → /dev commit
+5. All done → /self-check
+6. SendMessage lead: done + git diff --stat
 
-## 代码清理
-- 实现完成后 → /deslop 清理 AI slop
-- 需要深度简化 → Task(subagent_type="code-simplifier:code-simplifier")
+## Code Cleanup
+- /deslop after implementation
+- Task(subagent_type="code-simplifier:code-simplifier") for deep simplification
 
-## 可用 Agents (按需调用)
-- iOS: Task(subagent_type="ios-swift-plugin:concurrency-reviewer") — Swift 并发检查
-- iOS: Task(subagent_type="ios-swift-plugin:performance-auditor") — SwiftUI 性能
-- All: Task(subagent_type="dev-flow:code-reviewer") — 代码质量审查
-- All: Task(subagent_type="dev-flow:debug-agent") — 排查 bug
-- All: Task(subagent_type="dev-flow:diagnose-agent") — 根因分析
-- All: Task(subagent_type="codebase-pattern-finder") — 查找现有代码模式
-- All: Task(subagent_type="research:research-agent") — 查外部文档/API
+## Platform Agents (optional)
+- iOS: Task(subagent_type="ios-swift-plugin:concurrency-reviewer")
+- iOS: Task(subagent_type="ios-swift-plugin:performance-auditor")
+- All: Task(subagent_type="dev-flow:code-reviewer")
+- All: Task(subagent_type="dev-flow:debug-agent")
+- All: Task(subagent_type="codebase-pattern-finder")
+- All: Task(subagent_type="research:research-agent")
 
-## 注意
-- 不确定时 SendMessage 问 lead，不自行决定
-- verify 不通过不报 done
+## Rules
+- Uncertain → SendMessage lead
+- Verify fails → keep fixing, don't report done
 PROMPT
 })
 ```
 
-### Phase 4: Close (Lead, 串行)
+### Phase 4: Close (Lead)
 
 ```
 1. Review: git -C {repo} diff {base}..{branch} --stat
-2. 问题 → SendMessage teammate 修复
-3. 各仓库: Skill("dev", "pr") → 自动推送 + 创建 PR
-4. Skill("describe") → 生成 PR 描述 (可选)
-5. shutdown → TeamDelete
-6. Summary: PR links
+2. Issues → SendMessage teammate to fix
+3. Aggregate all handoffs: dev_aggregate(action='pr_ready', taskId='TASK-{id}')
+4. Per repo: /dev pr → auto-push + create PR
+5. /describe → PR description (use aggregated summary)
+6. Shutdown teammates → TeamDelete
+7. Summary: PR links per platform
 ```
 
 ## Platform Resolution
@@ -249,46 +187,65 @@ PROMPT
 
 ## Memory: Conventions
 
-Auto-populated on first use via discovery, updated by Phase 5.
+Auto-populated on first use, updated by Phase 5.
 
-**First run**: No memory exists → auto-discover from each repo:
-1. Read `{repo_path}/CLAUDE.md` for tech stack, verify commands, conventions
-2. Check `git symbolic-ref refs/remotes/origin/HEAD` for base branch
+**First run** → auto-discover from each repo:
+1. Read `{repo_path}/CLAUDE.md` for tech stack, verify commands
+2. `git symbolic-ref refs/remotes/origin/HEAD` for base branch
 3. Check `Makefile` for fix/check targets
-4. Use `AskUserQuestion` if repo paths not found
+4. `AskUserQuestion` if repo paths not found
 
 ```yaml
-# Example (auto-populated, values vary per project)
 repos:
-  ios: {discovered_ios_repo_path}
-  android: {discovered_android_repo_path}
-  web: {discovered_web_repo_path}
+  ios: {discovered_path}
+  android: {discovered_path}
+  web: {discovered_path}
 conventions:
-  ios: { base: master, commit: "feat({scope}): {desc}", verify: "make fix && make check" }
-  android: { base: master, commit: "feat({scope}): {desc}", verify: "make fix && make check" }
-  web: { base: develop, commit: "{desc}", verify: "pnpm lint" }
+  ios: { base: master, verify: "make fix && make check" }
+  android: { base: master, verify: "make fix && make check" }
+  web: { base: develop, verify: "pnpm lint" }
 branch_pattern: "feature/TASK-{id}-{feature}"
 ```
 
-**Discovery priority**:
-1. Parent dir CLAUDE.md (e.g. `../CLAUDE.md` with repo table)
-2. Glob for common repo patterns in parent dir
-3. AskUserQuestion → user provides repo paths
+**Discovery priority**: Parent dir CLAUDE.md → Glob common patterns → AskUserQuestion
 
 ## Plan Structure (for create-plan)
 
-Instruct `/create-plan` to generate this structure:
-
 ```markdown
+---
+plan_version: "2.0"
+status: draft
+created: YYYY-MM-DD
+ticket: TASK-{id}
+phases:
+  - id: 1
+    name: "iOS Phase 1: {name}"
+    complexity: medium
+    model: sonnet
+    parallelizable: true    # true = can run parallel with other platform
+    depends_on: []
+    target_files: ["ios/path/to/file.swift"]
+    verify: ["make fix && make check"]
+  - id: 2
+    name: "Android Phase 1: {name}"
+    complexity: medium
+    model: sonnet
+    parallelizable: true
+    depends_on: []
+    target_files: ["android/path/to/File.kt"]
+    verify: ["make fix && make check"]
+key_decisions: {}
+---
+
 # {Feature} Implementation Plan
 ## Overview
 Ticket: TASK-{id} | Platforms: [iOS, Android]
 ## Shared Contract
 ### API Endpoints / Data Models / UI States
 ## Platform: iOS
-### Alignment Table (if syncing)
+### Alignment Table
 ### Phase 1-N: {description}
-- Files: {specific paths}
+- Files: {paths}
 - Steps: ...
 ### Verify: make fix && make check
 ## Platform: Android
@@ -297,25 +254,27 @@ Ticket: TASK-{id} | Platforms: [iOS, Android]
 ### Verify: make fix && make check
 ```
 
+**Note**: `parallelizable: true` on cross-platform phases (different repos = no file overlap by default). `implement-plan` uses this metadata for auto-task creation.
+
 ## Usage Examples
 
 ### Standard
 ```
 /cross-platform-team mobile
-TASK-{id} 实现 {feature}
-需求: #PRD-{feature}.md
+TASK-{id} implement {feature}
+Requirements: #PRD-{feature}.md
 ```
 
 ### Sync from reference
 ```
 /cross-platform-team android
-iOS 已实现 TASK-{id}，给 Android 同步
+iOS already implemented TASK-{id}, sync to Android
 ```
 
 ### Plan only
 ```
 /cross-platform-team plan-only mobile
-TASK-{id} 实现 {feature}
+TASK-{id} implement {feature}
 ```
 
 ### Implement existing plan
@@ -324,23 +283,18 @@ TASK-{id} 实现 {feature}
 Plan: #thoughts/shared/plans/PLAN-TASK-{id}.md
 ```
 
-## Phase 5: Learn (Lead, 自动)
+## Phase 5: Learn (Lead, auto)
 
 After each run, update `~/.claude/memory/cross-platform-stats.yaml`:
 - Append run metrics (platforms, mode, results, issues)
 - Detect convention changes (base branch, verify, commit style)
 - Update memory if drifted
 
-Periodic: `/meta-iterate cross-platform` for deep analysis.
-See `references/self-evolution.md` for full learning loop details.
+See `references/self-evolution.md` for full learning loop.
 
 ## Repo Convention Auto-Sync
 
-Each run start, verify conventions still current:
-```
-git log -5, CLAUDE.md, Makefile → compare with memory
-If changed → update memory + warn user
-```
+Each run start: `git log -5, CLAUDE.md, Makefile → compare with memory`. If changed → update memory + warn user.
 
 ## Error Handling
 
@@ -350,4 +304,4 @@ If changed → update memory + warn user
 | Branch exists | Checkout existing |
 | Teammate verify fails | Report, keep trying |
 | Plan ambiguous | Teammate asks lead |
-| Skill not available to teammate | Fallback to manual commands |
+| Skill not available | Fallback to manual commands |

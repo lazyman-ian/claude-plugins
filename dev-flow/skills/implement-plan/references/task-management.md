@@ -71,6 +71,33 @@ Phase 3: UI (task-3, blockedBy: task-2)
 Phase 4: Tests (task-4, blockedBy: task-3)
 ```
 
+## Frontmatter-Driven Task Creation
+
+If the plan has `plan_version: "2.0"` frontmatter, auto-generate tasks from metadata:
+
+```typescript
+// Parse frontmatter phases
+for (const phase of plan.phases) {
+  TaskCreate({
+    subject: `Phase ${phase.id}: ${phase.name}`,
+    description: `Files: ${phase.target_files.join(', ')}. Verify: ${phase.verify.join(', ')}`,
+    activeForm: `Implementing ${phase.name}`,
+    metadata: { complexity: phase.complexity, model: phase.model }
+  });
+}
+
+// Set dependencies from depends_on
+for (const phase of plan.phases) {
+  if (phase.depends_on.length > 0) {
+    TaskUpdate({ taskId: String(phase.id), addBlockedBy: phase.depends_on.map(String) });
+  }
+}
+```
+
+**No frontmatter?** Fall back to manual parsing (existing behavior below).
+
+---
+
 ## 实现工作流
 
 ### 1. 读取计划后创建任务

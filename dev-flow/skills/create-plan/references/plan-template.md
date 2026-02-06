@@ -9,6 +9,31 @@ Complete template for implementation plans.
 ## Template
 
 ````markdown
+---
+plan_version: "2.0"
+status: draft              # draft | approved | in_progress | completed
+created: YYYY-MM-DD
+ticket: ENG-XXXX           # optional
+phases:
+  - id: 1
+    name: "Phase Name"
+    complexity: medium      # low | medium | high
+    model: sonnet           # haiku | sonnet | opus
+    parallelizable: false
+    depends_on: []          # phase IDs
+    target_files: ["path/to/file.ts"]
+    verify: ["make test"]
+  - id: 2
+    name: "Phase Name"
+    complexity: high
+    model: opus
+    parallelizable: true
+    depends_on: [1]
+    target_files: ["path/to/other.ts"]
+    verify: ["npm run typecheck"]
+key_decisions: {}           # populated during design exploration
+---
+
 # [Feature/Task Name] Implementation Plan
 
 ## Overview
@@ -27,6 +52,9 @@ Complete template for implementation plans.
 - [Important finding with file:line reference]
 - [Pattern to follow]
 - [Constraint to work within]
+
+### Key Decisions (from Design Exploration):
+<!-- Auto-populated from frontmatter key_decisions -->
 
 ## What We're NOT Doing
 
@@ -104,6 +132,16 @@ Complete template for implementation plans.
 - Related research: `thoughts/shared/research/[relevant].md`
 - Similar implementation: `[file:line]`
 ````
+
+---
+
+## Frontmatter Guidelines
+
+- **`parallelizable: true`** = phase has no `target_files` overlap with other parallel phases
+- **`model`** based on complexity: `low` → haiku, `medium` → sonnet, `high` → opus
+- **`verify`** is fallback; at runtime `dev_config()` takes priority for platform commands
+- **`key_decisions`** populated during Design Exploration mode (persisted via `dev_handoff`)
+- **Backward compatible**: `implement-plan` checks `plan_version`; if absent, falls back to legacy parsing
 
 ---
 

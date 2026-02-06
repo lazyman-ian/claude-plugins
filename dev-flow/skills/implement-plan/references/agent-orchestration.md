@@ -48,11 +48,9 @@ Task(model="opus", ...)    # 复杂架构决策
 
 ## Setup
 
-### 1. Create Handoff Directory
+### 1. Handoff Directory
 
-```bash
-mkdir -p thoughts/handoffs/<session-name>
-```
+Handoffs are managed via `dev_handoff` MCP tool (auto-creates directory). No manual `mkdir` needed.
 
 ### 2. Read Task Executor Reference
 
@@ -73,13 +71,27 @@ If no validation: "Would you like me to spawn validate-agent first?"
 
 ---
 
+## Platform-Aware Verification
+
+Before running verification commands, query the platform:
+
+```python
+dev_config()  # Returns platform-specific lint/check/verify commands
+```
+
+**Priority**: plan frontmatter `verify` > `dev_config()` output > hardcoded fallback
+
+This ensures agents use the correct verification commands regardless of platform (iOS/Android/Web/custom).
+
+---
+
 ## Orchestration Loop
 
 ### 1. Prepare Agent Context
 
 - Read continuity ledger
 - Read the plan
-- Read previous handoff if exists
+- Read previous handoff: `dev_handoff(action='read', handoffId='...')` or `dev_handoff(action='chain', taskId='...')` to get full history
 - Identify the specific task
 
 ### 2. Spawn Implementation Agent
@@ -123,7 +135,7 @@ Task(
 
 ### 3. Process Agent Result
 
-- Read agent's handoff file
+- Read agent's handoff: `dev_handoff(action='read', handoffId='...')`
 - Update ledger checkbox: `[x] Task N`
 - Update plan checkbox if applicable
 - Continue to next task
@@ -191,10 +203,7 @@ context: fork  # 子代理使用隔离 context
 ## Recovery After Compaction
 
 1. Read continuity ledger (loaded by SessionStart hook)
-2. List handoff directory:
-   ```bash
-   ls -la thoughts/handoffs/<session-name>/
-   ```
+2. Search handoffs: `dev_handoff(action='search', keyword='TASK-XXX')` or `dev_handoff(action='chain', taskId='TASK-XXX')`
 3. Read last handoff to understand state
 4. Continue from next uncompleted task
 
@@ -202,30 +211,52 @@ context: fork  # 子代理使用隔离 context
 
 ## Handoff Chain
 
+Use `dev_handoff(action='chain', taskId='TASK-XXX')` to view the full handoff sequence:
+
 ```
-task-01-user-model.md
-    ↓ (read by agent 2)
-task-02-auth-middleware.md
-    ↓ (read by agent 3)
-task-03-login-endpoint.md
-    ...
+Agent 1 → dev_handoff(write) → handoff-001
+Agent 2 → dev_handoff(read, handoff-001) → implements → dev_handoff(write) → handoff-002
+Agent 3 → dev_handoff(chain, taskId) → sees [handoff-001, handoff-002] → implements
 ```
 
 Chain preserves context even across compactions.
 
 ---
 
-## Parallel Execution (高级)
+## Parallel Execution with Conflict Detection
 
-多个独立任务可并行:
+Before spawning parallel agents, detect file conflicts:
 
 ```python
-# 并行生成多个 Task 调用
-Task(description="Task 1: Setup schema", ...)
-Task(description="Task 2: Create types", ...)  # 同一消息中
+# 1. Check for conflicts
+dev_coordinate(action='plan', mode='fan-out', tasks=json.dumps([
+  {"id": "t1", "targetFiles": ["src/auth.ts", "src/types.ts"]},
+  {"id": "t2", "targetFiles": ["src/api.ts"]},
+  {"id": "t3", "targetFiles": ["src/auth.ts"]}  # conflicts with t1!
+]))
+# → ⚠️ Conflicts detected: src/auth.ts: t1, t3
+
+# 2. Serialize conflicting tasks
+TaskUpdate(taskId="t3", addBlockedBy=["t1"])
+
+# 3. Dispatch non-conflicting in parallel
+Task(description="Task 1: Auth module", ...)
+Task(description="Task 2: API endpoints", ...)  # same message = parallel
 ```
 
-**注意**: 仅适用于无依赖的任务。有依赖时必须顺序执行。
+If plan has frontmatter, read `parallelizable` flag and `target_files` to auto-identify parallel phases. Only phases with `parallelizable: true` and no overlapping `target_files` run concurrently.
+
+---
+
+## Final Aggregation
+
+After all agents complete, aggregate results for PR:
+
+```python
+dev_aggregate(action='pr_ready', taskId='TASK-XXX')
+```
+
+Returns a unified summary of all changes, decisions, and open questions across handoffs.
 
 ---
 
@@ -238,6 +269,22 @@ Task(description="Task 2: Create types", ...)  # 同一消息中
 | Critical context to preserve | Agent orchestration |
 | Quick bug fix | Direct implementation |
 | Major feature implementation | Agent orchestration |
+
+---
+
+## Agent Teams Alternative
+
+When 3+ phases are parallelizable with no file conflicts, Agent Teams provide true parallel execution:
+
+| Dimension | Agent Orchestration | Agent Teams |
+|-----------|-------------------|-------------|
+| Parallelism | Sequential/limited | Fully parallel |
+| Context | Shared main context | Independent per teammate |
+| Communication | Handoff files | `SendMessage` bidirectional |
+| Cost | Lower | Higher (N× contexts) |
+| Best for | Sequential dependencies | Independent parallel work |
+
+Use Agent Teams when `dev_coordinate(action='plan')` shows no file conflicts and phases are independently executable. See `implement-plan/SKILL.md` "Agent Teams Mode" for the workflow.
 
 ---
 

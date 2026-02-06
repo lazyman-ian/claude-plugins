@@ -84,7 +84,7 @@ If user corrects a misunderstanding:
 
 ### 2b. Create Research Todo List
 
-Use TodoWrite to track exploration tasks.
+Use TaskCreate to track exploration tasks.
 
 ### 2c. Spawn Parallel Sub-Tasks
 
@@ -171,6 +171,19 @@ Examples:
 ### 4c. Use Plan Template
 
 See `references/plan-template.md` for full template.
+
+### 4d. Generate Frontmatter
+
+For each phase in the plan, populate the YAML frontmatter `phases` array:
+
+1. **complexity**: Determined by file count + logic depth (`low` ≤2 files, `medium` 3-5 files, `high` 6+ files or complex logic)
+2. **model**: Derived from complexity (`low` → haiku, `medium` → sonnet, `high` → opus)
+3. **parallelizable**: `true` if `target_files` have no overlap with other phases
+4. **depends_on**: Phase IDs this phase requires to complete first
+5. **target_files**: List all files this phase will create or modify
+6. **verify**: Extract from Success Criteria automated verification commands
+
+Set `plan_version: "2.0"` and `status: draft`. Fill `created` with today's date.
 
 ---
 

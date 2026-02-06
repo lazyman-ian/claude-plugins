@@ -2,6 +2,7 @@
 name: evaluate-agent
 description: Evaluation agent that analyzes session performance and identifies improvement targets. <example>User says "evaluate recent sessions"</example> <example>User says "analyze agent performance"</example> <example>用户说 "评估会话质量" 或 "分析性能"</example>
 model: sonnet
+memory: user
 color: blue
 ---
 
@@ -61,6 +62,7 @@ For each session, calculate:
 - Token usage per task
 - Tool call count
 - Retry/loop occurrences
+- Task metrics (v2.1.31+): token_count, tool_uses, duration per subagent
 
 **User Signals**
 - Explicit feedback ("good", "thanks", "wrong")
@@ -71,6 +73,28 @@ For each session, calculate:
 - Which agents were spawned
 - Which skills were activated
 - Which rules were applied (from hooks)
+
+### 2b. Extract Task Metrics (v2.1.31+)
+
+When sessions use the Task tool (subagents), the result includes metrics:
+
+| Field | Type | Use |
+|-------|------|-----|
+| `token_count` | number | Total tokens consumed by subagent |
+| `tool_uses` | number | Number of tool calls made |
+| `duration` | number (ms) | Wall-clock time of subagent execution |
+
+Extract from session JSONL:
+```bash
+# Find Task tool results with metrics
+cat <session>.jsonl | jq -r 'select(.type=="tool_result") | select(.name=="Task") | {token_count, tool_uses, duration}' 2>/dev/null
+```
+
+Use these metrics to:
+- Compare agent efficiency across sessions (tokens per successful task)
+- Identify agents that consume disproportionate resources
+- Track duration trends (getting slower = possible loop)
+- Correlate tool_uses with success rate (more tools != better)
 
 ### 3. Score Components
 
@@ -102,6 +126,8 @@ Write to `thoughts/evaluations/EVAL-YYYY-MM-DD.json`:
       "score": 85,
       "usage_count": 12,
       "avg_tokens": 15000,
+      "avg_tool_uses": 8,
+      "avg_duration_ms": 45000,
       "issues": []
     },
     "skills/dev/SKILL.md": {

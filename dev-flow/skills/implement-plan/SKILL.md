@@ -4,7 +4,7 @@ description: Executes implementation plans with TDD and agent orchestration. Thi
 model: opus
 memory: project
 context: fork
-allowed-tools: [Read, Glob, Grep, Edit, Write, Bash, Task, TaskCreate, TaskUpdate, TaskList, TaskGet]
+allowed-tools: [Read, Glob, Grep, Edit, Write, Bash, Task, TaskCreate, TaskUpdate, TaskList, TaskGet, mcp__plugin_dev-flow_dev-flow__*]
 ---
 
 # Implement Plan
@@ -25,6 +25,7 @@ Execute approved technical plans from `thoughts/shared/plans/` with optional TDD
 | **Direct** (default) | 1-3 tasks, quick focused work |
 | **Agent Orchestration** | 4+ tasks, context preservation critical |
 | **TDD Mode** | User requests test-driven development |
+| **Agent Teams** | 3+ parallelizable phases, no file conflicts |
 
 ## TDD Mode (RED-GREEN-REFACTOR)
 
@@ -76,9 +77,10 @@ Check user input for TDD keywords:
 ### Standard Mode Steps
 
 1. Read plan completely (check existing `[x]` marks)
-2. Read original ticket + all mentioned files (FULLY)
-3. Create tasks with `TaskCreate` for each phase (set dependencies)
-4. Start implementing (update task status as you go)
+2. If plan has frontmatter (`plan_version: "2.0"`): auto-create tasks from phases metadata
+3. Read original ticket + all mentioned files (FULLY)
+4. Create tasks with `TaskCreate` for each phase (set dependencies)
+5. Start implementing (update task status as you go)
 
 ### TDD Mode Steps
 
@@ -131,6 +133,23 @@ Please perform manual verification:
 Let me know when ready for Phase N+1.
 ```
 
+## Progress Tracking
+
+After each phase completes, output progress:
+
+```
+Phase 2/5 complete (40%)
+- [x] Phase 1: Schema
+- [x] Phase 2: API endpoints
+- [ ] Phase 3: UI components
+- [ ] Phase 4: Tests
+- [ ] Phase 5: Integration
+```
+
+Update plan checkboxes and `TaskUpdate(status: 'completed')` for each finished phase.
+
+---
+
 ## Agent Orchestration
 
 For larger plans (4+ tasks), use agent orchestration:
@@ -141,12 +160,39 @@ For larger plans (4+ tasks), use agent orchestration:
 
 Then follow `references/agent-orchestration.md`.
 
+### Conflict Detection
+
+Before parallel execution, use `dev_coordinate(action='plan', mode='fan-out')` to detect `target_files` overlaps. Conflicting phases are serialized via `TaskUpdate(addBlockedBy)`.
+
 ### Quick Setup
 
-```bash
-mkdir -p thoughts/handoffs/<session-name>
-# See references/task-executor.md for TDD workflow
-```
+Handoffs managed via `dev_handoff` MCP tool (auto-creates directory). See `references/task-executor.md` for TDD workflow.
+
+## Agent Teams Mode
+
+**Trigger**: 3+ phases with `parallelizable: true` in frontmatter, no `target_files` overlap.
+
+### Decision Logic
+
+| Condition | Recommended Mode |
+|-----------|-----------------|
+| ≤3 phases, sequential | Direct |
+| 4+ phases, sequential | Agent Orchestration |
+| 3+ phases, parallelizable, no file overlap | Agent Teams |
+| Complex coordination, shared state | Agent Orchestration |
+
+### Workflow
+
+1. `dev_coordinate(action='plan', mode='fan-out')` → detect conflicts
+2. Confirm with user: "3 phases are parallelizable. Use Agent Teams?"
+3. `TeamCreate` → spawn teammates → assign phases via `TaskUpdate(owner)`
+4. Each teammate: implement → `dev_handoff(action='write')` → complete
+5. `dev_aggregate(action='pr_ready', taskId=...)` → unified summary
+6. `SendMessage(type='shutdown_request')` → `TeamDelete`
+
+See `references/agent-orchestration.md` "Agent Teams Alternative" for details.
+
+---
 
 ## Resuming Work
 
@@ -176,3 +222,13 @@ Task(
   prompt="Phase 2 isn't matching. Can you clarify..."
 )
 ```
+
+---
+
+## Plan Closure
+
+When all phases complete:
+
+1. Update plan frontmatter `status: completed` (if plan has frontmatter)
+2. `dev_aggregate(action='pr_ready', taskId=...)` → generate final summary of all changes and decisions
+3. Prompt: "All phases complete. Ready for `/dev commit`?"

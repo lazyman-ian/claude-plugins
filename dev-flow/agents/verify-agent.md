@@ -2,6 +2,7 @@
 name: verify-agent
 description: Verification agent that verifies improvement effects after changes are applied. <example>User says "verify the improvements worked"</example> <example>User says "check if changes are effective"</example> <example>用户说 "验证改进效果" 或 "检查优化结果"</example>
 model: sonnet
+memory: user
 color: teal
 ---
 

@@ -10,7 +10,7 @@ UNDERSTAND → IMPLEMENT (TDD) → CREATE HANDOFF → RETURN
 
 ### Step 1: Understand Context
 
-- Read previous handoff (if provided)
+- Read previous handoff: `dev_handoff(action='read', handoffId='...')` or `dev_handoff(action='chain', taskId='...')` to see all prior handoffs
 - Note learnings and patterns to follow
 - Understand where task fits in overall plan
 
@@ -25,34 +25,32 @@ UNDERSTAND → IMPLEMENT (TDD) → CREATE HANDOFF → RETURN
 
 ### Step 3: Create Handoff
 
-**Filename**: `task-NN-<short-description>.md`
+Use `dev_handoff(action='write')` to persist the handoff:
 
-```markdown
-# Task [N] Handoff
-
-## Status
-[success/partial/blocked]
-
-## Completed
-- [x] What was done
-
-## Files Changed
-- `path/to/file.ts` - Description
-
-## Decisions
-- Decision and rationale
-
-## Notes for Next Task
-- Important context
+```python
+dev_handoff(action='write', handoff=json.dumps({
+  "version": "2.0",
+  "agent_id": "implement-agent-NNN",
+  "task_id": "TASK-XXX",
+  "status": "success",           # success | partial | blocked
+  "summary": "Implemented X with Y approach",
+  "changes_made": ["path/to/file.ts:1-50"],
+  "decisions": {"key": "rationale"},
+  "verification": ["Tests pass", "Lint clean"],
+  "for_next_agent": "Continue with Z",
+  "open_questions": []
+}))
 ```
 
 ### Step 4: Return
+
+Return the handoff ID from `dev_handoff` response:
 
 ```
 Task [N] Complete
 
 Status: [success/partial/blocked]
-Handoff: [path to handoff file]
+Handoff ID: [returned by dev_handoff]
 
 Summary: [1-2 sentences]
 ```

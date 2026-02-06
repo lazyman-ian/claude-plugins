@@ -32,7 +32,7 @@ Create detailed implementation plans through interactive, iterative research and
 
 **Process**:
 ```
-EXPLORE → GENERATE ALTERNATIVES → EVALUATE → DECIDE → PLAN
+EXPLORE → GENERATE ALTERNATIVES → EVALUATE → DECIDE → PERSIST → PLAN
 ```
 
 1. **Explore**: Use Socratic questioning to uncover requirements
@@ -96,7 +96,7 @@ Tip: /create_plan thoughts/tickets/eng_1234.md
 ### Design Exploration Mode
 
 ```
-CLARIFY → EXPLORE → GENERATE → EVALUATE → DECIDE → PLAN
+CLARIFY → EXPLORE → GENERATE → EVALUATE → DECIDE → PERSIST → PLAN
 ```
 
 1. **Clarify**: Socratic questioning to uncover requirements
@@ -104,7 +104,8 @@ CLARIFY → EXPLORE → GENERATE → EVALUATE → DECIDE → PLAN
 3. **Generate**: Create 2-4 viable approaches
 4. **Evaluate**: Compare trade-offs, constraints, risks
 5. **Decide**: Get user buy-in on approach
-6. **Plan**: Create detailed implementation plan
+6. **Persist Decisions**: Write exploration decisions via `dev_handoff(action='write')` and sync to plan frontmatter `key_decisions` field
+7. **Plan**: Create detailed implementation plan
 
 ### Implementation Planning Mode
 
@@ -164,6 +165,10 @@ For each design decision, consider:
 ### Plan File Location
 `thoughts/shared/plans/YYYY-MM-DD-ENG-XXXX-description.md`
 
+### Plan Frontmatter (v2.0)
+
+Plans include YAML frontmatter with structured phase metadata (complexity, model, parallelizable, target_files, verify). This enables `implement-plan` to auto-create tasks, detect parallel conflicts, and select models. See `references/plan-template.md` for schema.
+
 ### Success Criteria Format
 ```markdown
 #### Automated Verification:
@@ -183,6 +188,16 @@ For each design decision, consider:
 | codebase-analyzer | Understand implementation |
 | thoughts-locator | Find existing research |
 | research-agent | External documentation |
+
+### Post-Plan Validation
+
+After plan is written and approved, offer:
+
+```
+"Would you like me to validate tech choices with validate-agent?"
+```
+
+If accepted → spawn `validate-agent` → produces validation handoff via `dev_handoff(action='write')`. This checks library versions, API compatibility, and best practices before implementation begins.
 
 ## Core Principles
 
