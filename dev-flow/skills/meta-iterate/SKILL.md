@@ -1,6 +1,6 @@
 ---
 name: meta-iterate
-description: Analyzes session performance and iterates agent/skill/rule prompts for self-improvement, and provides skill development guidance. This skill should be used when user says "improve prompts", "analyze sessions", "self-improve", "discover skills", "compound learnings", "learn from sessions", "优化工作流", "迭代agent", "分析session", "发现新skill", "积累经验", "学习总结", "提取规则", or when developing skills with "write skill", "create skill", "开发 skill", "插件开发", "skill development". Triggers on /meta-iterate, 自我改进, 会话分析, prompt优化, skill开发.
+description: Analyzes session performance and iterates agent/skill/rule prompts for self-improvement, and provides skill development guidance. Integrates with /insights for local session analysis. This skill should be used when user says "improve prompts", "analyze sessions", "self-improve", "discover skills", "compound learnings", "learn from sessions", "analyze insights", "read insights report", "优化工作流", "迭代agent", "分析session", "发现新skill", "积累经验", "学习总结", "提取规则", "分析insights", or when developing skills. Triggers on /meta-iterate, 自我改进, 会话分析, prompt优化, skill开发, insights分析.
 model: opus
 memory: user
 context: fork
@@ -33,7 +33,8 @@ Analyze Claude Code session performance, iterate on prompts, and guide skill/plu
 | Command | Purpose |
 |---------|---------|
 | `/meta-iterate` | Run full 5-phase workflow |
-| `/meta-iterate evaluate` | Only evaluate sessions |
+| `/meta-iterate insights` | Read `/insights` report + facets as evaluate input |
+| `/meta-iterate evaluate` | Only evaluate sessions (Braintrust/local) |
 | `/meta-iterate discover` | Discover new skill opportunities |
 | `/meta-iterate compound` | Transform learnings into skills/rules |
 | `/meta-iterate diagnose` | Only diagnose issues |
@@ -54,15 +55,16 @@ Analyze Claude Code session performance, iterate on prompts, and guide skill/plu
 ### Self-Improvement Workflow
 
 ```
-evaluate → discover/compound (optional) → diagnose → propose → [approve] → apply → verify
+[insights + evaluate] → discover/compound (optional) → diagnose → propose → [approve] → apply → verify
 ```
 
 | Phase | Input | Output | Agent |
 |-------|-------|--------|-------|
+| **insights** | Facets + report.html | Friction/goal summary | (built-in) |
 | **evaluate** | Braintrust logs | `EVAL-<date>.json` | evaluate-agent |
-| **discover** | Evaluation data | `DISCOVER-<date>.md` | (built-in) |
+| **discover** | Insights + Evaluation | `DISCOVER-<date>.md` | (built-in) |
 | **compound** | Learnings files | Artifacts proposal | (built-in) |
-| **diagnose** | Evaluation | `DIAG-<date>.md` | diagnose-agent |
+| **diagnose** | Insights + Evaluation | `DIAG-<date>.md` | diagnose-agent |
 | **propose** | Diagnosis | `PROP-<date>.md` | propose-agent |
 | **apply** | Proposals + approval | Component files | apply-agent |
 | **verify** | Post-change sessions | `ITER-NNN.md` | verify-agent |
@@ -136,14 +138,66 @@ design → create → validate → improve
 
 This ensures human oversight on all prompt changes.
 
+## Data Sources (Priority Order)
+
+| Source | Location | Quality | Dependency |
+|--------|----------|---------|------------|
+| **Insights facets** | `~/.claude/usage-data/facets/*.json` | High (structured) | None (local) |
+| **Insights report** | `~/.claude/usage-data/report.html` | High (aggregated) | Run `/insights` first |
+| **Braintrust** | API via `braintrust_analyze.py` | Highest (detailed) | Python + API key |
+| **Local JSONL** | `~/.claude/projects/<proj>/*.jsonl` | Medium (raw) | None (local) |
+
+### Insights + Evaluate 合并
+
+默认流程同时使用两个数据源，合并后提供更全面的分析：
+
+```
+insights (本地 facets)  ─┐
+                         ├→ 合并 → diagnose → propose → apply → verify
+evaluate (Braintrust)   ─┘
+```
+
+**Insights 提供宏观视角** (哪些 session 有摩擦、什么类型的任务最多):
+
+| Facet Field | Maps to |
+|-------------|---------|
+| `friction_counts.wrong_approach` | Diagnose: approach issues |
+| `friction_counts.excessive_changes` | Diagnose: scope control |
+| `goal_categories` | Discover: skill opportunities |
+| `friction_detail` | Propose: specific improvements |
+| `outcome` | Verify: baseline metrics |
+
+**Evaluate 提供微观细节** (具体哪个工具调用出问题、token 消耗在哪):
+
+| Braintrust Field | Maps to |
+|------------------|---------|
+| Tool call traces | Diagnose: specific tool issues |
+| Token usage | Propose: context optimization |
+| Error patterns | Propose: error handling rules |
+
+### `/meta-iterate insights` 单独使用
+
+当只需快速查看时，可单独运行 insights（不调用 Braintrust）:
+
+```bash
+/meta-iterate insights   # 只读 facets + report，即时分析
+```
+
+### 完整流程 (默认)
+
+```bash
+/meta-iterate            # insights + evaluate 合并，最全面
+```
+
 ## Integration with dev-flow
 
 | dev-flow Component | Usage |
 |--------------------|-------|
 | `dev_ledger` | Track iteration tasks |
 | `dev_reasoning` | Record iteration decisions |
-| `braintrust_analyze.py` | Session data source (primary) |
-| Local JSONL parsing | Session data source (fallback) |
+| Insights facets | 宏观数据: 摩擦、目标、结果 (always) |
+| `braintrust_analyze.py` | 微观数据: 工具调用、token (default) |
+| Local JSONL parsing | Fallback when Braintrust unavailable |
 
 ## Skill Development Guide
 
@@ -168,7 +222,10 @@ See `references/local-mode.md` for:
 ## Quick Reference
 
 ```bash
-# Weekly check (full workflow)
+# Quick iteration (from local insights, no external deps)
+/meta-iterate insights
+
+# Weekly check (full workflow with Braintrust)
 /meta-iterate
 
 # Find new skill opportunities

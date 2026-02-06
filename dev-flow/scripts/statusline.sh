@@ -1,7 +1,6 @@
 #!/bin/bash
 ###
 # Dev-Flow StatusLine - 多行实验版
-# 尝试复刻 Claude HUD 的多行展示效果
 #
 # 安装: 在 ~/.claude/settings.json 中添加:
 #   "statusLine": {
@@ -11,9 +10,8 @@
 #   }
 ###
 
-set -e
+set -o pipefail
 
-# 读取 Claude Code 输入
 input=$(cat)
 STATE_DIR="${HOME}/.claude/state/dev-flow"
 mkdir -p "$STATE_DIR"
@@ -27,11 +25,61 @@ CYAN="\033[36m"
 MAGENTA="\033[35m"
 BLUE="\033[34m"
 GRAY="\033[90m"
+WHITE_BOLD="\033[1;37m"
+
+# ========== 解析输入 JSON（单次 jq） ==========
+parsed=$(echo "$input" | jq -r '[
+  (.context_window.used_percentage // 0),
+  (.cost.total_duration_ms // 0),
+  (.cost.total_cost_usd // 0),
+  (.model.display_name // ""),
+  (.cost.total_lines_added // 0),
+  (.cost.total_lines_removed // 0),
+  (.agent.name // ""),
+  (.context_window.current_usage.cache_read_input_tokens // 0),
+  (.context_window.current_usage.input_tokens // 0),
+  (.context_window.total_input_tokens // 0),
+  (.context_window.total_output_tokens // 0),
+  (.context_window.context_window_size // 200000),
+  (.session_id // "")
+] | @tsv' 2>/dev/null || echo "0	0	0		0	0		0	0	0	0	200000	")
+
+CONTEXT_PCT=$(echo "$parsed" | cut -f1)
+DURATION_MS=$(echo "$parsed" | cut -f2)
+COST_USD=$(echo "$parsed" | cut -f3)
+MODEL_NAME=$(echo "$parsed" | cut -f4)
+LINES_ADDED=$(echo "$parsed" | cut -f5)
+LINES_REMOVED=$(echo "$parsed" | cut -f6)
+AGENT_NAME=$(echo "$parsed" | cut -f7)
+CACHE_READ=$(echo "$parsed" | cut -f8)
+INPUT_TOKENS=$(echo "$parsed" | cut -f9)
+TOTAL_INPUT=$(echo "$parsed" | cut -f10)
+TOTAL_OUTPUT=$(echo "$parsed" | cut -f11)
+CONTEXT_SIZE=$(echo "$parsed" | cut -f12)
+SESSION_ID=$(echo "$parsed" | cut -f13)
+
+# ========== Git 数据（单次采集） ==========
+IS_GIT=false
+GIT_PORCELAIN=""
+GIT_BRANCH=""
+GIT_AHEAD=0
+GIT_BEHIND=0
+
+if git rev-parse --git-dir > /dev/null 2>&1; then
+    IS_GIT=true
+    GIT_PORCELAIN=$(git status --porcelain 2>/dev/null || echo "")
+    GIT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+
+    if git rev-parse --abbrev-ref '@{upstream}' > /dev/null 2>&1; then
+        counts=$(git rev-list --left-right --count HEAD...@{upstream} 2>/dev/null || echo "0	0")
+        GIT_AHEAD=$(echo "$counts" | cut -f1)
+        GIT_BEHIND=$(echo "$counts" | cut -f2)
+    fi
+fi
 
 # ========== 第1行：主状态行 ==========
 
-# Context 可视化
-CONTEXT_PCT=$(echo "$input" | jq -r '.context_window.used_percentage // 0')
+# Context bar
 generate_context_bar() {
     local pct=${1%.*}
     local filled=$((pct / 10))
@@ -51,28 +99,67 @@ generate_context_bar() {
 
 CONTEXT_BAR=$(generate_context_bar "$CONTEXT_PCT")
 
+# 模型标识 + extended context
+get_model_badge() {
+    local badge=""
+    case "$MODEL_NAME" in
+        Opus*)   badge="${MAGENTA}Opus${RESET}" ;;
+        Sonnet*) badge="${BLUE}Son${RESET}" ;;
+        Haiku*)  badge="${GREEN}Hai${RESET}" ;;
+    esac
+    [ -z "$badge" ] && return
+
+    # extended context (> 200K)
+    if [ "$CONTEXT_SIZE" -gt 200000 ] 2>/dev/null; then
+        local size_k=$((CONTEXT_SIZE / 1000))
+        badge="${badge}${GRAY}/${size_k}K${RESET}"
+    fi
+
+    echo -e "$badge"
+}
+MODEL_BADGE=$(get_model_badge)
+
+# Agent 身份（作为 team 成员时）
+get_agent_badge() {
+    [ -z "$AGENT_NAME" ] && return
+    echo -e "${CYAN}[${AGENT_NAME}]${RESET}"
+}
+AGENT_BADGE=$(get_agent_badge)
+
 # 工作流阶段
 get_phase() {
-    if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    if [ "$IS_GIT" != "true" ]; then
         echo -e "${GRAY}○ IDLE${RESET}"
         return
     fi
 
-    local has_changes=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-    if [ "$has_changes" != "0" ]; then
+    if [ -n "$GIT_PORCELAIN" ]; then
         echo -e "${YELLOW}● DEV${RESET}"
         return
     fi
 
-    local ahead=$(git rev-list --count HEAD...@{upstream} 2>/dev/null || echo 0)
-    if [ "$ahead" != "0" ]; then
+    if [ "$GIT_AHEAD" != "0" ]; then
         echo -e "${CYAN}↑ PUSH${RESET}"
         return
     fi
 
-    local pr_state=$(gh pr view --json state -q '.state' 2>/dev/null || echo "NONE")
+    # PR 状态：缓存 30s
+    local cache_file="$STATE_DIR/pr_cache"
+    local pr_state="NONE"
+    if [ -f "$cache_file" ]; then
+        local cache_age=$(( $(date +%s) - $(stat -f%m "$cache_file" 2>/dev/null || echo 0) ))
+        if [ "$cache_age" -lt 30 ]; then
+            pr_state=$(cat "$cache_file" 2>/dev/null || echo "NONE")
+        fi
+    fi
+
+    if [ "$pr_state" = "NONE" ] && [ -f "$cache_file" ] && [ "$cache_age" -ge 30 ] || [ ! -f "$cache_file" ]; then
+        pr_state=$(gh pr view --json state -q '.state' 2>/dev/null || echo "NONE")
+        echo "$pr_state" > "$cache_file"
+    fi
+
     case "$pr_state" in
-        "OPEN") echo -e "${MAGENTA}🔍 PR${RESET}" ;;
+        "OPEN") echo -e "${MAGENTA}◎ PR${RESET}" ;;
         "MERGED") echo -e "${GREEN}✓ MERGED${RESET}" ;;
         *) echo -e "${GRAY}⏸ WAIT${RESET}" ;;
     esac
@@ -80,40 +167,30 @@ get_phase() {
 
 PHASE=$(get_phase)
 
-# Git 信息（分支 + ahead/behind + 文件统计）
+# Git 信息
 get_git_info() {
-    if ! git rev-parse --git-dir > /dev/null 2>&1; then
-        return
-    fi
+    [ "$IS_GIT" != "true" ] && return
+    [ -z "$GIT_BRANCH" ] && return
 
-    local branch=$(git branch --show-current 2>/dev/null || echo "")
-    [ -z "$branch" ] && return
+    local branch="$GIT_BRANCH"
     [ ${#branch} -gt 15 ] && branch="${branch:0:12}..."
 
     local result="${CYAN}${branch}${RESET}"
 
-    # ahead/behind
-    if git rev-parse --abbrev-ref '@{upstream}' > /dev/null 2>&1; then
-        local counts=$(git rev-list --left-right --count HEAD...@{upstream} 2>/dev/null || echo -e "0\t0")
-        local ahead=$(echo "$counts" | cut -f1)
-        local behind=$(echo "$counts" | cut -f2)
-        if [ "$ahead" != "0" ] || [ "$behind" != "0" ]; then
-            result="${result} ${GRAY}|${RESET} ↑${ahead}↓${behind}"
-        fi
+    if [ "$GIT_AHEAD" != "0" ] || [ "$GIT_BEHIND" != "0" ]; then
+        result="${result} ${GRAY}|${RESET} ↑${GIT_AHEAD}↓${GIT_BEHIND}"
     fi
 
-    # 文件统计
-    local porcelain=$(git status --porcelain 2>/dev/null || echo "")
-    if [ -n "$porcelain" ]; then
-        local modified=$(echo "$porcelain" | grep -c '^[ M]M' || echo 0)
-        local added=$(echo "$porcelain" | grep -c '^[ M]?[AM]' || echo 0)
-        local deleted=$(echo "$porcelain" | grep -c '^[ M]?[D]' || echo 0)
+    if [ -n "$GIT_PORCELAIN" ]; then
+        local modified=$(echo "$GIT_PORCELAIN" | grep -cE '^.M|^M' || true)
+        local added=$(echo "$GIT_PORCELAIN" | grep -cE '^\?\?|^A' || true)
+        local deleted=$(echo "$GIT_PORCELAIN" | grep -cE '^.D|^D' || true)
 
         local stats=""
-        [ "$modified" != "0" ] && stats="${stats}${YELLOW}!${modified}M${RESET}"
-        [ "$added" != "0" ] && stats="${stats}${GREEN}+${added}A${RESET}"
-        [ "$deleted" != "0" ] && stats="${stats}${RED}✘${deleted}D${RESET}"
-        [ -n "$stats" ] && result="${result} ${GRAY}|${RESET} ${stats}"
+        [ "$modified" != "0" ] && stats="${stats}${YELLOW}~${modified}${RESET} "
+        [ "$added" != "0" ] && stats="${stats}${GREEN}+${added}${RESET} "
+        [ "$deleted" != "0" ] && stats="${stats}${RED}-${deleted}${RESET} "
+        [ -n "$stats" ] && result="${result} ${GRAY}|${RESET} ${stats% }"
     fi
 
     echo "$result"
@@ -122,7 +199,6 @@ get_git_info() {
 GIT_INFO=$(get_git_info)
 
 # 会话时长
-DURATION_MS=$(echo "$input" | jq -r '.cost.total_duration_ms // 0')
 format_duration() {
     local ms=$1
     local mins=$((ms / 60000))
@@ -132,81 +208,228 @@ format_duration() {
 }
 DURATION=$(format_duration "$DURATION_MS")
 
+# 费用
+format_cost() {
+    local usd=$1
+    [ "$usd" = "0" ] && return
+    printf "\$%.2f" "$usd"
+}
+COST=$(format_cost "$COST_USD")
+
 # 组装第1行
-LINE1="${CONTEXT_BAR} ${CONTEXT_PCT%.*}% ${GRAY}|${RESET} ${PHASE}"
+LINE1=""
+[ -n "$MODEL_BADGE" ] && LINE1="${MODEL_BADGE} "
+[ -n "$AGENT_BADGE" ] && LINE1="${LINE1}${AGENT_BADGE} "
+LINE1="${LINE1}${CONTEXT_BAR} ${CONTEXT_PCT%.*}% ${GRAY}|${RESET} ${PHASE}"
 [ -n "$GIT_INFO" ] && LINE1="${LINE1} ${GRAY}|${RESET} ${GIT_INFO}"
-LINE1="${LINE1} ${GRAY}|${RESET} ⏱️ ${DURATION}"
+LINE1="${LINE1} ${GRAY}|${RESET} ${DURATION}"
+[ -n "$COST" ] && LINE1="${LINE1} ${GRAY}${COST}${RESET}"
 
-# ========== 第2行：工具活动统计 ==========
-get_tool_line() {
+# ========== 第2行：Session 生产力 + 工具统计 ==========
+get_metrics_line() {
+    local parts=""
+
+    # Token 效率 (in/out)
+    if [ "$TOTAL_INPUT" -gt 1000 ] 2>/dev/null; then
+        local in_k=$((TOTAL_INPUT / 1000))
+        local out_k=$((TOTAL_OUTPUT / 1000))
+        parts="${GRAY}in:${RESET}${in_k}K ${GRAY}out:${RESET}${out_k}K"
+    fi
+
+    # 代码变更量
+    if [ "$LINES_ADDED" != "0" ] || [ "$LINES_REMOVED" != "0" ]; then
+        [ -n "$parts" ] && parts="${parts} ${GRAY}|${RESET} "
+        parts="${parts}${GREEN}+${LINES_ADDED}${RESET} ${RED}-${LINES_REMOVED}${RESET}"
+    fi
+
+    # 缓存命中率
+    if [ "$INPUT_TOKENS" != "0" ] && [ "$INPUT_TOKENS" -gt 1000 ]; then
+        local cache_pct=$((CACHE_READ * 100 / (INPUT_TOKENS + CACHE_READ)))
+        if [ "$cache_pct" -gt 0 ]; then
+            [ -n "$parts" ] && parts="${parts} ${GRAY}|${RESET} "
+            if [ "$cache_pct" -gt 70 ]; then
+                parts="${parts}${GREEN}cache:${cache_pct}%${RESET}"
+            else
+                parts="${parts}${GRAY}cache:${cache_pct}%${RESET}"
+            fi
+        fi
+    fi
+
+    # 工具统计
     local stats_file="$STATE_DIR/tool_stats.json"
-    [ ! -f "$stats_file" ] && return
+    if [ -s "$stats_file" ]; then
+        local tool_parsed
+        tool_parsed=$(jq -r '[.read // 0, .edit // 0, .bash // 0, .grep // 0] | @tsv' "$stats_file" 2>/dev/null) || true
+        if [ -n "$tool_parsed" ]; then
+            local r=$(echo "$tool_parsed" | cut -f1)
+            local e=$(echo "$tool_parsed" | cut -f2)
+            local b=$(echo "$tool_parsed" | cut -f3)
+            local g=$(echo "$tool_parsed" | cut -f4)
 
-    local stats=$(cat "$stats_file" 2>/dev/null || echo "{}")
-    local output=""
+            local tools=""
+            [ "$r" != "0" ] && tools="${tools}${GREEN}R:${r}${RESET} "
+            [ "$e" != "0" ] && tools="${tools}${YELLOW}E:${e}${RESET} "
+            [ "$b" != "0" ] && tools="${tools}${BLUE}B:${b}${RESET} "
+            [ "$g" != "0" ] && tools="${tools}${MAGENTA}G:${g}${RESET} "
 
-    local read_count=$(echo "$stats" | jq -r '.read // 0')
-    local edit_count=$(echo "$stats" | jq -r '.edit // 0')
-    local bash_count=$(echo "$stats" | jq -r '.bash // 0')
-    local grep_count=$(echo "$stats" | jq -r '.grep // 0')
+            if [ -n "$tools" ]; then
+                [ -n "$parts" ] && parts="${parts} ${GRAY}|${RESET} "
+                parts="${parts}${tools% }"
+            fi
+        fi
+    fi
 
-    [ "$read_count" != "0" ] && output="${output}${GREEN}✓ Read ×${read_count}${RESET} ${GRAY}|${RESET} "
-    [ "$edit_count" != "0" ] && output="${output}${YELLOW}✓ Edit ×${edit_count}${RESET} ${GRAY}|${RESET} "
-    [ "$bash_count" != "0" ] && output="${output}${BLUE}✓ Bash ×${bash_count}${RESET} ${GRAY}|${RESET} "
-    [ "$grep_count" != "0" ] && output="${output}${MAGENTA}✓ Grep ×${grep_count}${RESET} ${GRAY}|${RESET} "
-
-    [ -n "$output" ] && echo -e "\n${output% ${GRAY}|${RESET} }"
+    [ -n "$parts" ] && echo -e "\n${parts}"
 }
 
-TOOL_LINE=$(get_tool_line)
+METRICS_LINE=$(get_metrics_line)
 
 # ========== 第3行：任务进度 ==========
 get_task_line() {
     local task_file="$STATE_DIR/tasks.json"
-    [ ! -f "$task_file" ] && return
+    [ ! -s "$task_file" ] && return
 
-    local data=$(cat "$task_file" 2>/dev/null || echo "{}")
-    local total=$(echo "$data" | jq -r '.total // 0')
+    local parsed
+    parsed=$(jq -r '[.total // 0, .completed // 0, .in_progress // 0, .pending // 0] | @tsv' "$task_file" 2>/dev/null) || return
+    [ -z "$parsed" ] && return
+    local total=$(echo "$parsed" | cut -f1)
     [ "$total" = "0" ] && return
 
-    local completed=$(echo "$data" | jq -r '.completed // 0')
-    local in_progress=$(echo "$data" | jq -r '.in_progress // 0')
-    local pending=$(echo "$data" | jq -r '.pending // 0')
-
+    local completed=$(echo "$parsed" | cut -f2)
+    local in_progress=$(echo "$parsed" | cut -f3)
+    local pending=$(echo "$parsed" | cut -f4)
     local pct=$((completed * 100 / total))
 
-    echo -e "\n${GREEN}✓${RESET} Tasks: ${completed}/${total} ${GRAY}(${pct}%)${RESET} ${GRAY}|${RESET} ${YELLOW}→ ${in_progress} active${RESET} ${GRAY}|${RESET} ${GRAY}⏳ ${pending} pending${RESET}"
+    echo -e "\n${GREEN}✓${RESET} ${completed}/${total} ${GRAY}(${pct}%)${RESET} ${YELLOW}→${in_progress}${RESET} ${GRAY}⏳${pending}${RESET}"
 }
 
 TASK_LINE=$(get_task_line)
 
-# ========== 第4行：Agent 状态 ==========
-get_agent_line() {
-    local agent_file="$STATE_DIR/agents.json"
-    [ ! -f "$agent_file" ] && return
-
-    local active=$(cat "$agent_file" 2>/dev/null | jq -r '.active // []')
-    local count=$(echo "$active" | jq 'length')
-    [ "$count" = "0" ] && return
+# ========== 第4行：Team 状态 ==========
+get_team_line() {
+    local teams_dir="${HOME}/.claude/teams"
+    [ ! -d "$teams_dir" ] && return
 
     local output=""
-    local i=0
-    while [ $i -lt "$count" ]; do
-        local name=$(echo "$active" | jq -r ".[$i].name")
-        local task=$(echo "$active" | jq -r ".[$i].task")
-        local duration=$(echo "$active" | jq -r ".[$i].duration")
-        [ ${#task} -gt 25 ] && task="${task:0:22}..."
-        output="${output}\n${CYAN}✓ ${name}:${RESET} ${task} ${GRAY}(${duration}s)${RESET}"
-        i=$((i + 1))
+    for config in "$teams_dir"/*/config.json; do
+        [ ! -f "$config" ] && continue
+        local team_parsed
+        team_parsed=$(jq -r '
+            (.name // "team") as $name |
+            ((.members // []) | length) as $count |
+            [(.members // [])[] | .name] | join(",") |
+            "\($name)\t\($count)\t\(.)"
+        ' "$config" 2>/dev/null) || continue
+        [ -z "$team_parsed" ] && continue
+
+        local tname=$(echo "$team_parsed" | cut -f1)
+        local tcount=$(echo "$team_parsed" | cut -f2)
+        local tnames=$(echo "$team_parsed" | cut -f3)
+        [ "$tcount" = "0" ] && continue
+
+        [ ${#tnames} -gt 30 ] && tnames="${tnames:0:27}..."
+        output="${output}\n${MAGENTA}⚡${RESET} ${WHITE_BOLD}${tname}${RESET} ${GRAY}(${tcount})${RESET} ${CYAN}${tnames}${RESET}"
     done
+
+    [ -n "$output" ] && echo -e "$output"
+}
+
+TEAM_LINE=$(get_team_line)
+
+# ========== 第5行：Agent 状态 ==========
+get_agent_line() {
+    local agent_file="$STATE_DIR/agents.json"
+    [ ! -s "$agent_file" ] && return
+
+    local lines
+    lines=$(jq -r '(.active // [])[] | "\(.name)\t\(.task[:25])\t\(.duration)"' "$agent_file" 2>/dev/null) || return
+    [ -z "$lines" ] && return
+
+    local output=""
+    while IFS=$'\t' read -r name task duration; do
+        output="${output}\n${CYAN}▸ ${name}:${RESET} ${task} ${GRAY}(${duration}s)${RESET}"
+    done <<< "$lines"
 
     [ -n "$output" ] && echo -e "$output"
 }
 
 AGENT_LINE=$(get_agent_line)
 
-# ========== 输出多行结果 ==========
-# 使用 \n 分隔各行
-OUTPUT="${LINE1}${TOOL_LINE}${TASK_LINE}${AGENT_LINE}"
+# ========== Session 轮数 ==========
+get_turn_count() {
+    local sessions_dir="${HOME}/.claude/state/braintrust_sessions"
+    [ ! -d "$sessions_dir" ] && return
 
-echo -e "$OUTPUT"
+    # 优先用 session_id 精确匹配，否则取最新文件
+    local session_file=""
+    if [ -n "$SESSION_ID" ] && [ -f "$sessions_dir/${SESSION_ID}.json" ]; then
+        session_file="$sessions_dir/${SESSION_ID}.json"
+    else
+        session_file=$(ls -t "$sessions_dir"/*.json 2>/dev/null | head -1)
+    fi
+    [ -z "$session_file" ] || [ ! -f "$session_file" ] && return
+
+    local turns
+    turns=$(jq -r '.turn_count // 0' "$session_file" 2>/dev/null) || return
+    [ "$turns" = "0" ] && return
+    echo "$turns"
+}
+
+TURN_COUNT=$(get_turn_count)
+
+# ========== 活跃 Ledger ==========
+get_ledger_info() {
+    local ledger_dir="thoughts/ledgers"
+    [ ! -d "$ledger_dir" ] && return
+
+    # 取最新修改的 ledger 文件
+    local latest
+    latest=$(ls -t "$ledger_dir"/*.md 2>/dev/null | head -1)
+    [ -z "$latest" ] && return
+
+    # 提取标题（第一行 # 后面的内容）
+    local title
+    title=$(head -1 "$latest" | sed -E 's/^#+ *//')
+    [ -z "$title" ] && return
+
+    # 提取当前阶段（查找 [→] 标记）
+    local phase
+    phase=$(grep -m1 '\[→\]' "$latest" 2>/dev/null | sed 's/.*\[→\] *//' | head -c 30)
+
+    # 截断标题
+    [ ${#title} -gt 25 ] && title="${title:0:22}..."
+
+    if [ -n "$phase" ]; then
+        echo "${title} ${GRAY}→ ${phase}${RESET}"
+    else
+        echo "$title"
+    fi
+}
+
+LEDGER_INFO=$(get_ledger_info)
+
+# ========== 组装 Session 信息行 ==========
+get_session_line() {
+    local parts=""
+
+    # Session 轮数
+    if [ -n "$TURN_COUNT" ]; then
+        local color="$GRAY"
+        [ "$TURN_COUNT" -gt 20 ] 2>/dev/null && color="$YELLOW"
+        [ "$TURN_COUNT" -gt 40 ] 2>/dev/null && color="$RED"
+        parts="${color}turn:${TURN_COUNT}${RESET}"
+    fi
+
+    # 活跃 Ledger
+    if [ -n "$LEDGER_INFO" ]; then
+        [ -n "$parts" ] && parts="${parts} ${GRAY}|${RESET} "
+        parts="${parts}${CYAN}▶${RESET} ${LEDGER_INFO}"
+    fi
+
+    [ -n "$parts" ] && echo -e "\n${parts}"
+}
+
+SESSION_LINE=$(get_session_line)
+
+# ========== 输出 ==========
+echo -e "${LINE1}${METRICS_LINE}${TASK_LINE}${SESSION_LINE}${TEAM_LINE}${AGENT_LINE}"
