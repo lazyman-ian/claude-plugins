@@ -2,6 +2,7 @@
 name: token-analyzer
 description: Analyzes token usage patterns and suggests optimization strategies. This skill should be used when user says "analyze tokens", "token usage", "optimize context", "分析 token", "token 优化", "上下文优化".
 model: haiku
+memory: user
 allowed-tools: [Bash, Read, Grep]
 ---
 

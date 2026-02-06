@@ -2,6 +2,7 @@
 name: deslop
 description: Removes AI-generated code slop (redundant comments, over-defensive code, type escapes) from current branch. This skill should be used when user says "clean up code", "remove slop", "deslop", "清理代码", "去除冗余", "AI 冗余".
 model: haiku
+memory: project
 allowed-tools: [Bash, Read, Glob, Grep, Edit]
 ---
 
