@@ -305,84 +305,6 @@ description: Create detailed implementation plans through interactive research.
 
 ---
 
-## StatusLine 增强
-
-### 多行格式 (v3.13.0+)
-
-```
-████████░░ 76% | main | ↑2↓0 | !3M +2A | 15m
-✓ Read ×12 | ✓ Edit ×3 | ✓ Bash ×5
-Tasks: 2/5 (40%) | → 1 active | 2 pending
-```
-
-**第1行**: 上下文可视化进度条 | 分支 | ahead/behind | 文件统计(M/A/D) | 会话时长
-**第2行**: 工具使用统计 (Read/Edit/Bash/Grep 计数)
-**第3行**: 任务进度 (完成/总数 | 进行中 | 待处理)
-**第4行**: Agent 状态 (名称: 任务描述 时长)
-
-### 旧版单行格式
-
-```
-45.2K 23% | main [DEV] ±6 | focus
-```
-
-### 增强格式 (v2.1.6+)
-
-```
-45.2K 23% $0.12 | main [DEV] +120/-30 ±6 | focus
-```
-
-新字段：
-- **Cost**: `$0.12` - 当前会话费用
-- **Code Delta**: `+120/-30` - 代码行增减
-
-### 实现示例
-
-```bash
-# 费用追踪 - JSON 字段或 token 估算
-session_cost=$(echo "$input" | jq -r '.cost.session_cost // -1' 2>/dev/null)
-if [[ "$session_cost" != "-1" && "$session_cost" != "null" ]]; then
-    cost_display="\$$(printf "%.2f" "$session_cost")"
-elif [[ "$total_tokens" -gt 0 ]]; then
-    # 回退: 从 tokens 估算 (~$3/1M for Sonnet)
-    estimated_cost=$(awk "BEGIN {printf \"%.2f\", $total_tokens * 0.000003}")
-    [[ "$estimated_cost" != "0.00" ]] && cost_display="~\$$estimated_cost"
-fi
-
-# 代码增减 - JSON 字段或 git diff
-lines_added=$(echo "$input" | jq -r '.code_delta.lines_added // -1' 2>/dev/null)
-if [[ "$lines_added" != "-1" && "$lines_added" != "null" ]]; then
-    lines_removed=$(echo "$input" | jq -r '.code_delta.lines_removed // -1' 2>/dev/null)
-    code_delta="+${lines_added}/-${lines_removed}"
-else
-    # 回退: 从 git diff 计算
-    diff_stat=$(git diff --shortstat 2>/dev/null)
-    added=$(echo "$diff_stat" | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || echo "0")
-    removed=$(echo "$diff_stat" | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' || echo "0")
-    [[ "$added" -gt 0 || "$removed" -gt 0 ]] && code_delta="+${added}/-${removed}"
-fi
-```
-
-**注意**: `.cost.session_cost` 和 `.code_delta.*` 字段可能不在所有版本的 StatusLine 输入中可用，建议实现回退方案。
-
-### Context 使用率
-
-```bash
-# v2.1.6+ 内置百分比
-used_pct=$(echo "$input" | jq -r '.context_window.used_percentage // -1')
-
-# 颜色编码
-if [[ "$context_pct" -ge 80 ]]; then
-    ctx_display="\033[31m⚠ ${token_display} ${context_pct}%\033[0m"  # 红色警告
-elif [[ "$context_pct" -ge 60 ]]; then
-    ctx_display="\033[33m${token_display} ${context_pct}%\033[0m"    # 黄色提醒
-else
-    ctx_display="\033[32m${token_display} ${context_pct}%\033[0m"    # 绿色正常
-fi
-```
-
----
-
 ## 版本更新记录
 
 ### v2.1.16-17 (2026-01)
@@ -440,52 +362,6 @@ fi
 |------|---------|
 | `agent_type` in SessionStart | 跳过子 agent 重处理 |
 | `FORCE_AUTOUPDATE_PLUGINS` | settings.json env |
-
----
-
-## Task Management (v2.1.16+)
-
-### 新工具
-
-| 工具 | 用途 |
-|------|------|
-| `TaskCreate` | 创建任务（subject, description, activeForm）|
-| `TaskUpdate` | 更新任务状态/依赖 |
-| `TaskList` | 列出所有任务 |
-| `TaskGet` | 获取任务详情 |
-
-### 任务状态
-
-```
-pending → in_progress → completed
-```
-
-### 依赖追踪
-
-```python
-# 设置依赖关系
-TaskUpdate(taskId="2", addBlockedBy=["1"])  # 任务 2 被任务 1 阻塞
-TaskUpdate(taskId="1", addBlocks=["2"])     # 任务 1 阻塞任务 2
-```
-
-### 使用场景
-
-| 场景 | 推荐 |
-|------|------|
-| 简单任务（1-3 步） | 不使用 TaskCreate |
-| 中等任务（4-7 步） | 使用，最多 4 次更新 |
-| 复杂任务（8+ 步） | 使用，最多 6 次更新 |
-
-### 与 TodoWrite 对比
-
-| 特性 | TaskCreate/Update | TodoWrite |
-|------|-------------------|-----------|
-| 依赖追踪 | ✅ | ❌ |
-| 任务分配 | ✅ (owner) | ❌ |
-| 状态查询 | ✅ (TaskGet) | ❌ |
-| Token 效率 | 更高 | 较低 |
-
-**建议**: v2.1.16+ 优先使用 Task Management 替代 TodoWrite。
 
 ---
 
@@ -736,14 +612,6 @@ export function detectPlatform(projectDir: string): Platform {
 ```
 
 ---
-
-## 贡献指南
-
-发现新的优化模式时:
-
-1. 更新 `docs/OPTIMIZATION_GUIDE.md`
-2. 更新 `skills/config-optimize/references/version-history.md`
-3. 如果是重要模式，考虑创建新 rule
 
 ## 参考链接
 

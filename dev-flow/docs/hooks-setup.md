@@ -191,6 +191,123 @@ PARAM=$(echo "$INPUT" | jq -r '.param // "default"')
 echo "✅ Success message"
 ```
 
+## Performance Optimization
+
+### Avoid Heavy Operations
+
+```bash
+# ❌ Bad: Full git log on every PostToolUse
+git log --all --oneline
+
+# ✅ Good: Limit results
+git log --oneline -5
+```
+
+### Cache Expensive Checks
+
+```bash
+# Cache PR status for 30 seconds
+CACHE_FILE="$STATE_DIR/pr_cache"
+if [ -f "$CACHE_FILE" ]; then
+    CACHE_AGE=$(( $(date +%s) - $(stat -f%m "$CACHE_FILE" 2>/dev/null || echo 0) ))
+    if [ "$CACHE_AGE" -lt 30 ]; then
+        cat "$CACHE_FILE"
+        exit 0
+    fi
+fi
+
+# Fetch and cache
+gh pr view --json state -q '.state' > "$CACHE_FILE"
+```
+
+### Early Exit for Non-Target Tools
+
+```bash
+# In PostToolUse hook, exit early for irrelevant tools
+TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+case "$TOOL_NAME" in
+    Read|Grep|Glob) exit 0 ;;  # Skip for read-only tools
+esac
+```
+
+## Debugging Techniques
+
+### Enable Debug Logging
+
+```bash
+# Set environment variable
+export CLAUDE_HOOK_DEBUG=1
+
+# In hook script
+if [ "$CLAUDE_HOOK_DEBUG" = "1" ]; then
+    LOG_FILE="${HOME}/.claude/hooks.log"
+    echo "[$(date)] $0 | Input: $INPUT" >> "$LOG_FILE"
+fi
+```
+
+### Test Hooks Manually
+
+```bash
+# Simulate hook input
+echo '{"tool_name":"Bash","tool_input":{"command":"git status"}}' | \
+  ~/.claude/hooks/my-hook.sh
+
+# With real Claude Code JSON
+pbpaste | ~/.claude/hooks/my-hook.sh
+```
+
+### Validate JSON Parsing
+
+```bash
+# Robust parsing with fallback
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || echo "")
+if [ -z "$SESSION_ID" ]; then
+    echo "⚠️ Warning: No session_id found" >&2
+    exit 0  # Non-blocking
+fi
+```
+
+## Advanced Matcher Patterns
+
+### Multiple Tools
+
+```json
+{
+  "matcher": "Write|Edit|Bash",
+  "hooks": [...]
+}
+```
+
+### Tool with Arguments
+
+```json
+{
+  "matcher": "Bash(git commit*)",
+  "hooks": [...]
+}
+```
+
+### MCP Tools
+
+```json
+{
+  "matcher": "mcp__.*",
+  "hooks": [...]
+}
+```
+
+### Exclude Pattern
+
+Use script logic to exclude:
+
+```bash
+TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name')
+case "$TOOL_NAME" in
+    Read|Grep|Glob) exit 0 ;;  # Exclude these
+    *) ;;  # Process others
+esac
+```
+
 ## Related
 
 - [Hook Development Guide](https://code.claude.com/docs/hooks)

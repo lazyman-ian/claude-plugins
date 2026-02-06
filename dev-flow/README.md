@@ -44,6 +44,7 @@
 | **Smart Automation** | Auto-infer scope, generate commit messages, PR descriptions |
 | **State Persistence** | Ledger tracks state across sessions |
 | **Task Management** | Bidirectional sync with Claude Code Task Management |
+| **Rich StatusLine** | Real-time workflow phase, token efficiency, team status - session-isolated |
 | **Multi-Agent** | TaskCoordinator + HandoffHub for complex tasks |
 | **Cross-Platform Team** | Parallel multi-repo development (iOS/Android/Web) with Agent Teams |
 | **Quality Assurance** | Auto-run platform lint/format/test/verify |
@@ -212,6 +213,53 @@ Machine judges completion, not Agent.
 /dev-flow:verify --lint-only  # Lint only
 ```
 
+## StatusLine
+
+Rich context display with session-isolated team tracking.
+
+### Display Sections
+
+| Section | Content | Example |
+|---------|---------|---------|
+| **Line 1** | Model, context bar, phase, git status | `Son ██████░░░░ 60% \| ● DEV \| main ~3 +1` |
+| **Line 2** | Token efficiency, code changes, cache | `in:45K out:12K \| +123 -45 \| cache:75%` |
+| **Line 3** | Task progress | `✓ 3/5 (60%) →1 ⏳1` |
+| **Line 4** | **Agent Team** (session-isolated) | `⚡ feature-auth (3) agent-1,agent-2,agent-3` |
+| **Line 5** | Active agents | `▸ impl-agent: Implementing auth (45s)` |
+| **Line 6** | Session info + ledger | `turn:12 \| ▶ Auth Module → Phase 2` |
+
+### Agent Team Session Isolation ✨
+
+**Problem**: Multiple sessions using Agent Teams would show all teams in StatusLine.
+
+**Solution**: Dual-strategy filtering (v3.15.0)
+
+1. **Primary**: Session→team mapping (`~/.claude/state/dev-flow/session_teams.json`)
+   - Automatically tracked via `TeamCreate`/`TeamDelete` hooks
+   - Precise session isolation
+
+2. **Fallback**: Time-based filter (5-minute window)
+   - Used if mapping file missing/corrupted
+   - Graceful degradation
+
+**Automatic**: No configuration needed, works out-of-the-box.
+
+**Details**: See [docs/session-team-mapping.md](./docs/session-team-mapping.md)
+
+### Installation
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/plugins/marketplaces/lazyman-ian/dev-flow/scripts/statusline.sh",
+    "padding": 0
+  }
+}
+```
+
 ## Platform Support
 
 ### Built-in
@@ -298,12 +346,22 @@ Create `.dev-flow.json` in project root:
 
 ## Documentation
 
+### User Guides
+
 | Document | Description |
 |----------|-------------|
 | [中文完整指南](./docs/GUIDE.md) | Chinese complete guide |
 | [English Guide](./docs/GUIDE_EN.md) | English complete guide |
+| [StatusLine Quick Ref](./docs/statusline-quick-ref.md) | StatusLine feature overview and usage |
+| [Session-Team Mapping](./docs/session-team-mapping.md) | Agent Team session isolation implementation |
+
+### Development
+
+| Document | Description |
+|----------|-------------|
 | [CONTRIBUTING](./CONTRIBUTING.md) | Contribution guidelines |
 | [CHANGELOG](./CHANGELOG.md) | Version history |
+| [Hooks Setup](./docs/hooks-setup.md) | Hook configuration guide |
 
 ## Architecture
 
