@@ -68,6 +68,26 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "TeamCreate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/track-team.sh create",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "TeamDelete",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/track-team.sh delete",
+            "timeout": 5
+          }
+        ]
       }
     ]
   }

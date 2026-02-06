@@ -308,11 +308,49 @@ TASK_LINE=$(get_task_line)
 # ========== 第4行：Team 状态 ==========
 get_team_line() {
     local teams_dir="${HOME}/.claude/teams"
+    local mapping_file="${STATE_DIR}/session_teams.json"
+
     [ ! -d "$teams_dir" ] && return
 
+    # 策略1: 精确 session 映射（优先）
+    if [ -f "$mapping_file" ] && [ -n "$SESSION_ID" ]; then
+        local team_name
+        team_name=$(jq -r --arg sid "$SESSION_ID" '.[$sid] // empty' "$mapping_file" 2>/dev/null)
+
+        if [ -n "$team_name" ]; then
+            local config="$teams_dir/$team_name/config.json"
+            if [ -f "$config" ]; then
+                local team_parsed
+                team_parsed=$(jq -r '
+                    (.name // "team") as $name |
+                    ((.members // []) | length) as $count |
+                    [(.members // [])[] | .name] | join(",") |
+                    "\($name)\t\($count)\t\(.)"
+                ' "$config" 2>/dev/null) || return
+                [ -z "$team_parsed" ] && return
+
+                local tname=$(echo "$team_parsed" | cut -f1)
+                local tcount=$(echo "$team_parsed" | cut -f2)
+                local tnames=$(echo "$team_parsed" | cut -f3)
+                [ "$tcount" = "0" ] && return
+
+                [ ${#tnames} -gt 30 ] && tnames="${tnames:0:27}..."
+                echo -e "\n${MAGENTA}⚡${RESET} ${WHITE_BOLD}${tname}${RESET} ${GRAY}(${tcount})${RESET} ${CYAN}${tnames}${RESET}"
+                return
+            fi
+        fi
+    fi
+
+    # 策略2: 时间过滤（fallback）
+    local cutoff=$(($(date +%s) - 300))
     local output=""
+
     for config in "$teams_dir"/*/config.json; do
         [ ! -f "$config" ] && continue
+
+        local mtime=$(stat -f%m "$config" 2>/dev/null || echo 0)
+        [ "$mtime" -lt "$cutoff" ] && continue
+
         local team_parsed
         team_parsed=$(jq -r '
             (.name // "team") as $name |

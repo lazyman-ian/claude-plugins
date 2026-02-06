@@ -30,6 +30,7 @@ skills/                     # 8 skills (SKILL.md + references/)
 commands/                   # 21 command definitions (includes /verify, /init, /extract-knowledge)
 agents/                     # 12 agent prompts
 hooks/hooks.json            # 5 hook types (PreToolUse, Setup, SessionStart, PreCompact, PostToolUse)
+scripts/track-team.sh       # Session→team mapping for StatusLine (PostToolUse: TeamCreate/TeamDelete)
 templates/thoughts/schema/  # JSON schemas for meta-iterate and handoff outputs
 docs/                       # keybindings.md, hooks-setup.md
 ```
@@ -195,3 +196,30 @@ dev_config → python|fix:black .|check:ruff .|scopes:api,models|src:custom
            → makefile|fix:make fix|check:make check|scopes:|src:Makefile
            → ios|fix:swiftlint --fix|check:swiftlint|scopes:...|src:auto
 ```
+
+## Recent Changes (v3.15.0)
+
+### StatusLine Session Isolation
+
+**Problem**: StatusLine displayed all Agent Teams across sessions, causing confusion when multiple sessions were active.
+
+**Solution**: Implemented dual-strategy session isolation:
+
+1. **Primary**: Session→team mapping via `PostToolUse` hooks
+   - `TeamCreate` → `track-team.sh create` → writes mapping
+   - `TeamDelete` → `track-team.sh delete` → clears mapping
+   - Mapping stored in `~/.claude/state/dev-flow/session_teams.json`
+
+2. **Fallback**: Time-based filter (5-minute window)
+   - Activated if mapping file missing/corrupted
+   - Ensures StatusLine always works
+
+**Files Modified**:
+- `scripts/statusline.sh`: Updated `get_team_line()` with dual-strategy logic
+- `hooks/hooks.json`: Added `TeamCreate`/`TeamDelete` PostToolUse hooks
+- `scripts/track-team.sh`: New hook script for mapping management
+- `docs/session-team-mapping.md`: Complete implementation guide
+
+**Impact**: Each session now sees only its own Agent Team, preventing cross-session confusion.
+
+**Automatic**: No user configuration required, works out-of-the-box.
