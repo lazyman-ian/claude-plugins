@@ -13,7 +13,7 @@ file_path=$(echo "$input" | jq -r '.tool_input.file_path // ""' 2>/dev/null || e
 
 # Only check Swift files (early exit before parsing content)
 if [[ ! "$file_path" =~ \.swift$ ]]; then
-    echo '{"decision": "allow"}'
+    echo '{"decision": "approve"}'
     exit 0
 fi
 
@@ -61,5 +61,5 @@ else
 fi
 
 # All checks passed
-echo '{"decision": "allow"}'
+echo '{"decision": "approve"}'
 exit 0
