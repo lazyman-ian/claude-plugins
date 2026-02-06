@@ -10,11 +10,11 @@ The Setup hook runs on project initialization and maintenance tasks.
 
 ```bash
 # Copy the hook script
-cp hooks/setup-init.sh ~/.claude/hooks/
-chmod +x ~/.claude/hooks/setup-init.sh
+cp hooks/setup-dev-flow.sh ~/.claude/hooks/
+chmod +x ~/.claude/hooks/setup-dev-flow.sh
 
 # Or use symlink for auto-updates
-ln -s "$(pwd)/hooks/setup-init.sh" ~/.claude/hooks/setup-init.sh
+ln -s "$(pwd)/hooks/setup-dev-flow.sh" ~/.claude/hooks/setup-dev-flow.sh
 ```
 
 ### Configuration
@@ -25,10 +25,10 @@ Add to `~/.claude/settings.json`:
 {
   "hooks": {
     "Setup": [{
-      "matcher": "init|maintenance",
+      "matcher": "init",
       "hooks": [{
         "type": "command",
-        "command": "$HOME/.claude/hooks/setup-init.sh",
+        "command": "$HOME/.claude/hooks/setup-dev-flow.sh",
         "timeout": 30
       }]
     }]
@@ -103,10 +103,10 @@ If you already have hooks in `~/.claude/settings.json`, merge them:
 
       // Add dev-flow Setup hook
       {
-        "matcher": "init|maintenance",
+        "matcher": "init",
         "hooks": [{
           "type": "command",
-          "command": "$HOME/.claude/hooks/setup-init.sh",
+          "command": "$HOME/.claude/hooks/setup-dev-flow.sh",
           "timeout": 30
         }]
       }
@@ -121,10 +121,10 @@ If you already have hooks in `~/.claude/settings.json`, merge them:
 
 ```bash
 # Test init trigger
-echo '{"trigger": "init"}' | ~/.claude/hooks/setup-init.sh
+echo '{"trigger": "init"}' | ~/.claude/hooks/setup-dev-flow.sh
 
 # Test maintenance trigger
-echo '{"trigger": "maintenance"}' | ~/.claude/hooks/setup-init.sh
+echo '{"trigger": "maintenance"}' | ~/.claude/hooks/setup-dev-flow.sh
 ```
 
 ### Expected Output
@@ -145,7 +145,7 @@ echo '{"trigger": "maintenance"}' | ~/.claude/hooks/setup-init.sh
 
 1. Check file permissions:
    ```bash
-   ls -l ~/.claude/hooks/setup-init.sh
+   ls -l ~/.claude/hooks/setup-dev-flow.sh
    # Should show: -rwxr-xr-x
    ```
 
@@ -162,17 +162,17 @@ echo '{"trigger": "maintenance"}' | ~/.claude/hooks/setup-init.sh
 
 ```bash
 # Run manually with stdin
-echo '{"trigger": "init"}' | ~/.claude/hooks/setup-init.sh
+echo '{"trigger": "init"}' | ~/.claude/hooks/setup-dev-flow.sh
 
 # Check for script errors
-bash -x ~/.claude/hooks/setup-init.sh <<< '{"trigger": "init"}'
+bash -x ~/.claude/hooks/setup-dev-flow.sh <<< '{"trigger": "init"}'
 ```
 
 ## Hook Development
 
 To create custom hooks:
 
-1. Use bash with `set -euo pipefail`
+1. Use bash with `set -o pipefail` (avoid `-e` as it crashes on jq errors)
 2. Read JSON input from stdin
 3. Output user-friendly messages
 4. Exit 0 for success, non-zero for errors

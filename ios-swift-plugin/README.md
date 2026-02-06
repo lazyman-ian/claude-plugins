@@ -66,7 +66,7 @@
 claude --plugin-dir /path/to/ios-swift-plugin
 ```
 
-See [INSTALL.md](../INSTALL.md) for detailed installation guide including submodule handling.
+See [INSTALL.md](../INSTALL.md) for detailed installation guide.
 
 ### Verify
 

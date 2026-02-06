@@ -471,9 +471,11 @@ dev-flow 自动启用以下 hooks:
 
 | Hook | 触发 | 功能 |
 |------|------|------|
+| PreToolUse | `git commit` 前 | 阻止裸 git commit，强制 /dev commit |
+| Setup | 首次初始化 | 配置 dev-flow 环境 |
 | SessionStart | 恢复 session | 加载 ledger + 平台知识 |
 | PreCompact | 压缩前 | 备份 transcript |
-| PostToolUse | Bash 后 | 提醒用 /dev 命令 + 绕过检测 |
+| PostToolUse | 工具执行后 | 工具计数 + 提醒用 /dev 命令 |
 
 ### StatusLine
 

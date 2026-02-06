@@ -126,7 +126,7 @@ User triggers comprehensive review:
 
 This does everything in Loop 2, plus:
 
-1. **Git archaeology**: Scan all 3 repos for recent branch/commit patterns
+1. **Git archaeology**: Scan all configured repos for recent branch/commit patterns
 2. **CLAUDE.md diff**: Compare current CLAUDE.md with last-synced version
 3. **Plan quality**: Read recent plans, check if structure matches template
 4. **Cross-reference**: Find TASK-IDs that appear in multiple repos

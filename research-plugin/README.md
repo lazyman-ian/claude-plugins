@@ -47,7 +47,7 @@ claude plugins add research@lazyman-ian
 /research --reason Core Data vs SwiftData
 
 # Deep comprehensive research
-/research --deep state of iOS architecture 2025
+/research --deep state of iOS architecture 2026
 ```
 
 ### Session Analysis

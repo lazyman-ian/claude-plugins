@@ -16,7 +16,7 @@ npm run bundle    # Bundle to scripts/mcp-server.cjs (required for plugin)
 npm run build     # TypeScript compile to dist/ (for development)
 npm run dev       # Run with ts-node
 
-# No tests currently configured
+# Tests exist (coordination/*.test.ts) but no test runner configured yet
 ```
 
 ## Architecture
@@ -29,7 +29,7 @@ npm run dev       # Run with ts-node
 skills/                     # 8 skills (SKILL.md + references/)
 commands/                   # 21 command definitions (includes /verify, /init, /extract-knowledge)
 agents/                     # 12 agent prompts
-hooks/hooks.json            # 3 hooks (SessionStart, PreCompact, PostToolUse)
+hooks/hooks.json            # 5 hook types (PreToolUse, Setup, SessionStart, PreCompact, PostToolUse)
 templates/thoughts/schema/  # JSON schemas for meta-iterate and handoff outputs
 docs/                       # keybindings.md, hooks-setup.md
 ```
@@ -134,9 +134,11 @@ allowed-tools: [specific, tools, only]
 
 ### Hook Integration
 
+- `PreToolUse(Bash(git commit*))`: Block raw git commit, enforce /dev commit
+- `Setup`: Initialize dev-flow environment on first run
 - `SessionStart`: Load active ledger context
 - `PreCompact`: Backup transcript before context compaction
-- `PostToolUse(Bash)`: Dev workflow reminders
+- `PostToolUse`: Tool usage counter + dev workflow reminders (git/gh)
 
 ### Agent Orchestration
 
@@ -144,7 +146,10 @@ Agents in `agents/` are spawned via Task tool for complex operations:
 - `plan-agent.md` - Create implementation plans
 - `implement-agent.md` - TDD execution
 - `code-reviewer.md` - PR review
-- `evaluate/diagnose/propose/apply/verify-agent.md` - Meta-iterate cycle (includes `discover` for new skill opportunities)
+- `evaluate/diagnose/propose/apply/verify-agent.md` - Meta-iterate cycle
+- `validate-agent.md` - Validate plan tech choices
+- `pr-describer.md` - Generate PR descriptions
+- `reasoning-generator.md` - Commit reasoning documentation
 
 ## Conventions
 

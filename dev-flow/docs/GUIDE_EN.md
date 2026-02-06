@@ -469,9 +469,11 @@ dev-flow auto-enables these hooks:
 
 | Hook | Trigger | Function |
 |------|---------|----------|
+| PreToolUse | Before `git commit` | Block raw git commit, enforce /dev commit |
+| Setup | First init | Configure dev-flow environment |
 | SessionStart | Resume session | Load ledger + platform knowledge |
 | PreCompact | Before compact | Backup transcript |
-| PostToolUse | After Bash | Remind /dev commands + bypass detection |
+| PostToolUse | After tool use | Tool counter + remind /dev commands |
 
 ### StatusLine
 
