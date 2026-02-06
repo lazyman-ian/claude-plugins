@@ -8,7 +8,7 @@ lazyman-ian marketplace for Claude Code plugins. This is a plugin directory (not
 
 | Plugin | Version | Type | Purpose |
 |--------|---------|------|---------|
-| dev-flow | 3.14.0 | submodule | Development workflow: planning → coding → commit → PR → release |
+| dev-flow | 3.15.0 | submodule | Development workflow: planning → coding → commit → PR → release + cross-platform team |
 | ios-swift-plugin | 1.1.0 | submodule | iOS/Swift toolkit: SwiftUI, Concurrency, WidgetKit |
 | utils | 1.3.0 | built-in | Code quality: deslop, search-code, safety hooks |
 | research | 1.3.0 | built-in | Research: Perplexity AI, Braintrust, RepoPrompt |
