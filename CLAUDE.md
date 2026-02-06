@@ -100,7 +100,10 @@ git -C <plugin> add . && git -C <plugin> commit -m "..." && git -C <plugin> push
 git add <plugin> && git commit -m "chore: update <plugin>" && git push
 
 # 3. Sync marketplace
-git -C ~/.claude/plugins/marketplaces/lazyman-ian pull
+git -C ~/.claude/plugins/marketplaces/lazyman-ian pull --recurse-submodules
+
+# 4. Refresh plugin cache (in Claude Code, or restart session)
+# /plugin remove <plugin>@lazyman-ian && /plugin add <plugin>@lazyman-ian
 ```
 
 ### Plugin Manifest Rules
@@ -136,6 +139,12 @@ color: yellow  # optional
 ```
 
 Must wrap in `"hooks"` object. Use `.tool_name` and `.tool_input.*` for input fields.
+
+### Hook Script Best Practices
+
+- Use `set -o pipefail` (NOT `set -eo pipefail`) — `-e` causes jq parse errors to crash the script
+- All `jq` calls add `2>/dev/null || echo ""` fallback
+- Non-target files early exit before heavy parsing (e.g., check `.swift$` before parsing content)
 
 ### Skill Requirements
 
