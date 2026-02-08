@@ -416,6 +416,129 @@ if [ "$CURRENT_VERSION" != "$LAST_VERSION" ]; then
 fi
 ```
 
+## Phase 6: Rules Consistency Check
+
+### Purpose
+
+Detect contradictions across `~/.claude/rules/*.md` that accumulate over time as rules are added from different sources (manual, config-optimize, meta-iterate).
+
+### Architecture
+
+```
+config-optimize (in-context)
+    │
+    ├─ Glob("~/.claude/rules/*.md")
+    │
+    ├─ Parallel Read (limit=50 per file)
+    │   ├─ Extract: imperative statements
+    │   ├─ Extract: table rows (✅/❌ patterns)
+    │   └─ Extract: "NEVER/ALWAYS/MUST" directives
+    │
+    ├─ Cross-check pairs (N*(N-1)/2 comparisons)
+    │   ├─ Same topic? → check for opposite advice
+    │   ├─ Same tool? → check for conflicting recommendations
+    │   └─ Same workflow? → check for incompatible steps
+    │
+    └─ Append to CHECK report
+```
+
+### Key Design: No Subprocess
+
+Unlike claude-reflect's `claude -p` approach, this uses Claude's **own context** to reason about contradictions. Benefits:
+
+| Aspect | `claude -p` (claude-reflect) | In-context (ours) |
+|--------|------------------------------|-------------------|
+| Latency | ~5-30s per call | 0 (already in context) |
+| Cost | Extra API call | 0 (within existing session) |
+| Quality | Isolated, no cross-file context | Full cross-file understanding |
+| Reliability | Subprocess can fail/timeout | Always works |
+
+### Extraction Patterns
+
+From each rule file, extract directives matching:
+
+```
+- Imperative: "Use X", "Always Y", "Never Z"
+- Table rows: "| ✅ pattern | ❌ anti-pattern |"
+- Conditional: "If X then Y" / "When X, do Y"
+- Prohibition: "NEVER", "BLOCKED", "禁止"
+- Requirement: "MUST", "ALWAYS", "必须"
+```
+
+### Contradiction Detection Logic
+
+```
+For each pair (rule_A, rule_B):
+  1. Topic overlap? (same keywords: "commit", "agent", "scope", etc.)
+     → No overlap → skip pair
+  2. Same topic, same advice → compatible, skip
+  3. Same topic, opposite advice → CONTRADICTION
+     → Classify severity:
+       - Both use NEVER/ALWAYS → High
+       - One conditional, one absolute → Medium
+       - Different contexts explicitly → Low (likely compatible)
+  4. Record: {rule_A, rule_B, conflict_description, severity}
+```
+
+### Skip Rules
+
+| Condition | Reason |
+|-----------|--------|
+| < 3 rule files | Not enough to conflict |
+| Platform-specific (e.g., `android-theme-lessons.md`) | Different context |
+| `.project-specific/` subdirectory | Project-scoped, not global |
+| Same file | Internal consistency is author's responsibility |
+
+### Output Format
+
+Appended to `thoughts/config-optimizations/CHECK-{date}.md`:
+
+```markdown
+## Rules Consistency Check
+
+Scanned: {N} rule files, {M} directive pairs checked.
+
+### Contradictions Found
+
+| # | File A | Directive A | File B | Directive B | Conflict | Severity |
+|---|--------|-------------|--------|-------------|----------|----------|
+| 1 | scope-control.md | "只改请求的内容" | agentic-coding.md | "记录发现的问题" | 发现 vs 修改范围 | Low |
+
+### Resolution Suggestions
+
+1. **#1 (Low)**: Compatible — "记录" ≠ "修改". scope-control prevents editing, agentic-coding encourages recording (TaskCreate). No action needed.
+
+### Summary
+
+✅ No critical contradictions. {N} low-severity items noted (compatible with context).
+```
+
+### State Tracking
+
+Add to `config-optimize-state.json`:
+
+```json
+{
+  "rules_consistency": {
+    "last_check_date": "2026-02-08",
+    "rules_checked": 15,
+    "contradictions_found": 1,
+    "critical_count": 0
+  }
+}
+```
+
+### Cost Impact
+
+| Scenario | Additional Tokens |
+|----------|-------------------|
+| 15 rule files × 50 lines | ~3K read |
+| Cross-check analysis | ~2K reasoning |
+| Report output | ~1K write |
+| **Total** | **~6K** (minimal overhead) |
+
+---
+
 ## Integration Points
 
 ### With meta-iterate

@@ -82,6 +82,26 @@ CLAUDE.md                        # Project instructions
 | > 200 lines | Too verbose | Split into focused rules |
 | Outdated references | Broken links | Update or remove |
 
+### Consistency Check (Phase 7)
+
+Cross-file contradiction detection for accumulated rules:
+
+| Check | What | Example |
+|-------|------|---------|
+| Opposite imperatives | "Use X" vs "Don't use X" | "use tabs" vs "use spaces" |
+| Tool conflicts | Different tool recommendations | "use Glob" vs "use find" |
+| Workflow conflicts | Incompatible steps | "commit immediately" vs "always review first" |
+| Scope conflicts | Different scope boundaries | "fix everything" vs "only fix requested" |
+
+**Directive extraction targets:**
+```
+NEVER / ALWAYS / MUST / 禁止 / 必须
+✅ / ❌ table patterns
+"Use X not Y" / "用 X 不用 Y"
+```
+
+**Exclusions:** `.project-specific/` directory, platform-specific rules (different context).
+
 ### Unreachable Detection
 ```bash
 # Run /doctor to find unreachable rules

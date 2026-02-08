@@ -67,7 +67,7 @@ PS_COUNT=$(echo "$STATE" | jq '.processed_sources | length')
 ## Workflow
 
 ```
-VERSION CHECK → SOURCE SEARCH → CONFIG ANALYSIS → GAP ANALYSIS → PROPOSALS → APPLY
+VERSION CHECK → SOURCE SEARCH → CONFIG ANALYSIS → GAP ANALYSIS → PROPOSALS → APPLY → RULES CONSISTENCY
 ```
 
 1. **Version Check**: Compare current vs last checked version
@@ -76,6 +76,7 @@ VERSION CHECK → SOURCE SEARCH → CONFIG ANALYSIS → GAP ANALYSIS → PROPOSA
 4. **Gap Analysis**: Identify unused features, deprecated patterns
 5. **Proposals**: Generate optimization recommendations
 6. **Apply**: Apply selected changes (requires approval)
+7. **Rules Consistency**: Cross-check all rules/ for contradictions (see below)
 
 ## Dynamic Source Search (Phase 2)
 
@@ -244,6 +245,55 @@ WebSearch("Claude Code new features best practices 2026")
 | `thoughts/config-optimizations/CHECK-*.md` | Gap analysis |
 | `thoughts/config-optimizations/APPLY-*.md` | Applied changes |
 
+## Phase 7: Rules Consistency Check
+
+After all config phases, scan `~/.claude/rules/*.md` for contradictions.
+
+### Strategy
+
+Read all rules files into context, then cross-check for conflicting directives.
+Uses Claude's own reasoning — **no `claude -p` subprocess**.
+
+### Steps
+
+```
+1. Glob("~/.claude/rules/*.md") → list all rule files
+2. Read each file (parallel, limit=50 per file for headers/key directives)
+3. Extract key directives (imperative statements, table rows with ✅/❌)
+4. Cross-check pairs for contradictions:
+   - Same topic, opposite advice
+   - Conflicting tool recommendations
+   - Incompatible workflow steps
+5. Append results to CHECK report
+```
+
+### Output in CHECK Report
+
+```markdown
+## Rules Consistency Check
+
+| Rule A | Rule B | Conflict | Severity |
+|--------|--------|----------|----------|
+| scope-control.md: "不修改范围外文件" | agentic-coding.md: "记录发现的问题" | Partial: 发现 vs 修改 | Low (compatible) |
+
+✅ No critical contradictions found.
+```
+
+### Contradiction Types
+
+| Type | Severity | Example |
+|------|----------|---------|
+| Direct opposite | High | "use tabs" vs "use spaces" |
+| Scope conflict | Medium | "only fix requested" vs "fix surrounding issues" |
+| Partial overlap | Low | "record discoveries" vs "don't modify unrelated" |
+| False positive | Skip | Different topics using similar language |
+
+### Skip Conditions
+
+- Rules < 3 files → skip (not enough to conflict)
+- Same file internal contradictions → not checked (author's intent)
+- Platform-specific rules (android-theme-lessons.md) → skip cross-platform comparison
+
 ## Agent Team Readiness Check
 
 If Agent Teams are available, also check:
@@ -275,6 +325,7 @@ After workflow completes (or early exit), always output:
 - Current version: {version}
 - Last checked: {date}
 - Actions taken: {count} proposals applied / 0 (already current)
+- Rules consistency: {N} files checked, {M} contradictions ({critical} critical)
 - Next check recommended: {date + 7 days}
 ```
 
