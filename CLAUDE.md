@@ -18,7 +18,8 @@ lazyman-ian marketplace for Claude Code plugins. Contains 4 plugins in a single 
 ### dev-flow MCP Server (TypeScript)
 
 ```bash
-cd dev-flow/mcp-server
+# NOTE: use `builtin cd` (not `cd`) to bypass zoxide alias
+builtin cd dev-flow/mcp-server
 npm install
 npm run bundle    # Bundle to scripts/mcp-server.cjs (required for plugin)
 npm run build     # TypeScript compile to dist/
@@ -28,7 +29,7 @@ npm run dev       # Run with ts-node
 ### ios-swift-plugin ConcurrencyGuard (Swift)
 
 ```bash
-cd ios-swift-plugin/tools/ConcurrencyGuard
+builtin cd ios-swift-plugin/tools/ConcurrencyGuard
 swift build -c release
 ```
 
@@ -129,6 +130,10 @@ Must wrap in `"hooks"` object. Use `.tool_name` and `.tool_input.*` for input fi
 - Use `set -o pipefail` (NOT `set -eo pipefail`) — `-e` causes jq parse errors to crash the script
 - All `jq` calls add `2>/dev/null || echo ""` fallback
 - Non-target files early exit before heavy parsing (e.g., check `.swift$` before parsing content)
+- Use `builtin cd` (not `cd`) — aliased to zoxide, fails in non-interactive shell
+- Use `/usr/bin/sed` (not `sed`) — aliased to `sd` with incompatible syntax
+- Use `/usr/bin/find` (not `find`) — aliased to `fd` with different arguments
+- Use `/usr/bin/curl` (not `curl`) — aliased to `xh` with incompatible flags
 
 ### Skill Requirements
 
