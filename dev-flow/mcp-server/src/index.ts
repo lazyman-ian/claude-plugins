@@ -259,6 +259,23 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
+      name: 'dev_memory',
+      description: '[~60 tokens] Manage knowledge consolidation (consolidate/status/query/list/extract)',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['consolidate', 'status', 'query', 'list', 'extract'],
+            description: 'Action to perform',
+          },
+          query: { type: 'string', description: 'Search query (for query action)' },
+          type: { type: 'string', description: 'Filter by type: pitfall|pattern|decision (for list action)' },
+          dryRun: { type: 'boolean', description: 'Preview only, no writes (for extract action)' },
+        },
+      },
+    },
+    {
       name: 'dev_aggregate',
       description: '[~60 tokens] Aggregate handoff results (summary/detailed/pr_ready)',
       inputSchema: {
@@ -420,6 +437,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return defaultsTool(args?.action as string);
       case 'dev_tasks':
         return tasksTool(args?.action as string, args?.ledgerPath as string);
+      // Memory tools
+      case 'dev_memory':
+        return memoryTool(args?.action as string, args?.query as string, args?.type as string, args?.dryRun as boolean);
       // Coordination tools
       case 'dev_coordinate':
         return coordinateTool(args?.action as string, args?.mode as string, args?.tasks as string, args?.taskId as string);
@@ -984,6 +1004,48 @@ function tasksTool(action?: string, ledgerPath?: string) {
       return { content: [{ type: 'text', text: continuity.formatTasksAsMarkdown(tasks) }] };
     default:
       return { content: [{ type: 'text', text: '❌ Action required: summary|export|sync' }] };
+  }
+}
+
+// Memory tool implementation
+function memoryTool(action?: string, query?: string, type?: string, dryRun?: boolean) {
+  switch (action) {
+    case 'consolidate': {
+      const result = continuity.memoryConsolidate();
+      return { content: [{ type: 'text', text: result.message }] };
+    }
+    case 'status': {
+      const status = continuity.memoryStatus();
+      return {
+        content: [{
+          type: 'text',
+          text: `entries:${status.totalEntries}|pitfalls:${status.byType.pitfall}|patterns:${status.byType.pattern}|decisions:${status.byType.decision}|unprocessed_handoffs:${status.unprocessedHandoffs}|unprocessed_reasoning:${status.unprocessedReasoning}`
+        }]
+      };
+    }
+    case 'query': {
+      if (!query) return { content: [{ type: 'text', text: '❌ query required' }] };
+      const results = continuity.memoryQuery(query);
+      if (results.length === 0) {
+        return { content: [{ type: 'text', text: `No results for "${query}"` }] };
+      }
+      const lines = results.map(r => `[${r.type}] ${r.title} (${r.platform}, ${r.sourceProject})`);
+      return { content: [{ type: 'text', text: `Found:${results.length}\n${lines.join('\n')}` }] };
+    }
+    case 'list': {
+      const results = continuity.memoryList(type);
+      if (results.length === 0) {
+        return { content: [{ type: 'text', text: type ? `No ${type} entries` : 'No entries' }] };
+      }
+      const lines = results.map(r => `[${r.type}] ${r.title} (${r.platform})`);
+      return { content: [{ type: 'text', text: `Total:${results.length}\n${lines.join('\n')}` }] };
+    }
+    case 'extract': {
+      const result = continuity.extractFromProject(dryRun ?? false);
+      return { content: [{ type: 'text', text: result.message }] };
+    }
+    default:
+      return { content: [{ type: 'text', text: '❌ Action required: consolidate|status|query|list|extract' }] };
   }
 }
 

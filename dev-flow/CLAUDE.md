@@ -4,17 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-dev-flow-plugin (v3.16.0) is a Claude Code plugin providing unified development workflow automation: planning → coding → commit → PR → release. Features VDD (Verification-Driven Development), multi-agent collaboration, generic agent-team orchestration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
+dev-flow-plugin (v3.17.0) is a Claude Code plugin providing unified development workflow automation: planning → coding → commit → PR → release. Features VDD (Verification-Driven Development), multi-agent collaboration, generic agent-team orchestration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
 
 ## Build & Development
 
 ```bash
-# MCP Server
-cd mcp-server
-npm install
-npm run bundle    # Bundle to scripts/mcp-server.cjs (required for plugin)
-npm run build     # TypeScript compile to dist/ (for development)
-npm run dev       # Run with ts-node
+# MCP Server (use --prefix to avoid cd alias issues)
+npm install --prefix mcp-server
+npm run --prefix mcp-server bundle    # Bundle to scripts/mcp-server.cjs (required for plugin)
+npm run --prefix mcp-server build     # TypeScript compile to dist/ (for development)
+npm run --prefix mcp-server dev       # Run with ts-node
 
 # Tests exist (coordination/*.test.ts) but no test runner configured yet
 ```
@@ -24,7 +23,7 @@ npm run dev       # Run with ts-node
 ### Plugin Structure
 
 ```
-.claude-plugin/plugin.json  # Plugin manifest (v3.16.0)
+.claude-plugin/plugin.json  # Plugin manifest (v3.17.0)
 .mcp.json                   # MCP server config → scripts/mcp-server.cjs
 skills/                     # 9 skills (SKILL.md + references/)
 commands/                   # 21 command definitions (includes /verify, /init, /extract-knowledge)
@@ -41,14 +40,14 @@ Single-file bundle architecture using `@modelcontextprotocol/sdk`:
 
 | Module | Purpose |
 |--------|---------|
-| `index.ts` | Server entry, 18 MCP tools |
-| `detector.ts` | Project type detection (ios/android/web) |
+| `index.ts` | Server entry, 19 MCP tools |
+| `detector.ts` | Project type detection + unified `detectPlatformSimple()` |
 | `git/workflow.ts` | Git status, phase detection |
 | `git/build-control.ts` | PR draft/ready, change analysis |
 | `git/version.ts` | Version info, release notes |
 | `platforms/ios.ts` | SwiftLint, SwiftFormat, test/verify |
 | `platforms/android.ts` | ktlint, ktfmt, test/verify |
-| `continuity/` | Ledgers, reasoning, branch, task-sync |
+| `continuity/` | Ledgers, reasoning, branch, task-sync, memory, context-injector |
 | `coordination/` | Multi-agent coordination, handoffs, aggregation |
 
 ### Platform Extension
@@ -91,6 +90,7 @@ export function getPythonCommands(): PlatformCommands {
 | `dev_coordinate` | ~40 | Multi-agent task planning/dispatch |
 | `dev_handoff` | ~50 | Handoff document management |
 | `dev_aggregate` | ~60 | Aggregate results for PR |
+| `dev_memory` | ~60 | Knowledge consolidation (consolidate/status/query/list/extract) |
 
 ### Workflow Phases
 
@@ -129,9 +129,22 @@ allowed-tools: [specific, tools, only]
 ### Continuity System
 
 - **Ledgers**: `thoughts/ledgers/CONTINUITY_CLAUDE-*.md` - Track task state across sessions
-- **Reasoning**: `.git/claude/commits/<hash>/reasoning.md` - Document commit decisions
+- **Reasoning**: `.git/claude/commits/<hash>/reasoning.md` + `thoughts/reasoning/<hash>-reasoning.md` - Dual-write for persistence
 - **Task Sync**: Bridge ledger state with Claude Code Task Management tools
 - Both stored in git for persistence
+
+### Knowledge System (v3.17.0)
+
+Closed-loop knowledge consolidation: `Distill → Consolidate → Inject`
+
+```
+Session → [auto-handoff] → [dev_memory consolidate] → Knowledge → [SessionStart inject] → Next Session
+```
+
+- **Knowledge Store**: `~/.claude/knowledge/{platforms,patterns,discoveries}/`
+- **FTS5 Index**: `.claude/cache/artifact-index/context.db` (knowledge + reasoning tables)
+- **Smart Injection**: SessionStart hook injects platform pitfalls + task-related knowledge (budget: ~500 tokens)
+- **Extract**: `/dev-flow:extract-knowledge` scans CLAUDE.md pitfalls, ledger decisions, reasoning patterns
 
 ### Hook Integration
 
@@ -157,7 +170,7 @@ Agents in `agents/` are spawned via Task tool for complex operations:
 - Commit messages: `type(scope): subject` (Conventional Commits)
 - Scope auto-inferred via `dev_defaults(action="scope")`
 - All `/dev-flow:*` commands use MCP tools internally
-- Platform detection is automatic based on project files
+- Platform detection: `.dev-flow.json` > file-based auto-detect (`detectPlatformSimple()` unified entry)
 - **No Makefile required**: `dev_config` returns platform-specific commands automatically
 
 ## Command Adaptation

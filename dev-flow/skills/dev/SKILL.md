@@ -42,6 +42,7 @@ Use `/dev-flow:` commands for all Git workflow operations:
 | `dev_check` | ~10 | CI-ready check |
 | `dev_config` | ~50 | Platform commands |
 | `dev_defaults` | ~20 | Smart defaults |
+| `dev_memory` | ~60 | Knowledge consolidation |
 
 Full tool reference: `references/mcp-tools.md`
 

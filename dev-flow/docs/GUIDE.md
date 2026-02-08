@@ -393,10 +393,10 @@ evaluate → diagnose → propose → [approve] → apply → verify
 
 ### Q: dev_config 返回 "unknown"
 
-**原因**: 项目未配置且不是 iOS/Android 项目
+**原因**: 项目未配置且不是 iOS/Android/Web 项目
 
-**解决**:
-1. 创建 `.dev-flow.json`:
+**解决** (推荐 `.dev-flow.json`，同时配置平台和命令):
+
 ```json
 {
   "platform": "python",
@@ -407,7 +407,9 @@ evaluate → diagnose → propose → [approve] → apply → verify
 }
 ```
 
-2. 或创建 `Makefile`:
+> `.dev-flow.json` 的 `platform` 字段还会影响知识库注入和 `dev_memory` 分类。
+
+或创建 `Makefile`:
 ```makefile
 fix:
 	black .
@@ -518,16 +520,31 @@ Tasks: 2/5 (40%) | → 1 active | 2 pending
 
 ## 平台支持
 
+### 检测优先级
+
+```
+1. .dev-flow.json → 最高优先级（用户显式配置）
+2. 文件检测 → 自动推断
+   *.xcodeproj / Podfile / Package.swift → ios
+   build.gradle → android
+   package.json → web
+   其他 → general
+```
+
+> **混合项目**（如 Svelte+Tauri 同时有 `package.json` 和 `Cargo.toml`）建议通过 `.dev-flow.json` 显式指定平台。
+
 ### 内置平台
 
 | 平台 | 检测文件 | lint fix | lint check | test | verify |
 |------|---------|----------|------------|------|--------|
 | iOS | `*.xcodeproj`, `Podfile` | swiftlint --fix | swiftlint | xcodebuild test | swiftlint && xcodebuild build |
 | Android | `build.gradle` | ktlint -F | ktlint | ./gradlew test | ktlintCheck && ./gradlew assembleDebug |
+| Web | `package.json` | (自定义) | (自定义) | (自定义) | (自定义) |
 
 ### 自定义平台
 
-`.dev-flow.json`:
+通过 `.dev-flow.json` 可以为任何项目指定平台和命令，覆盖自动检测：
+
 ```json
 {
   "platform": "python",
@@ -541,14 +558,33 @@ Tasks: 2/5 (40%) | → 1 active | 2 pending
 }
 ```
 
+`.dev-flow.json` 中的 `platform` 字段同时影响：
+- `dev_config` 命令输出
+- 知识库注入（SessionStart 时加载对应平台的 pitfalls）
+- `dev_memory` 知识分类
+
 ### 扩展新平台 (开发者)
 
-1. `mcp-server/src/detector.ts` - 添加检测逻辑
+1. `mcp-server/src/detector.ts` - 添加检测逻辑（`detectPlatformSimple()` 统一入口）
 2. `mcp-server/src/platforms/xxx.ts` - 实现命令配置
 
 ---
 
 ## 版本历史
+
+### v3.17.0 (2026-02-09)
+
+- **知识整合引擎**: `dev_memory` 工具，闭合 Distill → Consolidate → Inject 循环
+- **Smart Injection**: SessionStart 自动注入平台陷阱和任务相关知识 (~500 tokens)
+- **Reasoning 持久化**: 双写到 `thoughts/reasoning/` + FTS5 索引
+- **统一平台检测**: `detectPlatformSimple()` 统一 4 处检测逻辑，`.dev-flow.json` 优先级最高
+- **新命令**: /extract-knowledge 完整实现
+
+### v3.16.0 (2026-02-07)
+
+- **agent-team**: 通用 Agent Team 编排技能
+- **cross-platform-team**: 重构为扩展 agent-team
+- **evaluate-agent**: 跨 session 基线 + Task 指标集成
 
 ### v3.13.0 (2026-01-27)
 

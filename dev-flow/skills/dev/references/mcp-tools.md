@@ -149,6 +149,22 @@ makefile|fix:make fix|check:make check|scopes:|src:Makefile
 python|fix:black .|check:ruff .|scopes:api,models|src:custom
 ```
 
+## Knowledge Tools
+
+### dev_memory (~60 tokens)
+
+Knowledge consolidation and cross-session learning.
+
+```json
+{ "action": "consolidate" }                // Scan handoffs/reasoning/ledgers → knowledge entries
+{ "action": "status" }                     // Knowledge base stats + unprocessed counts
+{ "action": "query", "query": "MainActor" } // FTS5 search across knowledge
+{ "action": "list", "type": "pitfall" }    // List entries by type (pitfall/pattern/decision)
+{ "action": "extract", "dryRun": true }    // Full project extraction (preview)
+```
+
+Knowledge store: `~/.claude/knowledge/{platforms,patterns,discoveries}/`
+
 ## Tool Selection Guide
 
 | Need | Tool | Tokens |

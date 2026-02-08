@@ -576,19 +576,22 @@ MCP 工具应提供多种输出级别：
 ### 平台检测自动化
 
 ```typescript
-// detector.ts 示例
-export function detectPlatform(projectDir: string): Platform {
-  if (hasFiles(projectDir, ['*.xcodeproj', 'Podfile'])) return 'ios';
-  if (hasFiles(projectDir, ['build.gradle', 'AndroidManifest.xml'])) return 'android';
-  if (hasFiles(projectDir, ['package.json'])) return 'web';
-  if (hasFiles(projectDir, ['pyproject.toml', 'requirements.txt'])) return 'python';
-  if (hasFiles(projectDir, ['go.mod'])) return 'go';
-  if (hasFiles(projectDir, ['Cargo.toml'])) return 'rust';
-  return 'unknown';
+// detector.ts — 统一检测入口 (v3.17.0)
+export function detectPlatformSimple(projectPath: string): string {
+  // 1. .dev-flow.json 优先级最高
+  const config = loadProjectConfig(projectPath);
+  if (config?.platform) return config.platform.toLowerCase();
+
+  // 2. 文件特征检测
+  if (hasXcodeproj || hasPodfile || hasPackageSwift) return 'ios';
+  if (hasBuildGradle) return 'android';
+  if (hasPackageJson) return 'web';
+  return 'general';
 }
 ```
 
-**扩展新平台**：只需在 `detector.ts` 添加检测规则，`platforms/xxx.ts` 实现命令映射。
+**统一检测**：`memory.ts`、`context-injector.ts`、SessionStart hook 均调用同一函数。
+**扩展新平台**：创建 `.dev-flow.json` 指定平台即可，或在 `detector.ts` 添加检测规则 + `platforms/xxx.ts` 实现命令映射。
 
 ---
 

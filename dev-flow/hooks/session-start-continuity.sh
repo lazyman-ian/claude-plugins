@@ -125,6 +125,94 @@ if [[ "$SESSION_TYPE" == "startup" ]]; then
     OUTPUT=$(echo "$OUTPUT" | jq --arg tip "$NEW_MSG" '.message = $tip | .systemMessage = $tip')
 fi
 
+# Smart Knowledge Injection (Phase 3)
+# Inject relevant knowledge from ~/.claude/knowledge/ into additionalContext
+if [[ "$SESSION_TYPE" == "clear" || "$SESSION_TYPE" == "compact" ]]; then
+    KNOWLEDGE_DIR="${HOME}/.claude/knowledge"
+    KNOWLEDGE_CONTEXT=""
+
+    # Detect platform (unified: .dev-flow.json > file-based)
+    PLATFORM="general"
+    DEV_FLOW_JSON="$PROJECT_DIR/.dev-flow.json"
+    if [[ -f "$DEV_FLOW_JSON" ]]; then
+        PLATFORM=$(jq -r '.platform // empty' "$DEV_FLOW_JSON" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+        [[ -z "$PLATFORM" ]] && PLATFORM="general"
+    elif [[ -f "$PROJECT_DIR/Podfile" || -f "$PROJECT_DIR/Package.swift" ]]; then
+        PLATFORM="ios"
+    elif [[ -f "$PROJECT_DIR/build.gradle" || -f "$PROJECT_DIR/build.gradle.kts" ]]; then
+        PLATFORM="android"
+    elif [[ -f "$PROJECT_DIR/package.json" ]]; then
+        PLATFORM="web"
+    fi
+
+    # 1. Platform pitfalls (max 800 chars)
+    PITFALLS_FILE="$KNOWLEDGE_DIR/platforms/$PLATFORM/pitfalls.md"
+    if [[ -f "$PITFALLS_FILE" ]]; then
+        PITFALLS_CONTENT=$(head -c 800 "$PITFALLS_FILE" 2>/dev/null || true)
+        if [[ -n "$PITFALLS_CONTENT" ]]; then
+            PLATFORM_UPPER=$(echo "$PLATFORM" | tr '[:lower:]' '[:upper:]')
+            KNOWLEDGE_CONTEXT="### ${PLATFORM_UPPER} Pitfalls\n${PITFALLS_CONTENT}"
+        fi
+    fi
+
+    # 2. Task-related knowledge via FTS5 (max 600 chars)
+    DB_PATH="$PROJECT_DIR/.claude/cache/artifact-index/context.db"
+    if [[ -f "$DB_PATH" && -n "$CURRENT_BRANCH" ]]; then
+        # Extract keywords from branch name
+        BRANCH_KEYWORDS=$(echo "$CURRENT_BRANCH" | /usr/bin/sed 's/^feature\///' | /usr/bin/sed 's/^bugfix\///' | /usr/bin/sed 's/TASK-[0-9]*-*//' | tr '[-_/]' ' ' | tr -s ' ')
+        if [[ -n "$BRANCH_KEYWORDS" ]]; then
+            FTS_QUERY=$(echo "$BRANCH_KEYWORDS" | /usr/bin/sed 's/ / OR /g')
+            FTS_RESULTS=$(sqlite3 -separator '|||' "$DB_PATH" \
+                "SELECT k.type, k.title, substr(k.problem, 1, 80) FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${FTS_QUERY}' ORDER BY rank LIMIT 3;" 2>/dev/null || true)
+            if [[ -n "$FTS_RESULTS" ]]; then
+                TASK_KNOWLEDGE=""
+                while IFS= read -r line; do
+                    IFS='|||' read -r ktype ktitle kproblem <<< "$line"
+                    TASK_KNOWLEDGE="${TASK_KNOWLEDGE}\n- [${ktype}] ${ktitle}: ${kproblem}"
+                done <<< "$FTS_RESULTS"
+                if [[ -n "$TASK_KNOWLEDGE" ]]; then
+                    KNOWLEDGE_CONTEXT="${KNOWLEDGE_CONTEXT}\n\n### Related Knowledge\nKeywords: ${BRANCH_KEYWORDS}\n${TASK_KNOWLEDGE}"
+                fi
+            fi
+        fi
+    fi
+
+    # 3. Recent discoveries (7 days, max 600 chars)
+    DISCOVERIES_DIR="$KNOWLEDGE_DIR/discoveries"
+    if [[ -d "$DISCOVERIES_DIR" ]]; then
+        SEVEN_DAYS_AGO=$(date -v-7d +%Y-%m-%d 2>/dev/null || date -d "7 days ago" +%Y-%m-%d 2>/dev/null || true)
+        if [[ -n "$SEVEN_DAYS_AGO" ]]; then
+            RECENT_DISCOVERIES=""
+            for f in $(ls -t "$DISCOVERIES_DIR"/*.md 2>/dev/null | head -3); do
+                FILE_DATE=$(basename "$f" | grep -oE '^[0-9]{4}-[0-9]{2}-[0-9]{2}' || true)
+                if [[ -n "$FILE_DATE" && "$FILE_DATE" > "$SEVEN_DAYS_AGO" ]]; then
+                    TITLE=$(head -1 "$f" | /usr/bin/sed 's/^# Discovery: //')
+                    RECENT_DISCOVERIES="${RECENT_DISCOVERIES}\n- ${TITLE}"
+                fi
+            done
+            if [[ -n "$RECENT_DISCOVERIES" ]]; then
+                KNOWLEDGE_CONTEXT="${KNOWLEDGE_CONTEXT}\n\n### Recent Discoveries${RECENT_DISCOVERIES}"
+            fi
+        fi
+    fi
+
+    # Append knowledge to additionalContext (budget: 2000 chars)
+    if [[ -n "$KNOWLEDGE_CONTEXT" ]]; then
+        KNOWLEDGE_HEADER="\n\n---\n\n## Relevant Knowledge\n"
+        FULL_KNOWLEDGE="${KNOWLEDGE_HEADER}${KNOWLEDGE_CONTEXT}"
+        # Truncate to 2000 chars
+        FULL_KNOWLEDGE=$(echo -e "$FULL_KNOWLEDGE" | head -c 2000)
+
+        EXISTING_CONTEXT=$(echo "$OUTPUT" | jq -r '.hookSpecificOutput.additionalContext // ""')
+        if [[ -n "$EXISTING_CONTEXT" ]]; then
+            NEW_CONTEXT="${EXISTING_CONTEXT}${FULL_KNOWLEDGE}"
+        else
+            NEW_CONTEXT="$FULL_KNOWLEDGE"
+        fi
+        OUTPUT=$(echo "$OUTPUT" | jq --arg ctx "$NEW_CONTEXT" '.hookSpecificOutput.additionalContext = $ctx | .hookSpecificOutput.hookEventName = "SessionStart"')
+    fi
+fi
+
 # Add branch change notification (for any session type)
 if [[ -n "$BRANCH_CHANGED" ]]; then
     CURRENT_MSG=$(echo "$OUTPUT" | jq -r '.message // ""')

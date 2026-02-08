@@ -22,20 +22,22 @@ Initialize dev-flow directory structure and platform-specific configuration.
 
 ### 2. Platform Detection
 
-Auto-detects project type and suggests configuration:
+Detection priority: `.dev-flow.json` > file-based auto-detect.
 
 | Platform | Detection Files | Suggested Config |
 |----------|----------------|------------------|
-| iOS | `*.xcodeproj`, `Podfile` | SwiftLint, SwiftFormat |
-| Android | `build.gradle`, `AndroidManifest.xml` | ktlint, ktfmt |
+| iOS | `*.xcodeproj`, `Podfile`, `Package.swift` | SwiftLint, SwiftFormat |
+| Android | `build.gradle` | ktlint, ktfmt |
+| Web | `package.json` | eslint, prettier |
 | Python | `pyproject.toml`, `requirements.txt` | ruff, black, mypy |
-| Node | `package.json` | eslint, prettier |
 | Go | `go.mod` | golangci-lint, gofmt |
 | Rust | `Cargo.toml` | clippy, rustfmt |
 
+> **Mixed projects**: Use `.dev-flow.json` to explicitly set platform.
+
 ### 3. Configuration File (.dev-flow.json)
 
-Optional custom configuration:
+Optional custom configuration. The `platform` field affects `dev_config`, knowledge injection, and `dev_memory` classification:
 
 ```json
 {

@@ -21,11 +21,11 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.16.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.17.0-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/Claude_Code-2.1.19+-purple.svg" alt="Claude Code">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
   <img src="https://img.shields.io/badge/platforms-iOS%20%7C%20Android%20%7C%20Custom-orange.svg" alt="Platforms">
-  <img src="https://img.shields.io/badge/MCP_Tools-18-brightgreen.svg" alt="MCP Tools">
+  <img src="https://img.shields.io/badge/MCP_Tools-19-brightgreen.svg" alt="MCP Tools">
 </p>
 
 <p align="center">
@@ -308,7 +308,7 @@ Create `.dev-flow.json` in project root:
 
 ## MCP Tools
 
-18 tools for workflow automation:
+19 tools for workflow automation:
 
 <details>
 <summary><strong>Core Tools (15)</strong></summary>
@@ -344,6 +344,15 @@ Create `.dev-flow.json` in project root:
 
 </details>
 
+<details>
+<summary><strong>Knowledge Tools (1)</strong></summary>
+
+| Tool | Tokens | Purpose |
+|------|--------|---------|
+| `dev_memory` | ~60 | Knowledge consolidation & cross-session learning |
+
+</details>
+
 ## Documentation
 
 ### User Guides
@@ -369,7 +378,7 @@ Create `.dev-flow.json` in project root:
 dev-flow-plugin/
 ├── .claude-plugin/plugin.json   # Plugin manifest
 ├── .mcp.json                    # MCP server config
-├── mcp-server/                  # MCP server (18 tools)
+├── mcp-server/                  # MCP server (19 tools)
 │   └── src/
 │       ├── index.ts             # Entry point
 │       ├── detector.ts          # Platform detection

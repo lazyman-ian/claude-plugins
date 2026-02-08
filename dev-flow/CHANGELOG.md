@@ -5,6 +5,36 @@ All notable changes to dev-flow plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.17.0] - 2026-02-09
+
+### Added
+
+- **Knowledge Consolidation Engine**: Closed-loop `Distill → Consolidate → Inject` system
+  - `dev_memory` MCP tool with 5 actions: consolidate, status, query, list, extract
+  - Knowledge store at `~/.claude/knowledge/{platforms,patterns,discoveries}/`
+  - FTS5 index (`knowledge` + `knowledge_fts` tables) in artifact-index DB
+  - Deduplication via substring matching on title + problem fields
+- **Reasoning Persistence**: Dual-write reasoning to `thoughts/reasoning/` (git-tracked)
+  - FTS5 index (`reasoning` + `reasoning_fts` tables) for full-text search
+  - `reasoningRecall` now searches both file system and FTS5 index
+- **Smart Context Injection**: SessionStart hook auto-injects relevant knowledge
+  - Platform pitfalls (max 800 chars), task-related FTS5 results (max 600 chars), recent discoveries (max 600 chars)
+  - Total budget: ~500 tokens per session start
+- **Extract-Knowledge command**: `/dev-flow:extract-knowledge` calls `dev_memory(action:"extract")`
+  - Scans CLAUDE.md pitfalls, ledger decisions, reasoning patterns, handoff errors
+  - Supports `--dry-run` for preview
+
+### Changed
+
+- **Unified Platform Detection**: `detectPlatformSimple()` in `detector.ts` replaces 4 independent implementations
+  - `memory.ts`, `context-injector.ts`, SessionStart hook all call the unified function
+  - `.dev-flow.json` `platform` field takes highest priority over file-based detection
+  - Supports custom platforms (python, rust, go, etc.) via `.dev-flow.json`
+- `continuity/reasoning.ts`: Added persistent copy + FTS5 indexing on generate
+- `hooks/session-start-continuity.sh`: Added knowledge injection for clear/compact sessions
+- MCP tool count: 18 → 19
+- `continuity/index.ts`: Exports memory and context-injector modules
+
 ## [3.16.0] - 2026-02-07
 
 ### Added

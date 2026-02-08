@@ -1,127 +1,81 @@
 ---
-description: Extract reusable knowledge from current project
+description: Extract reusable knowledge from current project into cross-project knowledge base
 ---
 
 # /dev-flow:extract-knowledge - Knowledge Extraction
 
-Extract reusable knowledge from the current project into the cross-project knowledge base.
+Extract reusable knowledge from the current project into `~/.claude/knowledge/`.
+
+## Usage
+
+```
+/dev-flow:extract-knowledge              # Full extraction
+/dev-flow:extract-knowledge --dry-run    # Preview only
+```
+
+## Workflow
+
+### Step 1: Preview what will be extracted
+
+```
+dev_memory(action:"extract", dryRun:true)
+```
+
+Show the counts to the user and confirm before proceeding.
+
+### Step 2: Run extraction
+
+```
+dev_memory(action:"extract")
+```
+
+### Step 3: Report results
+
+```
+dev_memory(action:"status")
+```
+
+Show the knowledge base status after extraction.
+
+### Step 4: Update MEMORY.md (optional)
+
+If the user's project memory file exists at the auto-memory path, append an `## Auto-extracted` section with today's date and counts.
 
 ## Data Sources
 
-| Source | Location | Content |
-|--------|----------|---------|
-| CLAUDE.md | Project root | "已知陷阱" / "Known Pitfalls" section |
-| Ledgers | thoughts/ledgers/ | Resolved "Open Questions" |
-| Commit Reasoning | .git/claude/commits/ | Decision records |
+| Source | Extracted Content | Knowledge Type |
+|--------|------------------|----------------|
+| CLAUDE.md "Known Pitfalls" | Platform-specific bugs | `pitfall` |
+| `thoughts/ledgers/*.md` resolved questions | Technical decisions | `decision` |
+| `.git/claude/commits/` failed attempts | Anti-patterns | `pattern` |
+| `thoughts/shared/handoffs/` errors | Platform pitfalls | `pitfall` |
 
-## Extraction Flow
+## Knowledge Destinations
 
-### Step 1: Detect Platform
-
-```bash
-dev_config(format="json")
-# → { "platform": "ios", ... }
-```
-
-### Step 2: Scan Sources
-
-1. Read CLAUDE.md for pitfalls section
-2. Read ledgers for resolved questions
-3. Read recent commit reasoning files
-
-### Step 3: Categorize Knowledge
-
-| Type | Destination |
-|------|-------------|
-| Platform-specific bug | `~/.claude/knowledge/platforms/<platform>/pitfalls.md` |
-| Cross-platform pattern | `~/.claude/knowledge/patterns/<pattern>.md` |
-| Time-based discovery | `~/.claude/knowledge/discoveries/YYYY-MM-DD-<topic>.md` |
-
-### Step 4: Write and Index
-
-```bash
-# Append to pitfalls
-echo "### [Title]" >> ~/.claude/knowledge/platforms/ios/pitfalls.md
-echo "**Source**: $(basename $PWD), $(date +%Y-%m-%d)" >> ...
-echo "**Problem**: ..." >> ...
-echo "**Solution**: ..." >> ...
-```
+| Type | Location |
+|------|----------|
+| `pitfall` | `~/.claude/knowledge/platforms/<platform>/pitfalls.md` |
+| `pattern` | `~/.claude/knowledge/patterns/<id>.md` |
+| `decision` | `~/.claude/knowledge/discoveries/YYYY-MM-DD-<topic>.md` |
 
 ## Output Format
 
 ```
-📚 Knowledge Extraction Complete
+Knowledge Extraction Complete
 
 Platform: ios
 Extracted:
 - 2 pitfalls → platforms/ios/pitfalls.md
-- 1 pattern → patterns/async-error-handling.md
-- 3 discoveries → discoveries/
+- 1 pattern → patterns/
+- 3 decisions → discoveries/
+- 0 skipped (duplicates)
 
-Run `/knowledge` to view all knowledge.
+Knowledge base: 12 entries total
 ```
 
-## Examples
+## Arguments
 
-### Extract All
-```bash
-/dev-flow:extract-knowledge
-```
-
-### Extract Specific Type
-```bash
-/dev-flow:extract-knowledge --type pitfalls
-/dev-flow:extract-knowledge --type patterns
-/dev-flow:extract-knowledge --type discoveries
-```
-
-### Preview Only (No Write)
-```bash
-/dev-flow:extract-knowledge --dry-run
-```
-
-## Knowledge Format
-
-### Pitfall Entry
-```markdown
-### [Short Title]
-**Source**: project-name, YYYY-MM-DD
-**Problem**: What went wrong
-**Solution**: How to fix/avoid
-```
-
-### Pattern Entry
-```markdown
-# Pattern: [Name]
-## Context
-When to use this pattern
-## Problem
-What problem it solves
-## Solution
-The pattern implementation
-## Examples
-Code examples
-```
-
-### Discovery Entry
-```markdown
-# Discovery: [Topic]
-Date: YYYY-MM-DD
-Project: source-project
-
-## What
-What was discovered
-
-## Why
-Why it matters
-
-## How to Apply
-Steps to use this knowledge
-```
-
-## Auto-Loading
-
-Extracted knowledge is automatically loaded at session start:
-```
-📚 ios pitfalls: 4 条
-```
+| Arg | Effect |
+|-----|--------|
+| `--dry-run` | Pass `dryRun: true` to `dev_memory(action:"extract")` |
+| `--type pitfalls` | Only extract pitfall type (future) |

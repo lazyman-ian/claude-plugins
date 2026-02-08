@@ -391,10 +391,10 @@ evaluate → diagnose → propose → [approve] → apply → verify
 
 ### Q: dev_config returns "unknown"
 
-**Cause**: Project not configured and not iOS/Android
+**Cause**: Project not configured and not iOS/Android/Web
 
-**Solution**:
-1. Create `.dev-flow.json`:
+**Solution** (recommended: `.dev-flow.json`, configures both platform and commands):
+
 ```json
 {
   "platform": "python",
@@ -405,7 +405,9 @@ evaluate → diagnose → propose → [approve] → apply → verify
 }
 ```
 
-2. Or create `Makefile`:
+> The `platform` field also affects knowledge injection and `dev_memory` classification.
+
+Or create `Makefile`:
 ```makefile
 fix:
 	black .
@@ -516,16 +518,31 @@ Bidirectional sync:
 
 ## Platform Support
 
+### Detection Priority
+
+```
+1. .dev-flow.json → Highest priority (explicit user config)
+2. File-based detection → Auto-infer
+   *.xcodeproj / Podfile / Package.swift → ios
+   build.gradle → android
+   package.json → web
+   Otherwise → general
+```
+
+> **Mixed projects** (e.g., Svelte+Tauri with both `package.json` and `Cargo.toml`) should use `.dev-flow.json` to explicitly set the platform.
+
 ### Built-in Platforms
 
 | Platform | Detection | lint fix | lint check | test | verify |
 |----------|-----------|----------|------------|------|--------|
 | iOS | `*.xcodeproj`, `Podfile` | swiftlint --fix | swiftlint | xcodebuild test | swiftlint && xcodebuild build |
 | Android | `build.gradle` | ktlint -F | ktlint | ./gradlew test | ktlintCheck && ./gradlew assembleDebug |
+| Web | `package.json` | (custom) | (custom) | (custom) | (custom) |
 
 ### Custom Platform
 
-`.dev-flow.json`:
+Use `.dev-flow.json` to specify platform and commands for any project, overriding auto-detection:
+
 ```json
 {
   "platform": "python",
@@ -539,14 +556,33 @@ Bidirectional sync:
 }
 ```
 
+The `platform` field in `.dev-flow.json` also affects:
+- `dev_config` command output
+- Knowledge injection (SessionStart loads platform-specific pitfalls)
+- `dev_memory` knowledge classification
+
 ### Extend New Platform (Developers)
 
-1. `mcp-server/src/detector.ts` - Add detection logic
+1. `mcp-server/src/detector.ts` - Add detection logic (`detectPlatformSimple()` unified entry point)
 2. `mcp-server/src/platforms/xxx.ts` - Implement command config
 
 ---
 
 ## Version History
+
+### v3.17.0 (2026-02-09)
+
+- **Knowledge Consolidation Engine**: `dev_memory` tool, closed-loop Distill → Consolidate → Inject
+- **Smart Injection**: SessionStart auto-injects platform pitfalls and task-related knowledge (~500 tokens)
+- **Reasoning Persistence**: Dual-write to `thoughts/reasoning/` + FTS5 index
+- **Unified Platform Detection**: `detectPlatformSimple()` consolidates 4 detection implementations, `.dev-flow.json` takes highest priority
+- **New Command**: /extract-knowledge fully implemented
+
+### v3.16.0 (2026-02-07)
+
+- **agent-team**: Generic Agent Team orchestration skill
+- **cross-platform-team**: Refactored to extend agent-team
+- **evaluate-agent**: Cross-session baselines + Task metrics integration
 
 ### v3.13.0 (2026-01-27)
 

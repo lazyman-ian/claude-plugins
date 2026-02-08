@@ -8,7 +8,7 @@ lazyman-ian marketplace for Claude Code plugins. Contains 4 plugins in a single 
 
 | Plugin | Version | Purpose |
 |--------|---------|---------|
-| dev-flow | 3.16.0 | Development workflow: planning → coding → commit → PR → release + agent-team + cross-platform team |
+| dev-flow | 3.17.0 | Development workflow: planning → coding → commit → PR → release + agent-team + cross-platform team + knowledge consolidation |
 | ios-swift-plugin | 1.1.0 | iOS/Swift toolkit: SwiftUI, Concurrency, WidgetKit |
 | utils | 1.3.0 | Code quality: deslop, search-code, safety hooks |
 | research | 1.3.0 | Research: Perplexity AI, Braintrust, RepoPrompt |
@@ -18,19 +18,18 @@ lazyman-ian marketplace for Claude Code plugins. Contains 4 plugins in a single 
 ### dev-flow MCP Server (TypeScript)
 
 ```bash
-# NOTE: use `builtin cd` (not `cd`) to bypass zoxide alias
-builtin cd dev-flow/mcp-server
-npm install
-npm run bundle    # Bundle to scripts/mcp-server.cjs (required for plugin)
-npm run build     # TypeScript compile to dist/
-npm run dev       # Run with ts-node
+# Use --prefix to avoid cd (zoxide alias breaks non-interactive cd)
+npm install --prefix dev-flow/mcp-server
+npm run --prefix dev-flow/mcp-server bundle    # Bundle to scripts/mcp-server.cjs (required for plugin)
+npm run --prefix dev-flow/mcp-server build     # TypeScript compile to dist/
+npm run --prefix dev-flow/mcp-server dev       # Run with ts-node
 ```
 
 ### ios-swift-plugin ConcurrencyGuard (Swift)
 
 ```bash
-builtin cd ios-swift-plugin/tools/ConcurrencyGuard
-swift build -c release
+# swift build doesn't have --prefix equivalent, use builtin cd
+builtin cd ios-swift-plugin/tools/ConcurrencyGuard && swift build -c release
 ```
 
 ### utils & research
@@ -72,7 +71,7 @@ Single-file bundle architecture (`mcp-server/src/index.ts` → `scripts/mcp-serv
 
 | Module | Purpose |
 |--------|---------|
-| `detector.ts` | Project type detection (ios/android/web) |
+| `detector.ts` | Platform detection: `detectPlatformSimple()` unified entry (`.dev-flow.json` > file-based) |
 | `git/workflow.ts` | Git status, phase detection |
 | `platforms/ios.ts` | SwiftLint, SwiftFormat commands |
 | `platforms/android.ts` | ktlint, ktfmt commands |
@@ -130,7 +129,7 @@ Must wrap in `"hooks"` object. Use `.tool_name` and `.tool_input.*` for input fi
 - Use `set -o pipefail` (NOT `set -eo pipefail`) — `-e` causes jq parse errors to crash the script
 - All `jq` calls add `2>/dev/null || echo ""` fallback
 - Non-target files early exit before heavy parsing (e.g., check `.swift$` before parsing content)
-- Use `builtin cd` (not `cd`) — aliased to zoxide, fails in non-interactive shell
+- Use `builtin cd` (not `cd`) in hooks — aliased to zoxide. Note: `builtin` only works with shell builtins (cd/echo/pwd), NOT external commands (npm/git/node). For external commands use `--prefix`/`-C` flags
 - Use `/usr/bin/sed` (not `sed`) — aliased to `sd` with incompatible syntax
 - Use `/usr/bin/find` (not `find`) — aliased to `fd` with different arguments
 - Use `/usr/bin/curl` (not `curl`) — aliased to `xh` with incompatible flags
@@ -161,6 +160,7 @@ done | sort -rn
 Update these files when bumping version:
 - `<plugin>/.claude-plugin/plugin.json`
 - `.claude-plugin/marketplace.json`
+- `<plugin>/.claude-plugin/marketplace.json` (if exists, was found stale at 3.11.1)
 - `<plugin>/README.md` (badge)
 
 ## MCP Tools

@@ -6,6 +6,7 @@
 import { execSync } from 'child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, basename, dirname } from 'path';
+import { dbInsertReasoning, dbQueryReasoning, ensureDbSchema } from './memory';
 
 interface ReasoningResult {
   success: boolean;
@@ -138,10 +139,26 @@ ${commitMessage}
 
   writeFileSync(join(outputDir, 'reasoning.md'), content);
 
+  // Persistent copy (git-tracked, survives .git gc)
+  const persistentDir = join(cwd, 'thoughts', 'reasoning');
+  mkdirSync(persistentDir, { recursive: true });
+  writeFileSync(join(persistentDir, `${commitHash.slice(0, 8)}-reasoning.md`), content);
+
+  // Index to artifact DB
+  try {
+    ensureDbSchema();
+    const failedMatch = content.match(/### Failed attempts\n([\s\S]*?)(?=### Summary|## |$)/);
+    const failedAttempts = failedMatch ? failedMatch[1].trim() : '';
+    const decisionsText = `branch:${branch} | ${commitMessage}`;
+    dbInsertReasoning(commitHash, branch, commitMessage, failedAttempts, decisionsText);
+  } catch {
+    // Non-critical: indexing failure doesn't block commit
+  }
+
   return {
     success: true,
     message: `Generated:${commitHash.slice(0, 8)}`,
-    data: { path: join(outputDir, 'reasoning.md') },
+    data: { path: join(outputDir, 'reasoning.md'), persistentPath: join(persistentDir, `${commitHash.slice(0, 8)}-reasoning.md`) },
   };
 }
 
@@ -218,12 +235,48 @@ export function reasoningRecall(keyword: string, limit: number = 5): ReasoningRe
     }
   }
 
-  const total = matches.length + ledgerMatches.length;
+  // Also search FTS5 index for broader results
+  let ftsMatches: Array<{ commitHash: string; commitMessage: string }> = [];
+  try {
+    ensureDbSchema();
+    const ftsResults = dbQueryReasoning(keyword, limit);
+    for (const r of ftsResults) {
+      if (!matches.find(m => m.commitHash === r.commitHash.slice(0, 8))) {
+        ftsMatches.push({ commitHash: r.commitHash.slice(0, 8), commitMessage: r.commitMessage });
+      }
+    }
+  } catch {
+    // FTS not available, file-based results are sufficient
+  }
+
+  // Also search persistent reasoning in thoughts/reasoning/
+  const persistentDir = join(cwd, 'thoughts', 'reasoning');
+  if (existsSync(persistentDir)) {
+    for (const file of readdirSync(persistentDir)) {
+      if (!file.endsWith('-reasoning.md')) continue;
+      if (matches.length >= limit) break;
+
+      const content = readFileSync(join(persistentDir, file), 'utf-8');
+      if (!content.toLowerCase().includes(keyword.toLowerCase())) continue;
+
+      const hash = file.replace('-reasoning.md', '');
+      if (matches.find(m => m.commitHash === hash)) continue;
+
+      matches.push({
+        commitHash: hash,
+        commitMessage: content.match(/## What was committed\n(.+)/)?.[1]?.trim() || 'Unknown',
+        date: 'persistent',
+        context: '',
+      });
+    }
+  }
+
+  const total = matches.length + ledgerMatches.length + ftsMatches.length;
 
   return {
     success: true,
-    message: `Found:${total}|commits:${matches.length}|ledgers:${ledgerMatches.length}`,
-    data: { commits: matches, ledgers: ledgerMatches },
+    message: `Found:${total}|commits:${matches.length}|fts:${ftsMatches.length}|ledgers:${ledgerMatches.length}`,
+    data: { commits: matches, ftsMatches, ledgers: ledgerMatches },
   };
 }
 

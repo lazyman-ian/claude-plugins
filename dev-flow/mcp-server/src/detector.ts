@@ -141,6 +141,42 @@ export function detectProjectType(projectPath: string = process.cwd()): ProjectI
 }
 
 /**
+ * Detect platform as a simple string for knowledge/injection use.
+ * Priority: .dev-flow.json > file-based detection
+ * Returns: ios, android, web, or the custom platform from .dev-flow.json, or 'general'
+ */
+export function detectPlatformSimple(projectPath: string = process.cwd()): string {
+  // 1. .dev-flow.json override (highest priority)
+  const config = loadProjectConfig(projectPath);
+  if (config?.platform) {
+    return config.platform.toLowerCase();
+  }
+
+  // 2. File-based detection
+  try {
+    const files = fs.readdirSync(projectPath);
+
+    // iOS
+    const hasXcodeproj = files.some(f => f.endsWith('.xcodeproj'));
+    const hasXcworkspace = files.some(f => f.endsWith('.xcworkspace'));
+    const hasPodfile = files.includes('Podfile');
+    const hasPackageSwift = files.includes('Package.swift');
+    if (hasXcodeproj || hasXcworkspace || hasPodfile || hasPackageSwift) return 'ios';
+
+    // Android
+    const hasBuildGradle = files.includes('build.gradle') || files.includes('build.gradle.kts');
+    if (hasBuildGradle) return 'android';
+
+    // Web (package.json without native markers)
+    if (files.includes('package.json')) return 'web';
+  } catch {
+    // projectPath may not exist
+  }
+
+  return 'general';
+}
+
+/**
  * Check if a command is available
  */
 export function isCommandAvailable(command: string): boolean {
