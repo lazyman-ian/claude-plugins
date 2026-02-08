@@ -2,21 +2,49 @@
 
 Complete workflow documentation for config-optimize skill.
 
+## Phase 0: State Initialization
+
+### Backward Compatibility
+
+Old state format (pre-upgrade):
+```json
+{"last_checked_version": "2.1.3", "last_check_date": "2026-01-11", "applied_optimizations": [...]}
+```
+
+New state format:
+```json
+{"last_checked_version": "2.1.35", "last_check_date": "2026-02-08", "applied_optimizations": [...], "processed_sources": {...}}
+```
+
+**Migration**: Auto-add `processed_sources: {}` if missing. No manual migration needed.
+
+### First Run Detection
+
+```
+processed_sources is empty OR state file doesn't exist
+    → first_run = true
+    → Use seed topics for comprehensive search
+    → Scan existing rules to avoid duplicates
+```
+
+---
+
 ## Phase 1: Version Check
 
 ### Steps
 1. Get current Claude Code version
-2. Read last checked version from state file
-3. Fetch release notes for versions in between
-4. Parse new features
+2. Read state file (with migration if needed)
+3. Detect first run vs incremental
+4. Fetch release notes for versions in between
 
 ### Commands
 ```bash
 # Get current version
 claude --version 2>/dev/null | head -1
 
-# Read state
-cat ~/.claude/config-optimize-state.json 2>/dev/null || echo '{"last_checked_version": "0.0.0"}'
+# Read state (backward compatible)
+STATE=$(cat ~/.claude/config-optimize-state.json 2>/dev/null || echo '{"last_checked_version":"0.0.0","processed_sources":{}}')
+PS_COUNT=$(echo "$STATE" | jq '.processed_sources | length')
 ```
 
 ### Release Notes Parsing
@@ -32,6 +60,198 @@ Extract pattern:
 - Fix description
 ```
 
+## Phase 1.5: Dynamic Source Search (Research Agent)
+
+### Purpose
+
+Deep-read official sources to extract actionable config patterns. **Do not rely on static article lists or shallow WebSearch summaries.**
+
+### Architecture
+
+```
+config-optimize (sonnet)          research agent (sonnet)
+    │                                  │
+    ├─ Step 1: WebFetch releases       │
+    │  (inline, quick)                 │
+    │                                  │
+    ├─ Step 2: Spawn ────────────────► │
+    │                                  ├─ WebSearch queries
+    │                                  ├─ WebFetch top results (deep read)
+    │                                  ├─ Extract patterns
+    │                                  └─ Return structured findings
+    │                                  │
+    ◄──────────────────────────────────┘
+    │
+    ├─ Step 3: Gap analysis using findings
+    └─ Step 4: Generate proposals
+```
+
+### Research Strategy: Index Crawl (not keyword search)
+
+**Why not WebSearch?** Keyword search misses articles. Blog has 20+ relevant articles, WebSearch returns ~5 per query. Instead, crawl the index pages for a complete listing.
+
+### Research Agent Flow
+
+```
+Index crawl (3 pages)
+    │
+    ├─ anthropic.com/engineering → article list
+    ├─ anthropic.com/research → article list
+    └─ docs.anthropic.com/en/docs/claude-code → doc list
+    │
+    ▼
+Filter (Claude Code related only)
+    │
+    ▼
+Dedup (remove processed_sources URLs)
+    │
+    ▼
+Read batch (max 5, newest first)
+    │
+    ▼
+Extract patterns + check against existing rules
+    │
+    ▼
+Return: patterns[] + remaining_unprocessed_count
+```
+
+### Batching Logic
+
+| Unprocessed Count | This Run | Next Run |
+|-------------------|----------|----------|
+| 0 | Skip research, early exit | Same |
+| 1-5 | Read all | Done |
+| 6-10 | Read 5 (newest first) | Read remaining |
+| 11+ | Read 5 (newest first) | Continue batching |
+
+State tracks which URLs are processed. Each run picks up where the last stopped.
+
+### Existing Rules Dedup
+
+Before writing any pattern to rules:
+
+```
+1. Research agent reads ~/.claude/rules/*.md headers
+2. For each extracted pattern:
+   - Grep pattern keyword in rules → found? → skip
+   - Not found → include in output
+3. Return only genuinely new patterns
+```
+
+Prevents duplicates when user already has rules from manual sessions.
+
+### Context Isolation Benefit
+
+Research agent runs in isolated context:
+- Main skill context stays clean for gap analysis
+- Research can read 5-10 articles without bloating main context
+- Structured return = minimal tokens transferred back
+
+### Fallback
+
+If research agent fails or times out:
+```
+Fallback: inline WebSearch + WebFetch (reduced quality, still functional)
+```
+
+### State Tracking
+
+After research, record in state file:
+```json
+{
+  "search_queries_used": ["..."],
+  "sources_fetched": ["url1", "url2"],
+  "patterns_extracted": 12,
+  "research_agent_used": true
+}
+```
+
+---
+
+## Phase 2.5: Persist Patterns to Rules
+
+### Purpose
+
+Write extracted patterns as rules so all future sessions follow them without re-research.
+
+### Flow
+
+```
+Research findings
+    │
+    ├─ For each pattern:
+    │   ├─ Grep existing rules for pattern keyword
+    │   │   ├─ Found → skip (already persisted)
+    │   │   └─ Not found → append to matching rule file
+    │   └─ Record in state.processed_sources
+    │
+    └─ Output: list of rules updated
+```
+
+### Rule File Matching
+
+| Pattern Topic | Target Rule File |
+|--------------|-----------------|
+| Agent teams, delegation, scaling | `agent-team-management.md` |
+| Agent orchestration, handoffs, modes | `agent-orchestration.md` |
+| Agentic coding, context, sessions | `agentic-coding.md` |
+| Hooks, matchers, gate scripts | `hooks.md` |
+| Skills, frontmatter, descriptions | `skill-development.md` |
+| Dev workflow, commit, PR | `dev-workflow.md` |
+| No match | Create new rule or append to closest |
+
+### Append Format
+
+When adding to existing rule file:
+
+```markdown
+## {Pattern Name} (from config-optimize {date})
+
+{Concise description of the pattern}
+
+| Key | Value |
+|-----|-------|
+| Source | {url} |
+| Config change | {what to set} |
+| Verification | {how to check} |
+```
+
+### Dedup Check
+
+Before writing, verify pattern is truly new:
+
+```bash
+# Check if pattern keyword already exists in rules
+Grep("{pattern_keyword}", path="~/.claude/rules/", output_mode="count")
+# count > 0 → skip
+```
+
+### State Update
+
+```json
+{
+  "processed_sources": {
+    "{url}": {
+      "date": "{ISO date}",
+      "patterns_extracted": 3,
+      "rules_updated": ["agent-team-management.md", "hooks.md"]
+    }
+  }
+}
+```
+
+### Token Savings Over Time
+
+| Run # | Sources to Research | Rules to Write | Net Token Cost |
+|-------|-------------------|----------------|---------------|
+| 1 | All (first run) | All patterns | ~30K |
+| 2 | New only (incremental) | Delta only | ~5-18K |
+| 3+ | Usually 0-2 new | 0-3 patterns | ~5-10K |
+
+After 3-4 runs, most official sources are processed. Weekly cost drops to ~5K (state check + release notes only).
+
+---
+
 ## Phase 2: Config Analysis
 
 ### Scan Order
@@ -41,6 +261,7 @@ Extract pattern:
 4. Global skills: `~/.claude/skills/`
 5. Plugins: `~/.claude/plugins/`
 6. Project config: `.claude/` (if in project)
+7. Agent Team config: env vars, quality gate hooks, gate scripts
 
 ### Output Format
 ```json
@@ -90,6 +311,7 @@ For each new feature, check:
 2. **Deprecated Pattern**: Old pattern that should be updated
 3. **Suboptimal Config**: Works but could be better
 4. **Security Issue**: Potential vulnerability
+5. **Agent Team Readiness**: Team infrastructure not configured
 
 ## Phase 4: Generate Proposals
 

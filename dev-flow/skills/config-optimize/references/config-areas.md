@@ -88,6 +88,46 @@ CLAUDE.md                        # Project instructions
 claude /doctor 2>&1 | grep -A5 "Unreachable rules"
 ```
 
+## Agent Teams
+
+### Files to Scan
+```
+~/.claude/settings.json          # env vars, hooks
+~/.claude/hooks/*-gate.sh        # Quality gate scripts
+~/.claude/rules/agent-*.md       # Agent management rules
+*/skills/agent-team/             # Agent team skill
+```
+
+### Check Patterns
+
+| Pattern | Issue | Fix |
+|---------|-------|-----|
+| No `AGENT_TEAMS` env var | Teams disabled | Add to settings.json env |
+| No TeammateIdle hook | No idle quality gate | Install gate script |
+| No TaskCompleted hook | No completion gate | Install gate script |
+| No agent management rules | No team guidelines | Add agent-team-management.md |
+| Gate scripts not executable | Hooks fail silently | `chmod +x` |
+
+### Validation Script
+```bash
+# Check Agent Teams readiness
+echo "=== Agent Teams Config ==="
+ENV_VAR=$(jq -r '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS // "NOT SET"' ~/.claude/settings.json)
+echo "Teams env: $ENV_VAR"
+
+IDLE_HOOK=$(jq -r '.hooks.TeammateIdle // "NOT SET"' ~/.claude/settings.json)
+echo "TeammateIdle: $IDLE_HOOK"
+
+TASK_HOOK=$(jq -r '.hooks.TaskCompleted // "NOT SET"' ~/.claude/settings.json)
+echo "TaskCompleted: $TASK_HOOK"
+
+for gate in ~/.claude/hooks/*-gate.sh ~/.claude/plugins/*/scripts/*-gate.sh; do
+    [ -f "$gate" ] && echo "Gate: $gate ($(test -x "$gate" && echo 'OK' || echo 'NOT EXEC'))"
+done
+```
+
+---
+
 ## Environment
 
 ### Files to Scan
@@ -101,7 +141,9 @@ claude /doctor 2>&1 | grep -A5 "Unreachable rules"
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `FORCE_AUTOUPDATE_PLUGINS` | Auto-update plugins | unset |
+| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` | Enable Agent Teams | unset |
 | `CLAUDE_CODE_REMOTE` | Remote session flag | unset |
+| `CLAUDE_HOOK_DEBUG` | Hook debug logging | unset |
 | `ANTHROPIC_API_KEY` | API authentication | required |
 | `CLAUDE_PROJECT_DIR` | Project root (in hooks) | auto |
 | `CLAUDE_ENV_FILE` | SessionStart env file | auto |

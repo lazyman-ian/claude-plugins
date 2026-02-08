@@ -1,9 +1,9 @@
 ---
 name: config-optimize
 description: Checks Claude Code releases and optimizes Claude Code configuration for new features. This skill should be used when user explicitly says "/config-optimize", "check claude updates", "optimize claude settings", "claude new features", "Claude配置优化", "检查Claude更新", "Claude新功能". NOT for general "optimize" requests, documentation reading, or when user references files with "optimization" in the name.
-model: haiku
+model: sonnet
 memory: user
-allowed-tools: [Read, Glob, Grep, Write, Edit, Bash, WebFetch, TaskCreate, TaskUpdate]
+allowed-tools: [Read, Glob, Grep, Write, Edit, Bash, WebFetch, WebSearch, Task, TaskCreate, TaskUpdate]
 ---
 
 # config-optimize
@@ -25,38 +25,158 @@ Automatically check Claude Code releases and optimize configuration.
 | `/config-optimize check` | Check only (no changes) |
 | `/config-optimize apply` | Apply pending proposals |
 
-## Early Exit Check (FIRST STEP)
-
-Before fetching releases, check if already current:
+## State Initialization & Backward Compatibility
 
 ```bash
-# 1. Get current version
-CURRENT=$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+STATE_FILE=~/.claude/config-optimize-state.json
 
-# 2. Get last checked version
-LAST_CHECKED=$(cat ~/.claude/config-optimize-state.json 2>/dev/null | jq -r '.last_checked_version // "0.0.0"')
-LAST_DATE=$(cat ~/.claude/config-optimize-state.json 2>/dev/null | jq -r '.last_check_date // "1970-01-01"')
-
-# 3. Calculate days since last check
-DAYS_AGO=$(( ($(date +%s) - $(date -d "$LAST_DATE" +%s 2>/dev/null || echo 0)) / 86400 ))
+# Read or create state (backward compatible)
+if [ -f "$STATE_FILE" ]; then
+    STATE=$(cat "$STATE_FILE")
+    # Migrate: add processed_sources if missing (old format)
+    HAS_PS=$(echo "$STATE" | jq 'has("processed_sources")')
+    if [ "$HAS_PS" = "false" ]; then
+        STATE=$(echo "$STATE" | jq '. + {"processed_sources": {}}')
+    fi
+else
+    # First run: empty state
+    STATE='{"last_checked_version":"0.0.0","last_check_date":"1970-01-01","applied_optimizations":[],"processed_sources":{}}'
+fi
 ```
 
-**If `CURRENT == LAST_CHECKED` AND `DAYS_AGO < 7`:**
-- Output: "Config is current (v{CURRENT}, last checked {LAST_DATE}). No optimization needed."
-- **EXIT EARLY** (no WebFetch required)
-- Skip to Completion section
+**Migration from old format**: Old state `{"last_checked_version","last_check_date","applied_optimizations"}` is preserved. `processed_sources: {}` is added automatically. No data loss.
+
+## Early Exit Check
+
+```bash
+CURRENT=$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+LAST_CHECKED=$(echo "$STATE" | jq -r '.last_checked_version // "0.0.0"')
+LAST_DATE=$(echo "$STATE" | jq -r '.last_check_date // "1970-01-01"')
+PS_COUNT=$(echo "$STATE" | jq '.processed_sources | length')
+```
+
+**Exit conditions:**
+
+| Condition | Action |
+|-----------|--------|
+| `CURRENT == LAST_CHECKED` AND `days < 7` AND `PS_COUNT > 0` | Early exit |
+| `PS_COUNT == 0` (first run or migrated) | **Full run** (seed search) |
+| `CURRENT != LAST_CHECKED` | Version changed, run |
+| `days >= 7` | Weekly check, run |
 
 ## Workflow
 
 ```
-VERSION CHECK → CONFIG ANALYSIS → GAP ANALYSIS → PROPOSALS → APPLY
+VERSION CHECK → SOURCE SEARCH → CONFIG ANALYSIS → GAP ANALYSIS → PROPOSALS → APPLY
 ```
 
 1. **Version Check**: Compare current vs last checked version
-2. **Config Analysis**: Scan settings, hooks, rules, skills
-3. **Gap Analysis**: Identify unused features, deprecated patterns
-4. **Proposals**: Generate optimization recommendations
-5. **Apply**: Apply selected changes (requires approval)
+2. **Source Search**: Dynamic search for new features and best practices (see below)
+3. **Config Analysis**: Scan settings, hooks, rules, skills
+4. **Gap Analysis**: Identify unused features, deprecated patterns
+5. **Proposals**: Generate optimization recommendations
+6. **Apply**: Apply selected changes (requires approval)
+
+## Dynamic Source Search (Phase 2)
+
+**Do NOT rely on static article lists.** Delegate deep research to a research agent.
+
+### Strategy: Research Agent for Deep Reading
+
+```
+Step 1: WebFetch GitHub releases (inline, quick)
+Step 2: Spawn research agent for blog/docs deep reading
+Step 3: Research agent returns structured findings
+Step 4: Use findings for gap analysis (Phase 3)
+```
+
+### Step 1: Release Notes (inline)
+
+```
+WebFetch("https://github.com/anthropics/claude-code/releases",
+         "Extract features for versions above {last_checked_version}")
+```
+
+### Step 2: Research Agent (deep reading)
+
+**Both first and subsequent runs use the same strategy: crawl index → filter → dedup → read.**
+
+```
+Task(subagent_type="research:research-agent", prompt="""
+Find and deep-read ALL unprocessed Claude Code articles from official sources.
+
+## Step 1: Crawl Index Pages
+
+Fetch these index pages to get complete article listings:
+- https://www.anthropic.com/engineering — all engineering blog posts
+- https://www.anthropic.com/research — all research blog posts
+- https://docs.anthropic.com/en/docs/claude-code — all doc pages
+
+List every article title + URL found.
+
+## Step 2: Filter
+
+Keep only articles about: Claude Code, agents, agent teams, agentic coding,
+hooks, skills, MCP, context engineering, coding assistants.
+Discard unrelated articles (safety research, model cards, etc).
+
+## Step 3: Dedup
+
+Already processed (skip these): {processed_sources_urls}
+
+## Step 4: Deep-Read (max 5 per run)
+
+For each unprocessed article (newest first, max 5):
+- WebFetch the full article
+- Extract actionable patterns for Claude Code configuration
+
+## Step 5: Check Existing Rules
+
+Read ~/.claude/rules/*.md to see what's already covered.
+Only return patterns NOT already present.
+
+## Output Format
+
+| Source URL | Pattern | Config Change | Target Rule File | Priority |
+
+Also return: total unprocessed count remaining (for next run).
+""")
+```
+
+**Batching**: If >5 unprocessed articles, process 5 per run. State tracks progress.
+Subsequent `/config-optimize` runs pick up where the last run left off.
+
+### Step 3: Persist to Rules (knowledge extraction)
+
+Extracted patterns must be **written to rules files**, not just used for gap analysis:
+
+```
+For each new pattern found:
+1. Check if already in existing rules → skip
+2. If new → append to matching rule file or create new one
+3. Record in state file which sources have been processed
+```
+
+| Pattern Type | Write To | Example |
+|-------------|----------|---------|
+| Agent/team pattern | `~/.claude/rules/agent-team-management.md` | Delegate mode |
+| Hook best practice | `~/.claude/rules/hooks.md` | New hook type |
+| Agentic workflow | `~/.claude/rules/agentic-coding.md` | Context engineering |
+| Skill development | `~/.claude/rules/skill-development.md` | New frontmatter field |
+| General config | `~/.claude/rules/dev-workflow.md` | New env var |
+
+**Benefits:**
+- All future sessions follow new patterns immediately (no re-research)
+- Next config-optimize run skips already-processed sources (token savings)
+- Rules accumulate institutional knowledge over time
+
+### Cost Model
+
+| Run | Research | Persist | Total | Notes |
+|-----|----------|---------|-------|-------|
+| First | ~25K | ~5K | ~30K | Full research + rule writing |
+| Subsequent (no new content) | ~5K | 0 | ~5K | State check → skip |
+| Subsequent (new content) | ~15K | ~3K | ~18K | Incremental only |
 
 ## Reference Menu
 
@@ -69,11 +189,13 @@ VERSION CHECK → CONFIG ANALYSIS → GAP ANALYSIS → PROPOSALS → APPLY
 
 ## Documentation Sources
 
-| Source | URL | Use For |
-|--------|-----|---------|
-| GitHub Releases | github.com/anthropics/claude-code/releases | New features |
-| Official Blog | claude.ai/blog | Best practices |
-| Documentation | docs.anthropic.com/en/docs/claude-code | Reference |
+| Source | Method | Use For |
+|--------|--------|---------|
+| GitHub Releases | `WebFetch` (always) | Version-specific features |
+| Web Search | `WebSearch` (always) | New articles, blog posts, best practices |
+| Top results | `WebFetch` (top 2-3) | Extract actionable patterns |
+
+**No static article list.** Search dynamically every run.
 
 ## Quick Check
 
@@ -84,8 +206,9 @@ claude --version
 # 2. Last checked
 cat ~/.claude/config-optimize-state.json
 
-# 3. Fetch release notes
+# 3. Dynamic search (not just releases)
 WebFetch("https://github.com/anthropics/claude-code/releases")
+WebSearch("Claude Code new features best practices 2026")
 ```
 
 ## State File
@@ -93,11 +216,26 @@ WebFetch("https://github.com/anthropics/claude-code/releases")
 `~/.claude/config-optimize-state.json`:
 ```json
 {
-  "last_checked_version": "2.1.3",
-  "last_check_date": "2026-01-11",
-  "applied_optimizations": ["agent_type_check", "force_autoupdate"]
+  "last_checked_version": "2.1.35",
+  "last_check_date": "2026-02-08",
+  "applied_optimizations": ["agent_type_check", "force_autoupdate", "agent_teams_env"],
+  "processed_sources": {
+    "anthropic.com/research/building-effective-agents": {
+      "date": "2026-02-08",
+      "patterns_extracted": 3,
+      "rules_updated": ["agentic-coding.md"]
+    },
+    "anthropic.com/engineering/multi-agent-research": {
+      "date": "2026-02-08",
+      "patterns_extracted": 2,
+      "rules_updated": ["agent-orchestration.md", "agent-team-management.md"]
+    }
+  }
 }
 ```
+
+**Dedup logic**: If source URL exists in `processed_sources` → skip.
+**Backlog tracking**: `remaining_unprocessed` shows how many articles still need reading. Reaches 0 after a few runs.
 
 ## Output
 
@@ -106,11 +244,23 @@ WebFetch("https://github.com/anthropics/claude-code/releases")
 | `thoughts/config-optimizations/CHECK-*.md` | Gap analysis |
 | `thoughts/config-optimizations/APPLY-*.md` | Applied changes |
 
+## Agent Team Readiness Check
+
+If Agent Teams are available, also check:
+
+| Check | What | How |
+|-------|------|-----|
+| Env var | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | `settings.json` env |
+| TeammateIdle hook | Quality gate script installed | `settings.json` hooks |
+| TaskCompleted hook | Quality gate script installed | `settings.json` hooks |
+| Delegate mode aware | Rules mention delegate mode | `rules/*.md` |
+| Quality gate scripts | Executable in expected path | `scripts/*-gate.sh` |
+
 ## Integration
 
 | Skill | Focus |
 |-------|-------|
-| `/config-optimize` | Config based on releases |
+| `/config-optimize` | Config based on releases + blog search |
 | `/meta-iterate` | Prompts based on sessions |
 
 Weekly routine: `/config-optimize` then `/meta-iterate`

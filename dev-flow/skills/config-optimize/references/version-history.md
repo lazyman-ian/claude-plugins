@@ -2,6 +2,37 @@
 
 Known optimizations by version. Load this reference when generating proposals.
 
+## v2.1.32+ (2026-02) — Agent Teams Era
+
+| Feature | Config Change | Files Affected |
+|---------|---------------|----------------|
+| Agent Teams | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in env | `settings.json` |
+| TeammateIdle hook | Add quality gate script | `settings.json` hooks, `scripts/` |
+| TaskCompleted hook | Add quality gate script | `settings.json` hooks, `scripts/` |
+| SubagentStop hook | Validate handoff output | `settings.json` hooks |
+| Delegate mode | `Shift+Tab` restricts lead to coordination | Team workflow |
+| Plan Approval mode | `mode: "plan"` in Task spawning | Teammate template |
+| `memory: user` frontmatter | Persistent cross-session state | Skill SKILL.md |
+
+**Applied Check:**
+```bash
+# Verify Agent Teams env var
+jq -r '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS // "not set"' ~/.claude/settings.json
+
+# Verify quality gate hooks
+jq -r '.hooks.TeammateIdle // "not configured"' ~/.claude/settings.json
+jq -r '.hooks.TaskCompleted // "not configured"' ~/.claude/settings.json
+```
+
+**Key Blog Insights (search dynamically, don't hardcode URLs):**
+- Environment design > agent sophistication (C Compiler: 16 agents, $20K)
+- 4-element teammate prompt: Objective, Output Format, Tool Guidance, Task Boundaries
+- Evaluator-Optimizer pattern for iterative improvement
+- Task verifier must be near-perfect
+- Token economics: multi-agent ~15x chat cost
+
+---
+
 ## v2.1.3 (2026-01)
 
 | Feature | Config Change | Files Affected |
