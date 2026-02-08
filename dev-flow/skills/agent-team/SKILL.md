@@ -12,6 +12,12 @@ Generic orchestration layer for Agent Teams. Manages team lifecycle, task graphs
 
 For cross-platform multi-repo workflows, use `/cross-platform-team` which extends this skill.
 
+## Core Principle
+
+> **Environment design > agent sophistication.** Success depends on tests, environment, and feedback quality — not agent complexity.
+
+Design the environment (tests, verify commands, task boundaries) so agents can self-navigate. The verifier must be near-perfect; poor tests lead agents astray.
+
 ## Model Strategy
 
 | Phase | Model | Reasoning | Cost Impact |
@@ -28,6 +34,10 @@ For cross-platform multi-repo workflows, use `/cross-platform-team` which extend
 
 Analyze requirements, decompose into parallel modules, detect dependencies.
 
+0. **Pre-flight Check**: Validate product direction before technical work. See `references/management-guide.md` § Pre-flight Check.
+   - User stories / acceptance criteria clear?
+   - Business logic agreed (not just tech approach)?
+   - Plan reviewed AND re-reviewed after corrections?
 1. Understand the task scope and deliverables
 2. Decompose into independent modules/subtasks
 3. Detect parallelism:
@@ -92,6 +102,15 @@ dev_coordinate(action='plan', mode='fan-out', tasks=[
 
 Spawn teammates, monitor progress, handle errors.
 
+**Delegate Mode**: For 3+ teammates, press `Shift+Tab` to restrict lead to coordination-only (spawn, message, shutdown, task management). Prevents lead from implementing tasks meant for teammates.
+
+**Plan Approval**: For risky or complex tasks, require teammate to plan before implementing:
+```
+Spawn {module}-dev and require plan approval before making changes.
+Only approve plans that include verification steps.
+```
+The teammate stays in read-only plan mode until lead approves. Reject with feedback to iterate.
+
 ```
 # Spawn per task (parallel for independent tasks)
 Task({
@@ -108,38 +127,59 @@ PROMPT
 TaskUpdate({ taskId: "1", owner: "{module}-dev" })
 ```
 
-**Monitoring**:
+**Monitoring & Scaling** (see `references/management-guide.md` § Dynamic Scaling):
 - Teammates send progress via `SendMessage`
 - Check `TaskList()` for blocked/completed status
 - If teammate stuck → `SendMessage` with guidance
 - If verify fails → teammate keeps trying, does NOT report done
+- Teammate idle > 30min → shutdown, re-spawn if needed later
+- Teammate context > 80% → shutdown + re-spawn with fresh context
+- Sonnet fails 3x → escalate to opus model
 
 ### Phase 4: Close (Lead)
 
 Verify results, aggregate, shutdown teammates, clean up.
 
 ```
-1. Review: check each task completed, verify results
-2. Issues found → SendMessage teammate to fix
-3. Aggregate results for PR summary:
+1. Spawn dedicated opus reviewer for quality-critical projects:
+   Task({ subagent_type: "dev-flow:code-reviewer", name: "reviewer", model: "opus", ... })
+   See references/management-guide.md § Dedicated Reviewer
+2. Review: check each task completed, verify results
+3. Issues found → SendMessage teammate to fix
+4. Aggregate results for PR summary:
    dev_aggregate(action='pr_ready', taskId='TASK-{id}')
-4. All done → shutdown teammates:
+5. All done → shutdown teammates:
    SendMessage({ type: "shutdown_request", recipient: "{name}" })
-5. TeamDelete()
-6. Summary: report results + aggregated changes to user
+6. TeamDelete()
+7. Summary: report results + aggregated changes to user
 ```
 
 ## Teammate Prompt Template
 
-Adapt this template for each teammate:
+Every teammate prompt must include **4 essential elements** (from Anthropic multi-agent research):
+
+| Element | Purpose | Missing → |
+|---------|---------|-----------|
+| **Objective** | Clear goal statement | Agent drifts off-scope |
+| **Output Format** | What to deliver | Results unusable |
+| **Tool Guidance** | Available tools/skills | Agent picks wrong tools |
+| **Task Boundaries** | What NOT to do | Agent modifies wrong files |
 
 ```
 You are a developer working on {task_description}.
+
+## Objective
+{one sentence: clear, measurable goal}
 
 ## Context
 - Working directory: {repo_path}
 - Branch: {branch_name}
 - Plan: {plan_path} (if applicable)
+
+## Output Format
+- Passing verification: {verify_command}
+- Committed code via /dev commit
+- Summary to lead: SendMessage with files changed + key decisions
 
 ## Steps
 1. Read relevant context (CLAUDE.md, existing code)
@@ -147,6 +187,11 @@ You are a developer working on {task_description}.
 3. Run verification: {verify_command}
 4. If verify passes → /dev commit
 5. SendMessage to lead: done + summary
+
+## Task Boundaries
+- Only modify files in: {directory_scope}
+- Do NOT modify: {excluded_files_or_dirs}
+- If scope needs expansion → SendMessage lead first
 
 ## Available Skills
 - /implement-plan — Execute plan phases (supports TDD mode with "use tdd")
@@ -159,6 +204,11 @@ You are a developer working on {task_description}.
 - Task(subagent_type="dev-flow:debug-agent") — Debug issues
 - Task(subagent_type="codebase-pattern-finder") — Find existing patterns
 - Task(subagent_type="research:research-agent") — External docs/API lookup
+
+## Thinking Rules
+- Before implementing, briefly consider alternatives (Why this approach?)
+- If you find a better approach, propose it before proceeding (What if?)
+- After completing, note any implications or follow-up needs (So what?)
 
 ## Rules
 - Uncertain → SendMessage lead, don't decide alone
@@ -179,6 +229,8 @@ You are a developer working on {task_description}.
 | Need to resume agent | `Task(resume="<agentId>", prompt="Continue...")` |
 
 ## Usage Examples
+
+> **New to agent teams?** Start with a code review task (not implementation) to learn coordination patterns before letting multiple agents write code simultaneously.
 
 ### Single Repo, Multiple Modules
 
@@ -219,6 +271,11 @@ Choose the mode that fits your task. See `references/team-patterns.md` for detai
 | **Pipeline** | Sequential phases (plan → impl → test) | Serial |
 | **Master-Worker** | Batch of similar tasks | N workers |
 | **Review-Chain** | Code needs review before merge | 2 agents |
+| **Evaluator-Optimizer** | Iterative refinement with feedback cycles | 2 agents |
+
+## Advanced Management
+
+For team scaling, thinking culture, autonomy levels, and multi-session continuity, see `references/management-guide.md`.
 
 ## Handoff Integration
 

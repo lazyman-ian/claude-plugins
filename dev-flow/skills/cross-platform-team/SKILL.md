@@ -114,6 +114,14 @@ Per target repo: `Skill("dev", "start TASK-{id}-{feature} in {repo_path}")`
 
 ### Phase 3: Implement (Team, parallel, sonnet)
 
+**Delegate Mode**: Press `Shift+Tab` to restrict lead to coordination-only (no code edits). Recommended for 3+ teammates to prevent lead from stealing work.
+
+**Plan Approval**: For risky implementations, require teammate to plan first:
+```
+Spawn {platform}-dev and require plan approval before making changes.
+Only approve plans that include verification steps.
+```
+
 Before spawning, detect cross-platform file conflicts:
 ```
 dev_coordinate(action='plan', mode='fan-out', tasks=[

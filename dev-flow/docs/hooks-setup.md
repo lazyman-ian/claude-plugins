@@ -89,6 +89,8 @@ dev-flow works with these standard hooks:
 | `PreCompact` | Backup transcripts | ✅ Recommended |
 | `SubagentStop` | Handoff validation | ⚠️ Optional |
 | `Setup` | Init & maintenance | ✅ New in v2.1.10 |
+| `TaskCompleted` | Block incomplete tasks | ⚠️ Opt-in (agent teams) |
+| `TeammateIdle` | Block idle with dirty state | ⚠️ Opt-in (agent teams) |
 
 ## Hook Conflicts
 
@@ -307,6 +309,155 @@ case "$TOOL_NAME" in
     *) ;;  # Process others
 esac
 ```
+
+## Agent Team Quality Gates
+
+Two hook types for enforcing quality in agent teams. **Not enabled by default** — add to your settings to opt in.
+
+### TaskCompleted Gate
+
+Blocks task completion when verification hasn't passed. Only enforces for agent team tasks (`team_name` present).
+
+**Checks**:
+1. No uncommitted changes (must `/dev commit` first)
+2. `make check` passes (if Makefile exists)
+
+**Script**: `scripts/task-completed-gate.sh`
+
+**Input** (stdin JSON):
+```json
+{
+  "task_id": "task-001",
+  "task_subject": "Implement auth",
+  "task_description": "Add login endpoints",
+  "teammate_name": "impl-dev",
+  "team_name": "TASK-123"
+}
+```
+
+### TeammateIdle Gate
+
+Prevents teammate from going idle with uncommitted work.
+
+**Checks**:
+1. No uncommitted changes
+2. No staged-but-not-committed files
+
+**Script**: `scripts/teammate-idle-gate.sh`
+
+**Input** (stdin JSON):
+```json
+{
+  "teammate_name": "impl-dev",
+  "team_name": "TASK-123"
+}
+```
+
+### Local Installation
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/plugins/installed/dev-flow@lazyman-ian/scripts/task-completed-gate.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "TeammateIdle": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/plugins/installed/dev-flow@lazyman-ian/scripts/teammate-idle-gate.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Note**: These hooks don't support matchers — they fire on every occurrence.
+
+### Testing
+
+```bash
+# Test TaskCompleted (should pass if clean tree)
+echo '{"task_id":"t1","task_subject":"Test","team_name":"test-team"}' | \
+  scripts/task-completed-gate.sh
+
+# Test TeammateIdle (should pass if clean tree)
+echo '{"teammate_name":"dev","team_name":"test-team"}' | \
+  scripts/teammate-idle-gate.sh
+
+# Debug mode
+CLAUDE_HOOK_DEBUG=1 echo '{"team_name":"test"}' | scripts/task-completed-gate.sh
+cat ~/.claude/hooks.log
+```
+
+### Customization
+
+| Scenario | How |
+|----------|-----|
+| Skip `make check` | Remove Check 2 block in `task-completed-gate.sh` |
+| Add test run | Add `npm test` or custom verify in Check 2 |
+| Allow dirty idle | Remove Check 1 in `teammate-idle-gate.sh` |
+| Team-specific logic | Check `$team_name` value in script |
+
+### Advanced: Prompt-based TaskCompleted
+
+TaskCompleted supports `type: "prompt"` — use an LLM to evaluate completion:
+
+```json
+{
+  "hooks": {
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Evaluate if this task is truly complete. Task: $ARGUMENTS. Check if the implementation matches the description and all acceptance criteria are met.",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Advanced: Agent-based TaskCompleted
+
+TaskCompleted also supports `type: "agent"` — spawn a subagent to verify:
+
+```json
+{
+  "hooks": {
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "agent",
+            "prompt": "Verify task completion by checking: 1) All files mentioned in the task exist, 2) Tests pass, 3) No TODO comments left. Task: $ARGUMENTS",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Note**: `TeammateIdle` only supports `type: "command"`, not prompt or agent.
 
 ## Related
 

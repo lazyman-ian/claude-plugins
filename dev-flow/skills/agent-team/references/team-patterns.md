@@ -129,6 +129,33 @@ Task({
 })
 ```
 
+### Evaluator-Optimizer (Iterative Refinement)
+
+Best for: tasks with clear evaluation criteria that benefit from feedback cycles (code quality, translation, complex refactoring).
+
+```
+Generator → Evaluator → (feedback loop) → Done
+  Agent A      Agent B
+```
+
+**Setup**:
+```
+TaskCreate({ subject: "Generate implementation" })
+TaskCreate({ subject: "Evaluate and provide feedback" })
+
+# Spawn generator
+Task({ name: "generator", prompt: "Implement {feature}. When done, SendMessage evaluator." })
+
+# Spawn evaluator
+Task({
+  subagent_type: "dev-flow:code-reviewer",
+  name: "evaluator",
+  prompt: "Review generator's work against {criteria}. SendMessage generator with specific feedback. Repeat until quality passes."
+})
+```
+
+**Key**: Define clear evaluation criteria upfront. The evaluator must have concrete rubrics, not vague "looks good" checks. Limit to 3 iteration rounds to prevent infinite loops.
+
 ## Teammate Prompt Best Practices
 
 ### DO
@@ -146,15 +173,34 @@ Task({
 - Overload a single teammate with unrelated tasks
 - Assume teammates share context (each has independent context)
 
+### Four Essential Elements
+
+Every teammate prompt must include these (from Anthropic multi-agent research):
+
+| Element | Purpose | Example |
+|---------|---------|---------|
+| **Objective** | Clear goal statement | "Implement JWT auth service in src/auth/" |
+| **Output Format** | What to deliver | "Commit with passing tests + SendMessage summary" |
+| **Tool Guidance** | Available tools/skills | "/implement-plan, /dev commit, debug-agent" |
+| **Task Boundaries** | What NOT to do | "Only modify src/auth/. Do not touch src/api/" |
+
 ### Template Structure
 
 ```
 You are {role} working on {specific_task}.
 
+## Objective
+{one sentence describing the clear, measurable goal}
+
 ## Context
 - Repo: {path}
 - Branch: {branch}
 - Plan: {plan_path} (section: {section})
+
+## Output Format
+- Passing verification: {verify_command}
+- Committed code: /dev commit
+- Summary to lead: SendMessage with files changed + decisions made
 
 ## Steps
 1. {specific step 1}
@@ -163,6 +209,11 @@ You are {role} working on {specific_task}.
 N. Verify: {verify_command}
 N+1. /dev commit
 N+2. SendMessage lead: done + summary
+
+## Task Boundaries
+- Only modify files in: {directory_scope}
+- Do NOT modify: {excluded_files_or_dirs}
+- If scope needs expansion → ask lead first
 
 ## Rules
 - Uncertain → ask lead
@@ -179,6 +230,12 @@ N+2. SendMessage lead: done + summary
 | Too many teammates | Token cost explosion | Max 3-4 concurrent teammates |
 | No handoff between phases | Context lost between pipeline stages | Use `dev_handoff` |
 | Forgetting shutdown | Orphaned teammate processes | Always `shutdown_request` + `TeamDelete` |
+| Skipped product definition | 1.5h rework | Validate user stories before tech work |
+| Premature plan approval | Quality gaps | "Approved with corrections" ≠ done — must re-review |
+| Mislabeled dependencies | Lost parallelism | Analyze carefully, maximize parallel opportunities |
+| Messaged shutdown teammate | Wasted waiting | Check member status before messaging |
+| Teammate idle >30min | Resource waste | Complete → assign next task or shutdown |
+| Skipped plan re-review | Quality risk | Updated plans must be re-reviewed before approval |
 
 ## Sizing Guide
 
