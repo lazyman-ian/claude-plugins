@@ -21902,18 +21902,31 @@ function scanReasoning() {
     const reasoningPath = (0, import_path2.join)(reasoningDir, commitDir, "reasoning.md");
     if (!(0, import_fs2.existsSync)(reasoningPath)) continue;
     const content = (0, import_fs2.readFileSync)(reasoningPath, "utf-8");
-    const failedMatch = content.match(/### Failed attempts\n([\s\S]*?)(?=### Summary|## |$)/);
-    if (!failedMatch) continue;
-    const failedText = failedMatch[1].trim();
-    if (!failedText) continue;
     const commitMatch = content.match(/## What was committed\n([\s\S]*?)(?=\n## |$)/);
     const commitMsg = commitMatch ? commitMatch[1].trim().split("\n")[0] : commitDir.slice(0, 8);
-    entries.push({
-      title: `Failed approach: ${commitMsg.slice(0, 60)}`,
-      problem: failedText.slice(0, 300),
-      solution: `Resolved in commit ${commitDir.slice(0, 8)}`,
-      session: commitDir.slice(0, 8)
-    });
+    const failedMatch = content.match(/### Failed attempts\n([\s\S]*?)(?=### Summary|## |$)/);
+    if (failedMatch) {
+      const failedText = failedMatch[1].trim();
+      if (failedText) {
+        entries.push({
+          title: `Failed approach: ${commitMsg.slice(0, 60)}`,
+          problem: failedText.slice(0, 300),
+          solution: `Resolved in commit ${commitDir.slice(0, 8)}`,
+          session: commitDir.slice(0, 8)
+        });
+        continue;
+      }
+    }
+    const filesMatch = content.match(/## Files changed\n([\s\S]*?)(?=\n## |$)/);
+    const files = filesMatch ? filesMatch[1].trim() : "";
+    if (commitMsg && files) {
+      entries.push({
+        title: `Decision: ${commitMsg.slice(0, 60)}`,
+        problem: `Files: ${files.slice(0, 200)}`,
+        solution: commitMsg,
+        session: commitDir.slice(0, 8)
+      });
+    }
   }
   return entries;
 }
