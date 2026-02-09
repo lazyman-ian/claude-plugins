@@ -12,18 +12,6 @@
         ]
       }
     ],
-    "Setup": [
-      {
-        "matcher": "init",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/setup-dev-flow.sh",
-            "timeout": 15
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "matcher": "startup",

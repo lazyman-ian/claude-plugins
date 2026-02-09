@@ -16,16 +16,56 @@ if [[ "$AGENT_TYPE" != "main" && "$AGENT_TYPE" != "unknown" ]]; then
     exit 0
 fi
 
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+
+# === Auto-setup (idempotent, fast) ===
+# Create .dev-flow.json if missing
+if [[ ! -f "$PROJECT_DIR/.dev-flow.json" ]]; then
+    _P="unknown" _F="echo 'Configure fix command'" _C="echo 'Configure check command'" _S="[]"
+    if [[ -f "$PROJECT_DIR/Package.swift" ]] || ls "$PROJECT_DIR"/*.xcodeproj &>/dev/null; then
+        _P="ios" _F="swiftlint --fix && swiftformat ." _C="swiftlint" _S='["ui","api","models","utils","tests"]'
+    elif [[ -f "$PROJECT_DIR/build.gradle" || -f "$PROJECT_DIR/build.gradle.kts" ]]; then
+        _P="android" _F="./gradlew ktlintFormat" _C="./gradlew ktlintCheck" _S='["ui","api","data","domain","utils"]'
+    elif [[ -f "$PROJECT_DIR/package.json" ]]; then
+        _P="node" _F="npm run lint:fix || npx eslint --fix ." _C="npm run lint || npx eslint ." _S='["api","components","utils","hooks","services"]'
+    elif [[ -f "$PROJECT_DIR/pyproject.toml" || -f "$PROJECT_DIR/requirements.txt" ]]; then
+        _P="python" _F="black . && ruff check --fix ." _C="ruff check . && mypy ." _S='["api","models","utils","tests"]'
+    elif [[ -f "$PROJECT_DIR/go.mod" ]]; then
+        _P="go" _F="gofmt -w . && golangci-lint run --fix" _C="golangci-lint run" _S='["cmd","pkg","internal","api"]'
+    elif [[ -f "$PROJECT_DIR/Cargo.toml" ]]; then
+        _P="rust" _F="cargo fmt && cargo clippy --fix --allow-dirty" _C="cargo clippy" _S='["src","lib","bin","tests"]'
+    fi
+    jq -n --arg p "$_P" --arg f "$_F" --arg c "$_C" --argjson s "$_S" \
+        '{platform:$p,commands:{fix:$f,check:$c},scopes:$s,memory:{tier:0}}' > "$PROJECT_DIR/.dev-flow.json"
+fi
+# Create thoughts directories + gitignore
+mkdir -p "$PROJECT_DIR/thoughts/ledgers" "$PROJECT_DIR/thoughts/handoffs" "$PROJECT_DIR/thoughts/plans" "$PROJECT_DIR/thoughts/shared/plans" 2>/dev/null || true
+if [[ ! -f "$PROJECT_DIR/thoughts/.gitignore" ]]; then
+    printf '*.local.md\n.DS_Store\n' > "$PROJECT_DIR/thoughts/.gitignore"
+fi
+# Daily cache cleanup (frequency-guarded)
+_STAMP="/tmp/claude-cleanup-$(echo "$PROJECT_DIR" | md5 -q 2>/dev/null || echo "$PROJECT_DIR" | md5sum | cut -d' ' -f1).txt"
+_NOW=$(date +%s)
+_LAST=$(cat "$_STAMP" 2>/dev/null || echo "0")
+if (( _NOW - _LAST > 86400 )); then
+    /usr/bin/find "$HOME/.claude/cache" -type f -mtime +7 -delete 2>/dev/null || true
+    /usr/bin/find "$HOME/.claude/projects" -name "*.jsonl" -mtime +30 -delete 2>/dev/null || true
+    _TH="$HOME/.claude/state/tool_history.log"
+    if [[ -f "$_TH" ]] && (( $(wc -l < "$_TH" 2>/dev/null || echo 0) > 1000 )); then
+        tail -500 "$_TH" > "${_TH}.tmp" && mv "${_TH}.tmp" "$_TH"
+    fi
+    echo "$_NOW" > "$_STAMP"
+fi
+
 # Run main continuity handler (self-contained)
 OUTPUT=$(echo "$INPUT" | node "$SCRIPT_DIR/dist/session-start-continuity.mjs")
 
-# Branch change detection
 # Clear tool stats on new session start
 STATE_DIR="${HOME}/.claude/state/dev-flow"
 mkdir -p "$STATE_DIR"
 echo '{"read":0,"edit":0,"bash":0,"grep":0}' > "$STATE_DIR/tool_stats.json"
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+# Branch change detection
 # Cross-platform hash: md5 on macOS, md5sum on Linux
 if command -v md5 &>/dev/null; then
     DIR_HASH=$(echo "$PROJECT_DIR" | md5 -q)

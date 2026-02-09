@@ -126,24 +126,9 @@ If you use `--with-keybindings`, adds to `~/.claude/settings.json`:
 
 **Keybinding Prefix**: `ctrl+d` (dev-flow prefix)
 
-## Setup Hook Integration
+## Auto-Setup
 
-This command can also be triggered by the Setup hook:
-
-```json
-{
-  "hooks": {
-    "Setup": [{
-      "matcher": "init",
-      "hooks": [{
-        "type": "command",
-        "command": "$HOME/.claude/hooks/setup-init.sh",
-        "timeout": 30
-      }]
-    }]
-  }
-}
-```
+On SessionStart, dev-flow automatically creates `.dev-flow.json` and `thoughts/` directories if missing. This command is useful for re-initialization or platform override.
 
 ## Examples
 
