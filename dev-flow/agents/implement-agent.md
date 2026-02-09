@@ -21,6 +21,7 @@ Implement a single task/phase from a plan:
 - Read previous handoff (if any)
 - Understand where this fits in overall plan
 - Note patterns and learnings to follow
+- Query pitfalls: `dev_memory(action="query", query="<feature-type> implementation pitfalls")`
 
 ### 2. Implement with TDD
 

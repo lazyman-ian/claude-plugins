@@ -32,6 +32,11 @@ Query past work for similar implementations:
 uv run python scripts/braintrust_analyze.py --rag-judge --plan-file <path>
 ```
 
+Also query knowledge base:
+```
+dev_memory(action="query", query="<library-name> validation known-issues")
+```
+
 Look for:
 - Past successes to follow
 - Past failures to avoid
@@ -99,6 +104,9 @@ plan_file: [path]
 - Security concerns (RISKY)
 - Significantly OUTDATED
 - Critical architectural issues
+
+### Save findings:
+- Save significant findings: `dev_memory(action="save", title="Validation: <library>", text="<finding>", tags=["validation"])`
 
 ### Skip validation for:
 - Standard library

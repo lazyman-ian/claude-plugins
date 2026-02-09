@@ -47,6 +47,7 @@ Detect automatically based on project files:
 
 ```
 1. Detect project type
+1.5. Query known pitfalls: dev_memory(action="query", query="self-check <project-type> pitfalls")
 2. Get changed files (git diff --name-only)
 3. Run applicable checks on changed files
 4. Report findings with severity

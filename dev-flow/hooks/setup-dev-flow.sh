@@ -48,7 +48,8 @@ case "$PLATFORM" in
     "fix": "swiftlint --fix && swiftformat .",
     "check": "swiftlint"
   },
-  "scopes": ["ui", "api", "models", "utils", "tests"]
+  "scopes": ["ui", "api", "models", "utils", "tests"],
+  "memory": { "tier": 0 }
 }
 EOF
         ;;
@@ -60,7 +61,8 @@ EOF
     "fix": "./gradlew ktlintFormat",
     "check": "./gradlew ktlintCheck"
   },
-  "scopes": ["ui", "api", "data", "domain", "utils"]
+  "scopes": ["ui", "api", "data", "domain", "utils"],
+  "memory": { "tier": 0 }
 }
 EOF
         ;;
@@ -72,7 +74,8 @@ EOF
     "fix": "npm run lint:fix || npx eslint --fix .",
     "check": "npm run lint || npx eslint ."
   },
-  "scopes": ["api", "components", "utils", "hooks", "services"]
+  "scopes": ["api", "components", "utils", "hooks", "services"],
+  "memory": { "tier": 0 }
 }
 EOF
         ;;
@@ -84,7 +87,8 @@ EOF
     "fix": "black . && ruff check --fix .",
     "check": "ruff check . && mypy ."
   },
-  "scopes": ["api", "models", "utils", "tests"]
+  "scopes": ["api", "models", "utils", "tests"],
+  "memory": { "tier": 0 }
 }
 EOF
         ;;
@@ -96,7 +100,8 @@ EOF
     "fix": "gofmt -w . && golangci-lint run --fix",
     "check": "golangci-lint run"
   },
-  "scopes": ["cmd", "pkg", "internal", "api"]
+  "scopes": ["cmd", "pkg", "internal", "api"],
+  "memory": { "tier": 0 }
 }
 EOF
         ;;
@@ -108,7 +113,8 @@ EOF
     "fix": "cargo fmt && cargo clippy --fix --allow-dirty",
     "check": "cargo clippy"
   },
-  "scopes": ["src", "lib", "bin", "tests"]
+  "scopes": ["src", "lib", "bin", "tests"],
+  "memory": { "tier": 0 }
 }
 EOF
         ;;
@@ -121,7 +127,8 @@ EOF
     "fix": "echo 'Configure fix command'",
     "check": "echo 'Configure check command'"
   },
-  "scopes": []
+  "scopes": [],
+  "memory": { "tier": 0 }
 }
 EOF
         ;;

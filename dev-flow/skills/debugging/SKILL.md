@@ -36,6 +36,7 @@ OBSERVE → HYPOTHESIZE → TEST → FIX → VERIFY
 - Environment details (OS, versions, config)
 - Recent changes (git log, deployments)
 - Frequency and patterns (when does it happen?)
+- Historical patterns: `dev_memory(action="query", query="<error-keyword> <platform>")`
 
 **Questions to Answer:**
 - What exactly is the symptom?
@@ -90,6 +91,11 @@ OBSERVE → HYPOTHESIZE → TEST → FIX → VERIFY
 ```
 Spawn 2-3 subagents with different fix approaches
 Compare results, choose best solution
+```
+
+**Save pattern** (if root cause is non-obvious):
+```
+dev_memory(action="save", title="<pattern-name>", text="Root cause: ... Fix: ...", tags=["pitfall", "<platform>"])
 ```
 
 ### Phase 5: VERIFY

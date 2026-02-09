@@ -3,22 +3,24 @@
  * Extracts signals from current session (branch, platform, recent files)
  * and queries the knowledge base to inject relevant context at session start.
  *
- * Budget: hard limit 2000 chars (~500 tokens)
- *   - Platform pitfalls (always): max 800 chars
- *   - Task-related knowledge (FTS match): max 600 chars
- *   - Recent discoveries (7 days): max 600 chars
+ * Budget: hard limit 2500 chars (~625 tokens)
+ *   - Platform pitfalls (always): max 600 chars
+ *   - Task-related knowledge (FTS match): max 500 chars
+ *   - Recent discoveries (7 days): max 400 chars
+ *   - Last session summary (Tier 1+): max 500 chars
  */
 
 import { execSync } from 'child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
-import { join } from 'path';
+import { join, basename } from 'path';
 import { homedir } from 'os';
 import { detectPlatformSimple } from '../detector';
 
-const BUDGET_TOTAL = 2000;
-const BUDGET_PITFALLS = 800;
-const BUDGET_TASK = 600;
-const BUDGET_RECENT = 600;
+const BUDGET_TOTAL = 2500;
+const BUDGET_PITFALLS = 600;
+const BUDGET_TASK = 500;
+const BUDGET_RECENT = 400;
+const BUDGET_LAST_SESSION = 500;
 
 interface InjectionResult {
   context: string;
@@ -165,6 +167,34 @@ function esc(s: string): string {
   return (s || '').replace(/'/g, "''");
 }
 
+function getProjectName(): string {
+  return basename(getCwd());
+}
+
+function loadLastSessionSummary(project: string, maxChars: number): string {
+  const dbPath = getDbPath();
+  if (!existsSync(dbPath)) return '';
+
+  const sql = `SELECT request, completed, next_steps FROM session_summaries WHERE project = '${esc(project)}' ORDER BY created_at_epoch DESC LIMIT 1;`;
+
+  try {
+    const result = execSync(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: 'utf-8',
+      timeout: 3000,
+    }).trim();
+    if (!result) return '';
+
+    const [request, completed, nextSteps] = result.split('|||');
+    let output = '';
+    if (request) output += `**Request**: ${request.slice(0, 120)}\n`;
+    if (completed) output += `**Completed**: ${completed.slice(0, 120)}\n`;
+    if (nextSteps) output += `**Next**: ${nextSteps.slice(0, 120)}\n`;
+    return output.slice(0, maxChars);
+  } catch {
+    return '';
+  }
+}
+
 // --- Public API ---
 
 export function injectKnowledgeContext(): InjectionResult {
@@ -201,6 +231,15 @@ export function injectKnowledgeContext(): InjectionResult {
     sections.push(`### Recent Discoveries\n${recent}`);
     sources.push('discoveries/');
     totalChars += recent.length;
+  }
+
+  // 4. Last session summary (Tier 1+)
+  const project = getProjectName();
+  const lastSession = loadLastSessionSummary(project, BUDGET_LAST_SESSION);
+  if (lastSession) {
+    sections.push(`### Last Session\n${lastSession}`);
+    sources.push('session_summaries');
+    totalChars += lastSession.length;
   }
 
   if (sections.length === 0) {

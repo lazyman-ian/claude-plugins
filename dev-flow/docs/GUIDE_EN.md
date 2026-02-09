@@ -1,6 +1,6 @@
 # dev-flow Plugin Complete Guide
 
-> Claude Code Development Workflow Automation | v3.15.0
+> Claude Code Development Workflow Automation | v4.0.0
 
 ## Table of Contents
 
@@ -286,6 +286,306 @@ Auto-loads at session start:
 📚 ios pitfalls: 4 items
 ```
 
+### Memory System
+
+4-tier progressive memory system, from zero-cost to semantic search:
+
+| Tier | Features | Token Cost | Dependencies |
+|------|----------|-----------|--------------|
+| 0 | FTS5 full-text search + save/search/get | 0 (pure SQLite) | None |
+| 1 | + Auto session summaries | ~$0.001/session | Optional API key |
+| 2 | + ChromaDB semantic search | Same as Tier 1 | + chromadb |
+| 3 | + Periodic observation capture | ~$0.005/session | Same as Tier 1 |
+
+#### Knowledge Loop
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Knowledge Loop                          │
+│                                                             │
+│  ┌──────────┐    auto-inject   ┌──────────────┐            │
+│  │SessionStart│───────────────▶│ System Prompt │            │
+│  │  hook     │  pitfalls +     │ (~2500 tokens)│            │
+│  └──────────┘  last summary    └──────┬───────┘            │
+│       ▲                               │                    │
+│       │                               ▼                    │
+│  ┌──────────┐              ┌──────────────────┐            │
+│  │ Knowledge │◀────────────│  Skill / Agent   │            │
+│  │    DB     │   save()    │  auto query()    │            │
+│  │ (SQLite)  │             │  save on finding │            │
+│  └──────────┘              └────────┬─────────┘            │
+│       ▲                             │                      │
+│       │                             ▼                      │
+│  ┌──────────┐              ┌──────────────────┐            │
+│  │ Stop hook │◀─────────── │   Session End    │            │
+│  │ auto-sum  │  Tier 1     └──────────────────┘            │
+│  └──────────┘                       │                      │
+│       ▲                             ▼                      │
+│  ┌──────────┐              ┌──────────────────┐            │
+│  │PostToolUse│◀─────────── │  Every N tools   │            │
+│  │ auto-obs  │  Tier 3     └──────────────────┘            │
+│  └──────────┘                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Automatic vs Manual
+
+| Operation | Trigger | Description |
+|-----------|---------|-------------|
+| Knowledge injection | **Auto** SessionStart | Injects pitfalls + task knowledge + last summary each session |
+| Skill/Agent query | **Auto** before work | debug/plan/implement/validate/review auto-query history |
+| Skill/Agent save | **Semi-auto** after work | Saves when non-obvious patterns discovered |
+| Session summary | **Auto** Stop hook | Tier 1+ auto-generates on session end |
+| Observation capture | **Auto** PostToolUse | Tier 3 auto-classifies every N tool calls |
+| Knowledge consolidation | **Manual** consolidate | Run once after major feature completion |
+| Knowledge extraction | **Manual** extract | Run once for new project initialization |
+
+#### Storage Locations
+
+```
+~/.claude/
+├── knowledge/                      # Knowledge files (consolidate output)
+│   ├── platforms/                   #   Platform-specific (ios/android)
+│   ├── patterns/                    #   Generic patterns
+│   └── discoveries/                 #   Exploration findings
+└── cache/artifact-index/
+    └── context.db                   # SQLite database (all FTS5 indexes)
+
+<project>/
+├── .dev-flow.json                   # Memory config (tier, options)
+├── .claude/cache/artifact-index/
+│   └── context.db                   # Project-level DB (preferred)
+├── .git/claude/commits/<hash>/
+│   └── reasoning.md                 # Commit reasoning records
+└── thoughts/reasoning/
+    └── <hash>-reasoning.md          # Reasoning copy (git-tracked)
+```
+
+| Data | Storage Location | Lifecycle |
+|------|-----------------|-----------|
+| Knowledge entries | `context.db` → `knowledge` table | Persistent, cross-session |
+| Reasoning records | `context.db` → `reasoning` table + files | Persistent, git-tracked |
+| Synonyms | `context.db` → `synonyms` table | Persistent, auto-seeded |
+| Session summaries | `context.db` → `session_summaries` table | Persistent, Tier 1+ |
+| Observations | `context.db` → `observations` table | Persistent, Tier 3 |
+| Knowledge files | `~/.claude/knowledge/` | Persistent, cross-project |
+
+#### Checking If It Works
+
+```bash
+# View memory status and statistics
+dev_memory(action='status')
+
+# List knowledge entries
+dev_memory(action='list')
+
+# Search specific knowledge
+dev_memory(action='search', query='concurrency')
+
+# Query SQLite directly
+sqlite3 .claude/cache/artifact-index/context.db "SELECT COUNT(*) FROM knowledge;"
+sqlite3 .claude/cache/artifact-index/context.db "SELECT id, title FROM session_summaries ORDER BY created_at_epoch DESC LIMIT 5;"
+sqlite3 .claude/cache/artifact-index/context.db "SELECT type, title FROM observations ORDER BY created_at_epoch DESC LIMIT 5;"
+
+# Check knowledge files
+ls ~/.claude/knowledge/platforms/ ~/.claude/knowledge/patterns/ ~/.claude/knowledge/discoveries/
+```
+
+#### Tier 0: FTS5 Full-Text Search (Default)
+
+Zero-cost, pure SQLite memory layer.
+
+**What it does**:
+- `save` — Save knowledge entries to `knowledge` table with automatic FTS5 indexing
+- `search` — Lightweight search returning ID + title list (no full text, saves tokens)
+- `get` — Retrieve full content by ID (search → get two-step pattern saves ~10x tokens)
+- `consolidate` — Extract knowledge from CLAUDE.md, ledgers, reasoning into database
+- SessionStart auto-injection: platform pitfalls + task-related knowledge + recent discoveries
+
+**Synonym expansion**: Searching `crash` auto-expands to `(crash OR error OR exception OR panic OR abort)`, 8 built-in mapping groups.
+
+**Data flow**:
+```
+User/Claude calls dev_memory(save) → knowledge table + FTS5 index
+SessionStart hook → FTS5 query → inject into system prompt (~2000 tokens)
+```
+
+**Best for**: All users. Zero configuration, zero cost.
+
+#### Tier 1: Auto Session Summaries
+
+Automatically generates structured summaries when a session ends, so the next session can quickly understand what was done.
+
+**What it does**:
+- Stop hook triggers when session ends
+- With API key → Haiku generates JSON summary (request/investigated/learned/completed/next_steps)
+- Without API key → heuristic fallback: extracts `completed` from `git log --oneline`, `investigated` from `git diff --stat`
+- Summary written to `session_summaries` table + FTS5 index
+- Next SessionStart auto-injects last summary (~500 tokens budget)
+
+**Data flow**:
+```
+Session ends → Stop hook → Haiku API / heuristic
+    → session_summaries table + FTS5
+    → Next SessionStart injects "Last time you were working on XXX, completed YYY, next step ZZZ"
+```
+
+**Best for**: Users who frequently switch sessions and want automatic context continuity.
+
+#### Tier 2: ChromaDB Semantic Search
+
+Adds vector semantic search on top of FTS5 keyword search — understands "similar meaning" not just "same words".
+
+**What it does**:
+- `save`/`consolidate` simultaneously writes to ChromaDB vector database (fire-and-forget, non-blocking)
+- `memorySearchAsync` hybrid search: ChromaDB semantic + FTS5 keyword, results deduplicated and merged
+- Graceful degradation when ChromaDB not installed → falls back to pure FTS5
+
+**Data flow**:
+```
+dev_memory(save) → knowledge table + FTS5 + ChromaDB vectors
+dev_memory(search) → FTS5 keyword search (sync, fast)
+                   + ChromaDB semantic search (async, accurate)
+                   → deduplicate & merge → return sorted results
+```
+
+**Dependency**: `pip install chromadb` (optional — not installing doesn't affect other features)
+
+**Best for**: Users with large knowledge bases (100+ entries) who need fuzzy semantic search.
+
+#### Tier 3: Periodic Observation Capture
+
+Automatically records Claude's work process — not just "what is known" but "what was done".
+
+**What it does**:
+- PostToolUse hook triggers after every tool call, incrementing a counter
+- Every N calls (default 10), triggers batch processing
+- With API key → Haiku classifies tool log into structured observations (type: decision/bugfix/feature/refactor/discovery)
+- Without API key → heuristic: Edit/Write → feature, Read-heavy → discovery
+- Observations written to `observations` table + FTS5 index
+
+**Data flow**:
+```
+Each tool call → PostToolUse hook → counter +1, tool info appended to log
+Nth call → read log → Haiku classification / heuristic classification
+        → observations table + FTS5
+        → searchable via search/query
+```
+
+**Best for**: Users who want to auto-accumulate project history and look up "how was this type of problem solved last time".
+
+#### New User Setup
+
+After installing dev-flow, `claude --init` automatically:
+
+1. Setup hook creates `.dev-flow.json` (includes `"memory": { "tier": 0 }`)
+2. First `dev_memory` call auto-creates SQLite tables and FTS5 indexes
+3. Default synonyms auto-seeded (8 groups: concurrency, auth, crash, etc.)
+
+**Zero configuration needed for Tier 0**.
+
+#### Existing User Migration
+
+If you already have `.dev-flow.json` (setup hook won't recreate it), add `memory` field manually:
+
+```json
+{
+  "platform": "ios",
+  "commands": { "fix": "...", "check": "..." },
+  "scopes": ["ui", "api"],
+  "memory": { "tier": 0 }
+}
+```
+
+> Not adding it is fine — `getMemoryConfig()` defaults to tier 0. Adding it enables explicit tier upgrades.
+
+#### Tier Upgrade Path
+
+```jsonc
+// Tier 1: Auto session summaries (Stop hook → Haiku API or heuristic)
+"memory": { "tier": 1, "sessionSummary": true }
+
+// Tier 2: Semantic search (requires: pip install chromadb)
+"memory": { "tier": 2, "sessionSummary": true, "chromadb": true }
+
+// Tier 3: Periodic capture (auto-classify every N tool uses)
+"memory": { "tier": 3, "sessionSummary": true, "chromadb": true, "periodicCapture": true, "captureInterval": 10 }
+```
+
+#### API Key Setup (Optional)
+
+Tier 1/3 Haiku calls need an API key, but **work without one** (heuristic fallback extracts summaries from git log):
+
+```bash
+# Option 1: Register API account (console.anthropic.com), add $5 credit
+export ANTHROPIC_API_KEY=sk-ant-...  # Add to ~/.zshrc
+
+# Option 2: No key (auto-uses heuristic mode — lower quality but zero cost)
+```
+
+#### Using MCP Tools
+
+```bash
+# Save knowledge
+dev_memory(action='save', text='@Sendable closures cannot capture mutable state', title='Swift concurrency pitfall', tags=['swift', 'concurrency'])
+
+# Search (lightweight, returns ID + title)
+dev_memory(action='search', query='concurrency pitfalls', limit=5)
+
+# Get full content
+dev_memory(action='get', ids=['knowledge-xxx'])
+
+# Consolidate historical knowledge
+dev_memory(action='consolidate')
+
+# Check status
+dev_memory(action='status')
+```
+
+#### Automatic Behaviors
+
+| Tier | Automatic Behavior | Trigger |
+|------|-------------------|---------|
+| 0 | SessionStart knowledge injection (~2500 tokens) | Every session start |
+| 1 | Generate session summary to DB | Stop hook (session end) |
+| 2 | ChromaDB semantic index sync | On save/consolidate |
+| 3 | Batch observation capture + classify | Every N tool uses |
+
+#### Tips
+
+**Memory Maintenance**
+
+| Command | When to Use | Frequency |
+|---------|-------------|-----------|
+| `dev_memory(action='consolidate')` | Extract CLAUDE.md pitfalls, ledger decisions, reasoning patterns into DB | Run once after completing a major feature |
+| `/dev-flow:extract-knowledge` | Scan project files for reusable knowledge (first-time or after major version) | Run once for new projects / after major upgrades |
+
+> Daily use requires no manual calls — skills/agents auto-query and save knowledge, session summaries are generated automatically. The above two commands are only for periodic maintenance and one-time migrations.
+
+**Claude Code CLI**
+
+| Action | Command | Description |
+|--------|---------|-------------|
+| Initialize project | `claude` then `/init` | Triggers Setup hook, auto-creates `.dev-flow.json` (with memory config) |
+| Clear context | `/clear` | Use when context > 70%, ledger auto-restores state |
+| Compact context | `/compact` | Compress context keeping key info, auto-triggers PreCompact hook backup |
+| Check plugin status | `/plugins` | Verify dev-flow loaded correctly |
+| Check MCP tools | `claude mcp list` | Verify dev-flow MCP server connected |
+| Delegate mode | `Shift+Tab` | Restrict lead to coordination-only with 3+ teammates |
+| Reference file | `#filename` | Add file content to context, pairs well with memory queries |
+
+#### Database Schema
+
+All data in `.claude/cache/artifact-index/context.db`:
+
+| Table | Purpose | Tier |
+|-------|---------|------|
+| knowledge + knowledge_fts | Knowledge entries | 0 |
+| reasoning + reasoning_fts | Reasoning records | 0 |
+| synonyms | Synonym expansion (FTS5 query enhancement) | 0 |
+| session_summaries + _fts | Session summaries | 1 |
+| observations + _fts | Observation records | 3 |
+
 ### Multi-Agent Coordination
 
 Complex tasks auto-decomposed to multiple agents.
@@ -472,10 +772,11 @@ dev-flow auto-enables these hooks:
 | Hook | Trigger | Function |
 |------|---------|----------|
 | PreToolUse | Before `git commit` | Block raw git commit, enforce /dev commit |
-| Setup | First init | Configure dev-flow environment |
-| SessionStart | Resume session | Load ledger + platform knowledge |
+| Setup | First init | Configure dev-flow environment + memory |
+| SessionStart | Resume session | Load ledger + platform knowledge + last summary |
 | PreCompact | Before compact | Backup transcript |
-| PostToolUse | After tool use | Tool counter + remind /dev commands |
+| Stop | Session end | Generate session summary (Tier 1+) |
+| PostToolUse | After tool use | Tool counter + reminders + periodic capture (Tier 3) |
 
 ### StatusLine
 
@@ -569,6 +870,17 @@ The `platform` field in `.dev-flow.json` also affects:
 ---
 
 ## Version History
+
+### v4.0.0 (2026-02-09)
+
+- **4-Tier Memory System**: Progressive memory — Tier 0 (FTS5) → Tier 1 (Session summaries) → Tier 2 (ChromaDB) → Tier 3 (Observation capture)
+- **New MCP Actions**: `dev_memory` adds save/search/get — 3-layer search (lightweight index → full content)
+- **FTS5 Synonym Expansion**: 8 default synonym groups (concurrency, auth, crash, etc.), auto-expands queries
+- **Session Summary (Stop hook)**: Haiku API or heuristic fallback (subscription users need no API key)
+- **Periodic Observations (PostToolUse)**: Auto-classify every N tool uses as decision/bugfix/feature/discovery
+- **ChromaDB Semantic Search**: Optional, graceful degradation (pure FTS5 when not installed)
+- **Setup Hook Upgrade**: New projects auto-include `memory: { tier: 0 }` config
+- **Context Injector Enhanced**: Last session summary injection (budget 2500 tokens)
 
 ### v3.17.0 (2026-02-09)
 

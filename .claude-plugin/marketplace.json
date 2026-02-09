@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "dev-flow",
-      "description": "Unified development workflow: planning → coding → commit → PR → release with VDD and cross-platform team orchestration",
-      "version": "3.17.0",
+      "description": "Unified development workflow: planning → coding → commit → PR → release with VDD, 4-tier memory system, and cross-platform team orchestration",
+      "version": "4.0.0",
       "author": {
         "name": "lazyman",
         "email": "nickyuan94@gmail.com"

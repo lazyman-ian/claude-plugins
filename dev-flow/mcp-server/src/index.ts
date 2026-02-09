@@ -260,18 +260,23 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: 'dev_memory',
-      description: '[~60 tokens] Manage knowledge consolidation (consolidate/status/query/list/extract)',
+      description: '[~60 tokens] Manage knowledge consolidation (consolidate/status/query/list/extract/save/search/get)',
       inputSchema: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['consolidate', 'status', 'query', 'list', 'extract'],
+            enum: ['consolidate', 'status', 'query', 'list', 'extract', 'save', 'search', 'get'],
             description: 'Action to perform',
           },
           query: { type: 'string', description: 'Search query (for query action)' },
           type: { type: 'string', description: 'Filter by type: pitfall|pattern|decision (for list action)' },
           dryRun: { type: 'boolean', description: 'Preview only, no writes (for extract action)' },
+          text: { type: 'string', description: 'Text content to save (for save action)' },
+          title: { type: 'string', description: 'Title for saved entry (for save action, auto-generated if omitted)' },
+          tags: { type: 'string', description: 'Comma-separated tags (for save action)' },
+          ids: { type: 'string', description: 'Comma-separated entry IDs (for get action)' },
+          limit: { type: 'number', description: 'Max results (for search action, default 10)' },
         },
       },
     },
@@ -439,7 +444,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return tasksTool(args?.action as string, args?.ledgerPath as string);
       // Memory tools
       case 'dev_memory':
-        return memoryTool(args?.action as string, args?.query as string, args?.type as string, args?.dryRun as boolean);
+        return memoryTool(args?.action as string, args?.query as string, args?.type as string, args?.dryRun as boolean, args?.text as string, args?.title as string, args?.tags as string, args?.ids as string, args?.limit as number);
       // Coordination tools
       case 'dev_coordinate':
         return coordinateTool(args?.action as string, args?.mode as string, args?.tasks as string, args?.taskId as string);
@@ -1008,7 +1013,7 @@ function tasksTool(action?: string, ledgerPath?: string) {
 }
 
 // Memory tool implementation
-function memoryTool(action?: string, query?: string, type?: string, dryRun?: boolean) {
+function memoryTool(action?: string, query?: string, type?: string, dryRun?: boolean, text?: string, title?: string, tags?: string, ids?: string, limit?: number) {
   switch (action) {
     case 'consolidate': {
       const result = continuity.memoryConsolidate();
@@ -1044,8 +1049,33 @@ function memoryTool(action?: string, query?: string, type?: string, dryRun?: boo
       const result = continuity.extractFromProject(dryRun ?? false);
       return { content: [{ type: 'text', text: result.message }] };
     }
+    case 'save': {
+      if (!text) return { content: [{ type: 'text', text: '❌ text required for save' }] };
+      const tagArray = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : undefined;
+      const result = continuity.memorySave(text, title, tagArray, type);
+      return { content: [{ type: 'text', text: `✅ ${result.message}` }] };
+    }
+    case 'search': {
+      if (!query) return { content: [{ type: 'text', text: '❌ query required for search' }] };
+      const results = continuity.memorySearch(query, limit || 10, type);
+      if (results.length === 0) {
+        return { content: [{ type: 'text', text: `No results for "${query}"` }] };
+      }
+      const lines = results.map(r => `${r.id}|[${r.type}]|${r.title}|${r.platform}|${r.createdAt.slice(0, 10)}`);
+      return { content: [{ type: 'text', text: `Found:${results.length}\n${lines.join('\n')}` }] };
+    }
+    case 'get': {
+      if (!ids) return { content: [{ type: 'text', text: '❌ ids required for get (comma-separated)' }] };
+      const idArray = ids.split(',').map(i => i.trim()).filter(Boolean);
+      const results = continuity.memoryGet(idArray);
+      if (results.length === 0) {
+        return { content: [{ type: 'text', text: 'No entries found for provided IDs' }] };
+      }
+      const entries = results.map(r => `## [${r.type}] ${r.title}\nPlatform: ${r.platform} | Project: ${r.sourceProject}\n**Problem**: ${r.problem}\n**Solution**: ${r.solution}`);
+      return { content: [{ type: 'text', text: entries.join('\n\n') }] };
+    }
     default:
-      return { content: [{ type: 'text', text: '❌ Action required: consolidate|status|query|list|extract' }] };
+      return { content: [{ type: 'text', text: '❌ Action required: consolidate|status|query|list|extract|save|search|get' }] };
   }
 }
 

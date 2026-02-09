@@ -58,6 +58,11 @@ dev_reasoning(action="recall", keyword="<related-term>")
 dev_ledger(action="search", keyword="<error-type>")
 ```
 
+**Search knowledge base**:
+```
+dev_memory(action="query", query="<error-type> <platform> debugging")
+```
+
 ### 4. Form Hypotheses
 
 Based on evidence, list possible causes:
@@ -93,6 +98,13 @@ For each hypothesis:
 [How to prevent this in future]
 ```
 
+### 7. Save to Knowledge (if novel)
+
+If the root cause reveals a non-obvious pattern:
+```
+dev_memory(action="save", title="<brief-pattern>", text="<root-cause-and-fix>", tags=["debugging", "<platform>"])
+```
+
 ## Tools Available
 
 - `Grep` - Search code
@@ -100,3 +112,4 @@ For each hypothesis:
 - `Bash` - Run commands
 - `dev_reasoning(recall)` - Search past decisions
 - `dev_ledger(search)` - Search task history
+- `dev_memory(query/save)` - Search and save knowledge patterns

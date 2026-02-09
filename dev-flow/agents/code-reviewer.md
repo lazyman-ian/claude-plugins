@@ -37,6 +37,11 @@ Review the current PR or staged changes for:
 
 ## Instructions
 
+0. Query platform pitfalls:
+   ```
+   dev_memory(action="query", query="code review <platform> common-issues")
+   ```
+
 1. Get the diff:
    ```bash
    git diff master...HEAD

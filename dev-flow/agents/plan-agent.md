@@ -27,6 +27,7 @@ Create comprehensive implementation plans by:
 - Find existing patterns to follow
 - Identify integration points
 - Check for past similar implementations
+- Query knowledge base: `dev_memory(action="query", query="<feature-type> architecture patterns")`
 
 ### 3. Design Phase
 - Present design options with trade-offs

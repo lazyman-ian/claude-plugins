@@ -9,6 +9,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, statSy
 import { join, basename } from 'path';
 import { homedir } from 'os';
 import { detectPlatformSimple } from '../detector';
+import { getSemanticSearch } from './embeddings';
 
 // --- Types ---
 
@@ -145,6 +146,78 @@ END;
 CREATE TRIGGER IF NOT EXISTS reasoning_ad AFTER DELETE ON reasoning BEGIN
   INSERT INTO reasoning_fts(reasoning_fts, rowid, commit_message, failed_attempts, decisions) VALUES('delete', old.rowid, old.commit_message, old.failed_attempts, old.decisions);
 END;
+
+CREATE TABLE IF NOT EXISTS synonyms (
+  term TEXT PRIMARY KEY,
+  expansions TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS session_summaries (
+  id TEXT PRIMARY KEY,
+  session_id TEXT,
+  project TEXT NOT NULL,
+  request TEXT,
+  investigated TEXT,
+  learned TEXT,
+  completed TEXT,
+  next_steps TEXT,
+  files_modified TEXT,
+  created_at TEXT NOT NULL,
+  created_at_epoch INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_summaries_project ON session_summaries(project);
+CREATE INDEX IF NOT EXISTS idx_session_summaries_epoch ON session_summaries(created_at_epoch DESC);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS session_summaries_fts USING fts5(
+  request, investigated, learned, completed, next_steps,
+  content=session_summaries, content_rowid=rowid,
+  tokenize='porter unicode61'
+);
+
+CREATE TRIGGER IF NOT EXISTS session_summaries_ai AFTER INSERT ON session_summaries BEGIN
+  INSERT INTO session_summaries_fts(rowid, request, investigated, learned, completed, next_steps)
+  VALUES (new.rowid, new.request, new.investigated, new.learned, new.completed, new.next_steps);
+END;
+
+CREATE TRIGGER IF NOT EXISTS session_summaries_ad AFTER DELETE ON session_summaries BEGIN
+  INSERT INTO session_summaries_fts(session_summaries_fts, rowid, request, investigated, learned, completed, next_steps)
+  VALUES('delete', old.rowid, old.request, old.investigated, old.learned, old.completed, old.next_steps);
+END;
+
+CREATE TABLE IF NOT EXISTS observations (
+  id TEXT PRIMARY KEY,
+  session_id TEXT,
+  project TEXT NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  concepts TEXT,
+  files_modified TEXT,
+  narrative TEXT,
+  prompt_number INTEGER,
+  created_at TEXT NOT NULL,
+  created_at_epoch INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_observations_project ON observations(project);
+CREATE INDEX IF NOT EXISTS idx_observations_epoch ON observations(created_at_epoch DESC);
+CREATE INDEX IF NOT EXISTS idx_observations_type ON observations(type);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS observations_fts USING fts5(
+  title, narrative, concepts,
+  content=observations, content_rowid=rowid,
+  tokenize='porter unicode61'
+);
+
+CREATE TRIGGER IF NOT EXISTS observations_ai AFTER INSERT ON observations BEGIN
+  INSERT INTO observations_fts(rowid, title, narrative, concepts)
+  VALUES (new.rowid, new.title, new.narrative, new.concepts);
+END;
+
+CREATE TRIGGER IF NOT EXISTS observations_ad AFTER DELETE ON observations BEGIN
+  INSERT INTO observations_fts(observations_fts, rowid, title, narrative, concepts)
+  VALUES('delete', old.rowid, old.title, old.narrative, old.concepts);
+END;
 `;
 
   try {
@@ -155,6 +228,8 @@ END;
   } catch {
     // DB may already have tables, ignore errors
   }
+
+  seedSynonyms();
 }
 
 function dbInsertKnowledge(entry: KnowledgeEntry): boolean {
@@ -231,6 +306,50 @@ function dbQueryReasoning(query: string, limit: number = 10): Array<{ commitHash
 
 function esc(s: string): string {
   return (s || '').replace(/'/g, "''");
+}
+
+// --- FTS5 Synonym Expansion ---
+
+function expandQuery(query: string): string {
+  const dbPath = getDbPath();
+  if (!existsSync(dbPath)) return query;
+
+  const terms = query.split(/\s+/).filter(Boolean);
+  const expanded = terms.map(term => {
+    try {
+      const sql = `SELECT expansions FROM synonyms WHERE term = '${esc(term.toLowerCase())}';`;
+      const result = execSync(`sqlite3 "${dbPath}" "${sql}"`, { encoding: 'utf-8', timeout: 2000 }).trim();
+      if (result) {
+        const synonyms: string[] = JSON.parse(result);
+        return `(${term} OR ${synonyms.join(' OR ')})`;
+      }
+    } catch { /* no synonym found */ }
+    return term;
+  });
+  return expanded.join(' ');
+}
+
+function seedSynonyms(): void {
+  const dbPath = getDbPath();
+  if (!existsSync(dbPath)) return;
+
+  const defaults: Record<string, string[]> = {
+    concurrency: ['thread', 'race condition', 'async', 'await', 'actor', 'sendable'],
+    auth: ['authentication', 'authorization', 'jwt', 'token', 'login', 'session'],
+    crash: ['fatal', 'exception', 'abort', 'signal', 'SIGABRT'],
+    performance: ['slow', 'latency', 'memory leak', 'cpu', 'optimize'],
+    ui: ['layout', 'view', 'component', 'render', 'display'],
+    network: ['http', 'api', 'request', 'response', 'fetch', 'url'],
+    database: ['sqlite', 'core data', 'realm', 'migration', 'schema'],
+    test: ['unit test', 'integration', 'mock', 'stub', 'assert'],
+  };
+
+  for (const [term, expansions] of Object.entries(defaults)) {
+    try {
+      const sql = `INSERT OR IGNORE INTO synonyms (term, expansions) VALUES ('${esc(term)}', '${esc(JSON.stringify(expansions))}');`;
+      execSync(`sqlite3 "${dbPath}" "${sql}"`, { encoding: 'utf-8', timeout: 2000 });
+    } catch { /* ignore */ }
+  }
 }
 
 // --- Source Scanners ---
@@ -571,7 +690,7 @@ export function memoryStatus(): MemoryStatus {
 
 export function memoryQuery(query: string, limit: number = 10): KnowledgeEntry[] {
   ensureDbSchema();
-  return dbQueryKnowledge(query, limit);
+  return dbQueryKnowledge(expandQuery(query), limit);
 }
 
 export function memoryList(type?: string): KnowledgeEntry[] {
@@ -580,6 +699,165 @@ export function memoryList(type?: string): KnowledgeEntry[] {
 
   const whereClause = type ? `WHERE type = '${esc(type)}'` : '';
   const sql = `SELECT id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path FROM knowledge ${whereClause} ORDER BY created_at DESC LIMIT 50;`;
+
+  try {
+    const result = execSync(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: 'utf-8',
+      timeout: 3000,
+    }).trim();
+    if (!result) return [];
+
+    return result.split('\n').map(line => {
+      const [id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split('|||');
+      return { id, type: type as any, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
+    });
+  } catch {
+    return [];
+  }
+}
+
+// --- Memory Config ---
+
+function getMemoryConfig(): { tier: number; sessionSummary: boolean; chromadb: boolean; periodicCapture: boolean; captureInterval: number } {
+  const configPath = join(getCwd(), '.dev-flow.json');
+  try {
+    if (existsSync(configPath)) {
+      const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+      return {
+        tier: config?.memory?.tier ?? 0,
+        sessionSummary: config?.memory?.sessionSummary ?? false,
+        chromadb: config?.memory?.chromadb ?? false,
+        periodicCapture: config?.memory?.periodicCapture ?? false,
+        captureInterval: config?.memory?.captureInterval ?? 10,
+      };
+    }
+  } catch { /* ignore */ }
+  return { tier: 0, sessionSummary: false, chromadb: false, periodicCapture: false, captureInterval: 10 };
+}
+
+// --- Ad-hoc Memory Storage ---
+
+export function memorySave(text: string, title?: string, tags?: string[], type?: string): { id: string; message: string } {
+  ensureDbSchema();
+  const project = getProjectName();
+  const platform = detectCurrentPlatform();
+  const autoTitle = title || text.slice(0, 60).replace(/\n/g, ' ');
+  const entryType = (type === 'pitfall' || type === 'pattern' || type === 'decision') ? type : 'decision';
+  const entry: KnowledgeEntry = {
+    id: generateId(entryType, autoTitle),
+    type: entryType as 'pitfall' | 'pattern' | 'decision',
+    platform,
+    title: autoTitle,
+    problem: text,
+    solution: tags?.join(', ') || '',
+    sourceProject: project,
+    sourceSession: 'manual',
+    createdAt: new Date().toISOString(),
+    filePath: '',
+  };
+  writeKnowledgeEntry(entry);
+  dbInsertKnowledge(entry);
+
+  // Sync to ChromaDB if tier >= 2
+  const config = getMemoryConfig();
+  if (config.tier >= 2 && config.chromadb) {
+    const semantic = getSemanticSearch();
+    semantic.addEntry(entry.id, `${entry.title} ${entry.problem} ${entry.solution}`, {
+      type: entry.type,
+      platform: entry.platform,
+      project: entry.sourceProject,
+      created_at: entry.createdAt,
+    }).catch(() => { /* ignore ChromaDB errors */ });
+  }
+
+  return { id: entry.id, message: `Saved: ${autoTitle}` };
+}
+
+// --- Lightweight Search (3-layer index) ---
+
+export function memorySearch(query: string, limit: number = 10, type?: string): Array<{
+  id: string; type: string; title: string; platform: string; createdAt: string;
+}> {
+  ensureDbSchema();
+  const dbPath = getDbPath();
+  if (!existsSync(dbPath)) return [];
+
+  const expandedQuery = expandQuery(query);
+  const typeFilter = type ? ` AND k.type = '${esc(type)}'` : '';
+  const sql = `SELECT k.id, k.type, k.title, k.platform, k.created_at FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc(expandedQuery)}'${typeFilter} ORDER BY rank LIMIT ${limit};`;
+
+  try {
+    const result = execSync(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: 'utf-8',
+      timeout: 3000,
+    }).trim();
+    if (!result) return [];
+
+    return result.split('\n').map(line => {
+      const [id, entryType, title, platform, createdAt] = line.split('|||');
+      return { id, type: entryType, title, platform, createdAt };
+    });
+  } catch {
+    return [];
+  }
+}
+
+// --- Async Hybrid Search (Tier 2+: ChromaDB semantic + FTS5 keyword) ---
+
+export async function memorySearchAsync(query: string, limit: number = 10, type?: string): Promise<Array<{
+  id: string; type: string; title: string; platform: string; createdAt: string; score?: number;
+}>> {
+  ensureDbSchema();
+  const config = getMemoryConfig();
+
+  if (config.tier >= 2 && config.chromadb) {
+    const semantic = getSemanticSearch();
+    if (await semantic.initialize()) {
+      const filter = type ? { type } : undefined;
+      const semanticResults = await semantic.search(query, limit, filter);
+
+      const ftsResults = memorySearch(query, limit, type);
+
+      const seen = new Set<string>();
+      const merged: Array<{ id: string; type: string; title: string; platform: string; createdAt: string; score?: number }> = [];
+
+      for (const sr of semanticResults) {
+        if (!seen.has(sr.id)) {
+          seen.add(sr.id);
+          merged.push({
+            id: sr.id,
+            type: sr.metadata.type || 'unknown',
+            title: sr.metadata.title || sr.id,
+            platform: sr.metadata.platform || 'general',
+            createdAt: sr.metadata.created_at || '',
+            score: 1 - sr.distance,
+          });
+        }
+      }
+
+      for (const fr of ftsResults) {
+        if (!seen.has(fr.id)) {
+          seen.add(fr.id);
+          merged.push({ ...fr, score: 0.5 });
+        }
+      }
+
+      return merged.slice(0, limit);
+    }
+  }
+
+  return memorySearch(query, limit, type);
+}
+
+// --- Full Entry Retrieval ---
+
+export function memoryGet(ids: string[]): KnowledgeEntry[] {
+  ensureDbSchema();
+  const dbPath = getDbPath();
+  if (!existsSync(dbPath) || ids.length === 0) return [];
+
+  const idList = ids.map(id => `'${esc(id)}'`).join(',');
+  const sql = `SELECT id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path FROM knowledge WHERE id IN (${idList});`;
 
   try {
     const result = execSync(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
@@ -764,5 +1042,5 @@ export function extractFromProject(dryRun: boolean = false): ConsolidationResult
   };
 }
 
-// Exposed for reasoning module to use
-export { dbInsertReasoning, dbQueryReasoning, ensureDbSchema };
+// Exposed for reasoning module and other modules to use
+export { dbInsertReasoning, dbQueryReasoning, ensureDbSchema, getMemoryConfig };

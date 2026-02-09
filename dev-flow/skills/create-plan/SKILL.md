@@ -114,6 +114,7 @@ CONTEXT GATHER → RESEARCH → STRUCTURE → WRITE PLAN → REVIEW
 ```
 
 1. **Context Gathering**: Read all files FULLY, spawn research agents
+   - Query past patterns: `dev_memory(action="query", query="<feature-type> architecture")`
 2. **Research**: Parallel sub-tasks, verify findings
 3. **Structure**: Present outline, get buy-in
 4. **Write**: Create plan in `thoughts/shared/plans/`

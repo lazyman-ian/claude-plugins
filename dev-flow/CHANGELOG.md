@@ -5,6 +5,38 @@ All notable changes to dev-flow plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-02-09
+
+### Added
+
+- **4-Tier Progressive Memory System**: Configurable memory tiers in `.dev-flow.json`
+  - Tier 0: FTS5 full-text search + save/search/get API (zero cost, pure SQLite)
+  - Tier 1: Session auto-summaries via Stop hook (Haiku API or heuristic fallback)
+  - Tier 2: ChromaDB semantic search (optional, graceful degradation)
+  - Tier 3: Periodic observation capture via PostToolUse hook
+- **Memory-Aware Agents/Skills**: 5 agents + 3 skills now auto-query/save knowledge via `dev_memory`
+- **New MCP Actions**: `dev_memory` adds `save`, `search`, `get` — 3-layer search pattern
+- **FTS5 Synonym Expansion**: 8 default synonym groups (concurrency, auth, crash, performance, ui, network, database, test)
+- **ChromaDB Integration** (`embeddings.ts`): Dynamic import, lazy init, graceful fallback to FTS5
+- **Session Summary Hook** (`session-summary.sh`): Stop hook generates structured JSON summary
+- **Observation Capture Hook** (`observe-batch.sh`): PostToolUse batches N tool uses, classifies via Haiku
+- **Heuristic Fallback**: Both hooks work without API key (extract from git log + tool patterns)
+- **New DB Tables**: `synonyms`, `session_summaries` + FTS5, `observations` + FTS5
+
+### Changed
+
+- **Setup Hook**: New projects auto-include `"memory": { "tier": 0 }` in `.dev-flow.json`
+- **Context Injector**: Budget 2000 → 2500 tokens, adds last session summary injection (500 tokens)
+- `hooks/hooks.json`: Added Stop hook + PostToolUse observe-batch entry
+- `continuity/index.ts`: Exports embeddings module
+- `index.ts`: dev_memory supports 8 actions (was 5), adds text/title/tags/ids/limit params
+
+### Documentation
+
+- GUIDE.md/GUIDE_EN.md: New "Memory System" section with tier docs, init guide, migration guide
+- CLAUDE.md: Updated Knowledge System section with tier architecture + config reference
+- CHANGELOG.md: Full v4.0.0 release notes
+
 ## [3.17.0] - 2026-02-09
 
 ### Added

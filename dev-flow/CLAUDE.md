@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-dev-flow-plugin (v3.17.0) is a Claude Code plugin providing unified development workflow automation: planning → coding → commit → PR → release. Features VDD (Verification-Driven Development), multi-agent collaboration, generic agent-team orchestration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
+dev-flow-plugin (v4.0.0) is a Claude Code plugin providing unified development workflow automation: planning → coding → commit → PR → release. Features VDD (Verification-Driven Development), multi-agent collaboration, generic agent-team orchestration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
 
 ## Build & Development
 
@@ -23,12 +23,12 @@ npm run --prefix mcp-server dev       # Run with ts-node
 ### Plugin Structure
 
 ```
-.claude-plugin/plugin.json  # Plugin manifest (v3.17.0)
+.claude-plugin/plugin.json  # Plugin manifest (v4.0.0)
 .mcp.json                   # MCP server config → scripts/mcp-server.cjs
 skills/                     # 9 skills (SKILL.md + references/)
 commands/                   # 21 command definitions (includes /verify, /init, /extract-knowledge)
 agents/                     # 12 agent prompts
-hooks/hooks.json            # 5 hook types (PreToolUse, Setup, SessionStart, PreCompact, PostToolUse)
+hooks/hooks.json            # 6 hook types (PreToolUse, Setup, SessionStart, PreCompact, Stop, PostToolUse)
 scripts/track-team.sh       # Session→team mapping for StatusLine (PostToolUse: TeamCreate/TeamDelete)
 templates/thoughts/schema/  # JSON schemas for meta-iterate and handoff outputs
 docs/                       # keybindings.md, hooks-setup.md
@@ -47,7 +47,7 @@ Single-file bundle architecture using `@modelcontextprotocol/sdk`:
 | `git/version.ts` | Version info, release notes |
 | `platforms/ios.ts` | SwiftLint, SwiftFormat, test/verify |
 | `platforms/android.ts` | ktlint, ktfmt, test/verify |
-| `continuity/` | Ledgers, reasoning, branch, task-sync, memory, context-injector |
+| `continuity/` | Ledgers, reasoning, branch, task-sync, memory, context-injector, embeddings |
 | `coordination/` | Multi-agent coordination, handoffs, aggregation |
 
 ### Platform Extension
@@ -90,7 +90,7 @@ export function getPythonCommands(): PlatformCommands {
 | `dev_coordinate` | ~40 | Multi-agent task planning/dispatch |
 | `dev_handoff` | ~50 | Handoff document management |
 | `dev_aggregate` | ~60 | Aggregate results for PR |
-| `dev_memory` | ~60 | Knowledge consolidation (consolidate/status/query/list/extract) |
+| `dev_memory` | ~60 | Knowledge: consolidate/status/query/list/extract/save/search/get |
 
 ### Workflow Phases
 
@@ -133,26 +133,55 @@ allowed-tools: [specific, tools, only]
 - **Task Sync**: Bridge ledger state with Claude Code Task Management tools
 - Both stored in git for persistence
 
-### Knowledge System (v3.17.0)
+### Knowledge System (v4.0.0)
 
-Closed-loop knowledge consolidation: `Distill → Consolidate → Inject`
+4-tier progressive memory with closed-loop knowledge consolidation:
 
 ```
 Session → [auto-handoff] → [dev_memory consolidate] → Knowledge → [SessionStart inject] → Next Session
+                                                         ↑
+                                    Stop hook → session summary (Tier 1)
+                                    PostToolUse → observations (Tier 3)
 ```
 
+**Tier Architecture**:
+
+| Tier | Features | Cost | Dependencies |
+|------|----------|------|-------------|
+| 0 | FTS5 search, save/search/get, synonyms | 0 | None |
+| 1 | + Session summaries (Stop hook) | ~$0.001/sess | Optional API key |
+| 2 | + ChromaDB semantic search | Same | + chromadb |
+| 3 | + Periodic observation capture | ~$0.005/sess | Same as Tier 1 |
+
+**Components**:
 - **Knowledge Store**: `~/.claude/knowledge/{platforms,patterns,discoveries}/`
-- **FTS5 Index**: `.claude/cache/artifact-index/context.db` (knowledge + reasoning tables)
-- **Smart Injection**: SessionStart hook injects platform pitfalls + task-related knowledge (budget: ~500 tokens)
+- **FTS5 Index**: `.claude/cache/artifact-index/context.db` (knowledge, reasoning, synonyms, session_summaries, observations)
+- **Smart Injection**: SessionStart injects pitfalls + task knowledge + last session summary (budget: ~2500 tokens)
+- **Synonym Expansion**: 8 default synonym groups for query enhancement
+- **ChromaDB**: Optional semantic search via dynamic import, graceful degradation
 - **Extract**: `/dev-flow:extract-knowledge` scans CLAUDE.md pitfalls, ledger decisions, reasoning patterns
+
+**Configuration** (`.dev-flow.json`):
+```json
+{
+  "memory": {
+    "tier": 0,
+    "sessionSummary": false,
+    "chromadb": false,
+    "periodicCapture": false,
+    "captureInterval": 10
+  }
+}
+```
 
 ### Hook Integration
 
 - `PreToolUse(Bash(git commit*))`: Block raw git commit, enforce /dev commit
-- `Setup`: Initialize dev-flow environment on first run
-- `SessionStart`: Load active ledger context
+- `Setup`: Initialize dev-flow environment + memory config on first run
+- `SessionStart`: Load active ledger + platform knowledge + last session summary
 - `PreCompact`: Backup transcript before context compaction
-- `PostToolUse`: Tool usage counter + dev workflow reminders (git/gh)
+- `Stop`: Generate session summary via Haiku or heuristic (Tier 1+)
+- `PostToolUse`: Tool counter + dev reminders + periodic observation capture (Tier 3)
 
 ### Agent Orchestration
 

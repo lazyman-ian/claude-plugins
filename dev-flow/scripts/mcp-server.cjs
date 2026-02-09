@@ -21693,14 +21693,163 @@ function ledgerSearch(keyword) {
 
 // src/continuity/reasoning.ts
 var import_child_process9 = require("child_process");
-var import_fs3 = require("fs");
-var import_path3 = require("path");
+var import_fs4 = require("fs");
+var import_path4 = require("path");
 
 // src/continuity/memory.ts
 var import_child_process8 = require("child_process");
+var import_fs3 = require("fs");
+var import_path3 = require("path");
+var import_os2 = require("os");
+
+// src/continuity/embeddings.ts
 var import_fs2 = require("fs");
 var import_path2 = require("path");
 var import_os = require("os");
+var SemanticSearch = class {
+  client = null;
+  collection = null;
+  initialized = false;
+  available = false;
+  config;
+  constructor(config2) {
+    this.config = {
+      enabled: config2?.enabled ?? true,
+      persistPath: config2?.persistPath ?? (0, import_path2.join)((0, import_os.homedir)(), ".claude", "cache", "chroma")
+    };
+  }
+  /**
+   * Lazy initialization — called on first search/insert
+   * Returns true if ChromaDB is available, false otherwise
+   */
+  async initialize() {
+    if (this.initialized) return this.available;
+    this.initialized = true;
+    if (!this.config.enabled) {
+      this.available = false;
+      return false;
+    }
+    try {
+      const moduleName = "chromadb";
+      const chromadb = await Function("m", "return import(m)")(moduleName);
+      (0, import_fs2.mkdirSync)(this.config.persistPath, { recursive: true });
+      this.client = new chromadb.ChromaClient({
+        path: this.config.persistPath
+      });
+      this.collection = await this.client.getOrCreateCollection({
+        name: "dev_flow_knowledge",
+        metadata: { "hnsw:space": "cosine" }
+      });
+      this.available = true;
+      return true;
+    } catch {
+      this.available = false;
+      return false;
+    }
+  }
+  isAvailable() {
+    return this.available;
+  }
+  async addEntry(id, text, metadata = {}) {
+    if (!await this.initialize()) return false;
+    try {
+      await this.collection.upsert({
+        ids: [id],
+        documents: [text],
+        metadatas: [metadata]
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  async addEntries(entries) {
+    if (!await this.initialize()) return false;
+    if (entries.length === 0) return true;
+    try {
+      await this.collection.upsert({
+        ids: entries.map((e) => e.id),
+        documents: entries.map((e) => e.text),
+        metadatas: entries.map((e) => e.metadata || {})
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  async search(query, limit = 10, filter) {
+    if (!await this.initialize()) return [];
+    try {
+      const options = {
+        queryTexts: [query],
+        nResults: limit
+      };
+      if (filter && Object.keys(filter).length > 0) {
+        options.where = filter;
+      }
+      const results = await this.collection.query(options);
+      if (!results.ids?.[0]) return [];
+      return results.ids[0].map((id, i) => ({
+        id,
+        distance: results.distances?.[0]?.[i] ?? 1,
+        metadata: results.metadatas?.[0]?.[i] ?? {}
+      }));
+    } catch {
+      return [];
+    }
+  }
+  async getStats() {
+    if (!await this.initialize()) {
+      return { count: 0, available: false };
+    }
+    try {
+      const count = await this.collection.count();
+      return { count, available: true };
+    } catch {
+      return { count: 0, available: true };
+    }
+  }
+  async deleteEntries(ids) {
+    if (!await this.initialize()) return false;
+    try {
+      await this.collection.delete({ ids });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  async rebuildFromEntries(entries) {
+    if (!await this.initialize()) return 0;
+    const batchSize = 100;
+    let total = 0;
+    for (let i = 0; i < entries.length; i += batchSize) {
+      const batch = entries.slice(i, i + batchSize);
+      const success2 = await this.addEntries(
+        batch.map((e) => ({
+          id: e.id,
+          text: `${e.title} ${e.problem} ${e.solution}`,
+          metadata: {
+            type: e.type,
+            platform: e.platform,
+            project: e.sourceProject,
+            created_at: e.createdAt
+          }
+        }))
+      );
+      if (success2) total += batch.length;
+    }
+    return total;
+  }
+};
+var instance = null;
+function getSemanticSearch(config2) {
+  if (!instance) {
+    instance = new SemanticSearch(config2);
+  }
+  return instance;
+}
+
+// src/continuity/memory.ts
 function getCwd2() {
   try {
     return (0, import_child_process8.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
@@ -21709,21 +21858,21 @@ function getCwd2() {
   }
 }
 function getKnowledgeDir() {
-  return (0, import_path2.join)((0, import_os.homedir)(), ".claude", "knowledge");
+  return (0, import_path3.join)((0, import_os2.homedir)(), ".claude", "knowledge");
 }
 function getDbPath() {
   const projectDir = getCwd2();
-  return (0, import_path2.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
+  return (0, import_path3.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
 }
 function ensureKnowledgeDirs() {
   const base = getKnowledgeDir();
-  (0, import_fs2.mkdirSync)((0, import_path2.join)(base, "platforms"), { recursive: true });
-  (0, import_fs2.mkdirSync)((0, import_path2.join)(base, "patterns"), { recursive: true });
-  (0, import_fs2.mkdirSync)((0, import_path2.join)(base, "discoveries"), { recursive: true });
+  (0, import_fs3.mkdirSync)((0, import_path3.join)(base, "platforms"), { recursive: true });
+  (0, import_fs3.mkdirSync)((0, import_path3.join)(base, "patterns"), { recursive: true });
+  (0, import_fs3.mkdirSync)((0, import_path3.join)(base, "discoveries"), { recursive: true });
 }
 function getProjectName() {
   const cwd = getCwd2();
-  return (0, import_path2.basename)(cwd);
+  return (0, import_path3.basename)(cwd);
 }
 function generateId(type, title) {
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
@@ -21740,8 +21889,8 @@ function isDuplicate(existingContent, title, problem) {
 }
 function ensureDbSchema() {
   const dbPath = getDbPath();
-  const dbDir = (0, import_path2.join)(getCwd2(), ".claude", "cache", "artifact-index");
-  (0, import_fs2.mkdirSync)(dbDir, { recursive: true });
+  const dbDir = (0, import_path3.join)(getCwd2(), ".claude", "cache", "artifact-index");
+  (0, import_fs3.mkdirSync)(dbDir, { recursive: true });
   const schema = `
 CREATE TABLE IF NOT EXISTS knowledge (
   id TEXT PRIMARY KEY,
@@ -21790,6 +21939,78 @@ END;
 CREATE TRIGGER IF NOT EXISTS reasoning_ad AFTER DELETE ON reasoning BEGIN
   INSERT INTO reasoning_fts(reasoning_fts, rowid, commit_message, failed_attempts, decisions) VALUES('delete', old.rowid, old.commit_message, old.failed_attempts, old.decisions);
 END;
+
+CREATE TABLE IF NOT EXISTS synonyms (
+  term TEXT PRIMARY KEY,
+  expansions TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS session_summaries (
+  id TEXT PRIMARY KEY,
+  session_id TEXT,
+  project TEXT NOT NULL,
+  request TEXT,
+  investigated TEXT,
+  learned TEXT,
+  completed TEXT,
+  next_steps TEXT,
+  files_modified TEXT,
+  created_at TEXT NOT NULL,
+  created_at_epoch INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_summaries_project ON session_summaries(project);
+CREATE INDEX IF NOT EXISTS idx_session_summaries_epoch ON session_summaries(created_at_epoch DESC);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS session_summaries_fts USING fts5(
+  request, investigated, learned, completed, next_steps,
+  content=session_summaries, content_rowid=rowid,
+  tokenize='porter unicode61'
+);
+
+CREATE TRIGGER IF NOT EXISTS session_summaries_ai AFTER INSERT ON session_summaries BEGIN
+  INSERT INTO session_summaries_fts(rowid, request, investigated, learned, completed, next_steps)
+  VALUES (new.rowid, new.request, new.investigated, new.learned, new.completed, new.next_steps);
+END;
+
+CREATE TRIGGER IF NOT EXISTS session_summaries_ad AFTER DELETE ON session_summaries BEGIN
+  INSERT INTO session_summaries_fts(session_summaries_fts, rowid, request, investigated, learned, completed, next_steps)
+  VALUES('delete', old.rowid, old.request, old.investigated, old.learned, old.completed, old.next_steps);
+END;
+
+CREATE TABLE IF NOT EXISTS observations (
+  id TEXT PRIMARY KEY,
+  session_id TEXT,
+  project TEXT NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  concepts TEXT,
+  files_modified TEXT,
+  narrative TEXT,
+  prompt_number INTEGER,
+  created_at TEXT NOT NULL,
+  created_at_epoch INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_observations_project ON observations(project);
+CREATE INDEX IF NOT EXISTS idx_observations_epoch ON observations(created_at_epoch DESC);
+CREATE INDEX IF NOT EXISTS idx_observations_type ON observations(type);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS observations_fts USING fts5(
+  title, narrative, concepts,
+  content=observations, content_rowid=rowid,
+  tokenize='porter unicode61'
+);
+
+CREATE TRIGGER IF NOT EXISTS observations_ai AFTER INSERT ON observations BEGIN
+  INSERT INTO observations_fts(rowid, title, narrative, concepts)
+  VALUES (new.rowid, new.title, new.narrative, new.concepts);
+END;
+
+CREATE TRIGGER IF NOT EXISTS observations_ad AFTER DELETE ON observations BEGIN
+  INSERT INTO observations_fts(observations_fts, rowid, title, narrative, concepts)
+  VALUES('delete', old.rowid, old.title, old.narrative, old.concepts);
+END;
 `;
   try {
     (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${schema.replace(/"/g, '\\"')}"`, {
@@ -21798,10 +22019,11 @@ END;
     });
   } catch {
   }
+  seedSynonyms();
 }
 function dbInsertKnowledge(entry) {
   const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) return false;
+  if (!(0, import_fs3.existsSync)(dbPath)) return false;
   const sql = `INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path) VALUES ('${esc2(entry.id)}', '${esc2(entry.type)}', '${esc2(entry.platform)}', '${esc2(entry.title)}', '${esc2(entry.problem)}', '${esc2(entry.solution)}', '${esc2(entry.sourceProject)}', '${esc2(entry.sourceSession)}', '${esc2(entry.createdAt)}', '${esc2(entry.filePath)}');`;
   try {
     (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 3e3 });
@@ -21812,7 +22034,7 @@ function dbInsertKnowledge(entry) {
 }
 function dbInsertReasoning(commitHash, branch, commitMessage, failedAttempts, decisions) {
   const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) return false;
+  if (!(0, import_fs3.existsSync)(dbPath)) return false;
   const sql = `INSERT OR REPLACE INTO reasoning (commit_hash, branch, commit_message, failed_attempts, decisions, created_at) VALUES ('${esc2(commitHash)}', '${esc2(branch)}', '${esc2(commitMessage)}', '${esc2(failedAttempts)}', '${esc2(decisions)}', '${esc2((/* @__PURE__ */ new Date()).toISOString())}');`;
   try {
     (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 3e3 });
@@ -21823,7 +22045,7 @@ function dbInsertReasoning(commitHash, branch, commitMessage, failedAttempts, de
 }
 function dbQueryKnowledge(query, limit = 10) {
   const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) return [];
+  if (!(0, import_fs3.existsSync)(dbPath)) return [];
   const sql = `SELECT k.id, k.type, k.platform, k.title, k.problem, k.solution, k.source_project, k.source_session, k.created_at, k.file_path FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc2(query)}' ORDER BY rank LIMIT ${limit};`;
   try {
     const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
@@ -21841,7 +22063,7 @@ function dbQueryKnowledge(query, limit = 10) {
 }
 function dbQueryReasoning(query, limit = 10) {
   const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) return [];
+  if (!(0, import_fs3.existsSync)(dbPath)) return [];
   const sql = `SELECT r.commit_hash, r.branch, r.commit_message, r.failed_attempts, r.decisions FROM reasoning r JOIN reasoning_fts f ON r.rowid = f.rowid WHERE reasoning_fts MATCH '${esc2(query)}' ORDER BY rank LIMIT ${limit};`;
   try {
     const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
@@ -21860,17 +22082,56 @@ function dbQueryReasoning(query, limit = 10) {
 function esc2(s) {
   return (s || "").replace(/'/g, "''");
 }
+function expandQuery(query) {
+  const dbPath = getDbPath();
+  if (!(0, import_fs3.existsSync)(dbPath)) return query;
+  const terms = query.split(/\s+/).filter(Boolean);
+  const expanded = terms.map((term) => {
+    try {
+      const sql = `SELECT expansions FROM synonyms WHERE term = '${esc2(term.toLowerCase())}';`;
+      const result = (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 2e3 }).trim();
+      if (result) {
+        const synonyms = JSON.parse(result);
+        return `(${term} OR ${synonyms.join(" OR ")})`;
+      }
+    } catch {
+    }
+    return term;
+  });
+  return expanded.join(" ");
+}
+function seedSynonyms() {
+  const dbPath = getDbPath();
+  if (!(0, import_fs3.existsSync)(dbPath)) return;
+  const defaults = {
+    concurrency: ["thread", "race condition", "async", "await", "actor", "sendable"],
+    auth: ["authentication", "authorization", "jwt", "token", "login", "session"],
+    crash: ["fatal", "exception", "abort", "signal", "SIGABRT"],
+    performance: ["slow", "latency", "memory leak", "cpu", "optimize"],
+    ui: ["layout", "view", "component", "render", "display"],
+    network: ["http", "api", "request", "response", "fetch", "url"],
+    database: ["sqlite", "core data", "realm", "migration", "schema"],
+    test: ["unit test", "integration", "mock", "stub", "assert"]
+  };
+  for (const [term, expansions] of Object.entries(defaults)) {
+    try {
+      const sql = `INSERT OR IGNORE INTO synonyms (term, expansions) VALUES ('${esc2(term)}', '${esc2(JSON.stringify(expansions))}');`;
+      (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 2e3 });
+    } catch {
+    }
+  }
+}
 function scanHandoffs() {
   const cwd = getCwd2();
-  const handoffsBase = (0, import_path2.join)(cwd, "thoughts", "shared", "handoffs");
-  if (!(0, import_fs2.existsSync)(handoffsBase)) return [];
+  const handoffsBase = (0, import_path3.join)(cwd, "thoughts", "shared", "handoffs");
+  if (!(0, import_fs3.existsSync)(handoffsBase)) return [];
   const entries = [];
-  for (const sessionDir of (0, import_fs2.readdirSync)(handoffsBase)) {
-    const sessionPath = (0, import_path2.join)(handoffsBase, sessionDir);
-    if (!(0, import_fs2.statSync)(sessionPath).isDirectory()) continue;
-    for (const file2 of (0, import_fs2.readdirSync)(sessionPath)) {
+  for (const sessionDir of (0, import_fs3.readdirSync)(handoffsBase)) {
+    const sessionPath = (0, import_path3.join)(handoffsBase, sessionDir);
+    if (!(0, import_fs3.statSync)(sessionPath).isDirectory()) continue;
+    for (const file2 of (0, import_fs3.readdirSync)(sessionPath)) {
       if (!file2.startsWith("auto-handoff-") || !file2.endsWith(".md")) continue;
-      const content = (0, import_fs2.readFileSync)((0, import_path2.join)(sessionPath, file2), "utf-8");
+      const content = (0, import_fs3.readFileSync)((0, import_path3.join)(sessionPath, file2), "utf-8");
       const errorsMatch = content.match(/## Errors Encountered\n([\s\S]*?)(?=\n## |$)/);
       if (!errorsMatch) continue;
       const errorBlock = errorsMatch[1].trim();
@@ -21895,13 +22156,13 @@ function scanHandoffs() {
 }
 function scanReasoning() {
   const cwd = getCwd2();
-  const reasoningDir = (0, import_path2.join)(cwd, ".git", "claude", "commits");
-  if (!(0, import_fs2.existsSync)(reasoningDir)) return [];
+  const reasoningDir = (0, import_path3.join)(cwd, ".git", "claude", "commits");
+  if (!(0, import_fs3.existsSync)(reasoningDir)) return [];
   const entries = [];
-  for (const commitDir of (0, import_fs2.readdirSync)(reasoningDir)) {
-    const reasoningPath = (0, import_path2.join)(reasoningDir, commitDir, "reasoning.md");
-    if (!(0, import_fs2.existsSync)(reasoningPath)) continue;
-    const content = (0, import_fs2.readFileSync)(reasoningPath, "utf-8");
+  for (const commitDir of (0, import_fs3.readdirSync)(reasoningDir)) {
+    const reasoningPath = (0, import_path3.join)(reasoningDir, commitDir, "reasoning.md");
+    if (!(0, import_fs3.existsSync)(reasoningPath)) continue;
+    const content = (0, import_fs3.readFileSync)(reasoningPath, "utf-8");
     const commitMatch = content.match(/## What was committed\n([\s\S]*?)(?=\n## |$)/);
     const commitMsg = commitMatch ? commitMatch[1].trim().split("\n")[0] : commitDir.slice(0, 8);
     const failedMatch = content.match(/### Failed attempts\n([\s\S]*?)(?=### Summary|## |$)/);
@@ -21932,12 +22193,12 @@ function scanReasoning() {
 }
 function scanLedgers() {
   const cwd = getCwd2();
-  const ledgersDir = (0, import_path2.join)(cwd, "thoughts", "ledgers");
-  if (!(0, import_fs2.existsSync)(ledgersDir)) return [];
+  const ledgersDir = (0, import_path3.join)(cwd, "thoughts", "ledgers");
+  if (!(0, import_fs3.existsSync)(ledgersDir)) return [];
   const entries = [];
-  for (const file2 of (0, import_fs2.readdirSync)(ledgersDir)) {
+  for (const file2 of (0, import_fs3.readdirSync)(ledgersDir)) {
     if (!file2.endsWith(".md")) continue;
-    const content = (0, import_fs2.readFileSync)((0, import_path2.join)(ledgersDir, file2), "utf-8");
+    const content = (0, import_fs3.readFileSync)((0, import_path3.join)(ledgersDir, file2), "utf-8");
     const questionsMatch = content.match(/## Open Questions\n([\s\S]*?)(?=\n## |$)/);
     if (!questionsMatch) continue;
     const lines = questionsMatch[1].trim().split("\n");
@@ -21971,17 +22232,17 @@ function writeKnowledgeEntry(entry) {
   let content;
   switch (entry.type) {
     case "pitfall": {
-      const platformDir = (0, import_path2.join)(getKnowledgeDir(), "platforms", entry.platform);
-      (0, import_fs2.mkdirSync)(platformDir, { recursive: true });
-      filePath = (0, import_path2.join)(platformDir, "pitfalls.md");
+      const platformDir = (0, import_path3.join)(getKnowledgeDir(), "platforms", entry.platform);
+      (0, import_fs3.mkdirSync)(platformDir, { recursive: true });
+      filePath = (0, import_path3.join)(platformDir, "pitfalls.md");
       const newEntry = `
 ### ${entry.title}
 **Source**: ${entry.sourceProject}, ${entry.createdAt.slice(0, 10)}
 **Problem**: ${entry.problem}
 **Solution**: ${entry.solution}
 `;
-      if ((0, import_fs2.existsSync)(filePath)) {
-        const existing = (0, import_fs2.readFileSync)(filePath, "utf-8");
+      if ((0, import_fs3.existsSync)(filePath)) {
+        const existing = (0, import_fs3.readFileSync)(filePath, "utf-8");
         if (isDuplicate(existing, entry.title, entry.problem)) return;
         content = existing + newEntry;
       } else {
@@ -21991,7 +22252,7 @@ function writeKnowledgeEntry(entry) {
       break;
     }
     case "pattern": {
-      filePath = (0, import_path2.join)(getKnowledgeDir(), "patterns", `${entry.id}.md`);
+      filePath = (0, import_path3.join)(getKnowledgeDir(), "patterns", `${entry.id}.md`);
       content = `# Pattern: ${entry.title}
 
 ## Problem
@@ -22008,7 +22269,7 @@ ${entry.sourceProject}, ${entry.createdAt.slice(0, 10)}
     case "decision": {
       const date4 = entry.createdAt.slice(0, 10);
       const slug = entry.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
-      filePath = (0, import_path2.join)(getKnowledgeDir(), "discoveries", `${date4}-${slug}.md`);
+      filePath = (0, import_path3.join)(getKnowledgeDir(), "discoveries", `${date4}-${slug}.md`);
       content = `# Discovery: ${entry.title}
 Date: ${date4}
 Project: ${entry.sourceProject}
@@ -22025,7 +22286,7 @@ ${entry.solution}
       return;
   }
   entry.filePath = filePath;
-  (0, import_fs2.writeFileSync)(filePath, content);
+  (0, import_fs3.writeFileSync)(filePath, content);
 }
 function memoryConsolidate() {
   ensureDbSchema();
@@ -22046,8 +22307,8 @@ function memoryConsolidate() {
       createdAt: now,
       filePath: ""
     };
-    const pitfallsPath = (0, import_path2.join)(getKnowledgeDir(), "platforms", entry.platform, "pitfalls.md");
-    if ((0, import_fs2.existsSync)(pitfallsPath) && isDuplicate((0, import_fs2.readFileSync)(pitfallsPath, "utf-8"), entry.title, entry.problem)) {
+    const pitfallsPath = (0, import_path3.join)(getKnowledgeDir(), "platforms", entry.platform, "pitfalls.md");
+    if ((0, import_fs3.existsSync)(pitfallsPath) && isDuplicate((0, import_fs3.readFileSync)(pitfallsPath, "utf-8"), entry.title, entry.problem)) {
       skippedDuplicates++;
       continue;
     }
@@ -22106,38 +22367,38 @@ function memoryStatus() {
     unprocessedReasoning: 0,
     knowledgeDir
   };
-  const platformsDir = (0, import_path2.join)(knowledgeDir, "platforms");
-  if ((0, import_fs2.existsSync)(platformsDir)) {
-    for (const platform of (0, import_fs2.readdirSync)(platformsDir)) {
-      const pitfallsPath = (0, import_path2.join)(platformsDir, platform, "pitfalls.md");
-      if ((0, import_fs2.existsSync)(pitfallsPath)) {
-        const content = (0, import_fs2.readFileSync)(pitfallsPath, "utf-8");
+  const platformsDir = (0, import_path3.join)(knowledgeDir, "platforms");
+  if ((0, import_fs3.existsSync)(platformsDir)) {
+    for (const platform of (0, import_fs3.readdirSync)(platformsDir)) {
+      const pitfallsPath = (0, import_path3.join)(platformsDir, platform, "pitfalls.md");
+      if ((0, import_fs3.existsSync)(pitfallsPath)) {
+        const content = (0, import_fs3.readFileSync)(pitfallsPath, "utf-8");
         const count = (content.match(/^### /gm) || []).length;
         status.byType.pitfall += count;
         status.totalEntries += count;
       }
     }
   }
-  const patternsDir = (0, import_path2.join)(knowledgeDir, "patterns");
-  if ((0, import_fs2.existsSync)(patternsDir)) {
-    const count = (0, import_fs2.readdirSync)(patternsDir).filter((f) => f.endsWith(".md")).length;
+  const patternsDir = (0, import_path3.join)(knowledgeDir, "patterns");
+  if ((0, import_fs3.existsSync)(patternsDir)) {
+    const count = (0, import_fs3.readdirSync)(patternsDir).filter((f) => f.endsWith(".md")).length;
     status.byType.pattern = count;
     status.totalEntries += count;
   }
-  const discoveriesDir = (0, import_path2.join)(knowledgeDir, "discoveries");
-  if ((0, import_fs2.existsSync)(discoveriesDir)) {
-    const count = (0, import_fs2.readdirSync)(discoveriesDir).filter((f) => f.endsWith(".md")).length;
+  const discoveriesDir = (0, import_path3.join)(knowledgeDir, "discoveries");
+  if ((0, import_fs3.existsSync)(discoveriesDir)) {
+    const count = (0, import_fs3.readdirSync)(discoveriesDir).filter((f) => f.endsWith(".md")).length;
     status.byType.decision = count;
     status.totalEntries += count;
   }
-  const handoffsBase = (0, import_path2.join)(cwd, "thoughts", "shared", "handoffs");
-  if ((0, import_fs2.existsSync)(handoffsBase)) {
-    for (const sessionDir of (0, import_fs2.readdirSync)(handoffsBase)) {
-      const sessionPath = (0, import_path2.join)(handoffsBase, sessionDir);
-      if (!(0, import_fs2.statSync)(sessionPath).isDirectory()) continue;
-      for (const file2 of (0, import_fs2.readdirSync)(sessionPath)) {
+  const handoffsBase = (0, import_path3.join)(cwd, "thoughts", "shared", "handoffs");
+  if ((0, import_fs3.existsSync)(handoffsBase)) {
+    for (const sessionDir of (0, import_fs3.readdirSync)(handoffsBase)) {
+      const sessionPath = (0, import_path3.join)(handoffsBase, sessionDir);
+      if (!(0, import_fs3.statSync)(sessionPath).isDirectory()) continue;
+      for (const file2 of (0, import_fs3.readdirSync)(sessionPath)) {
         if (file2.startsWith("auto-handoff-") && file2.endsWith(".md")) {
-          const content = (0, import_fs2.readFileSync)((0, import_path2.join)(sessionPath, file2), "utf-8");
+          const content = (0, import_fs3.readFileSync)((0, import_path3.join)(sessionPath, file2), "utf-8");
           if (content.includes("## Errors Encountered") && !content.includes("No errors.")) {
             status.unprocessedHandoffs++;
           }
@@ -22145,12 +22406,12 @@ function memoryStatus() {
       }
     }
   }
-  const reasoningDir = (0, import_path2.join)(cwd, ".git", "claude", "commits");
-  if ((0, import_fs2.existsSync)(reasoningDir)) {
-    for (const commitDir of (0, import_fs2.readdirSync)(reasoningDir)) {
-      const reasoningPath = (0, import_path2.join)(reasoningDir, commitDir, "reasoning.md");
-      if (!(0, import_fs2.existsSync)(reasoningPath)) continue;
-      const content = (0, import_fs2.readFileSync)(reasoningPath, "utf-8");
+  const reasoningDir = (0, import_path3.join)(cwd, ".git", "claude", "commits");
+  if ((0, import_fs3.existsSync)(reasoningDir)) {
+    for (const commitDir of (0, import_fs3.readdirSync)(reasoningDir)) {
+      const reasoningPath = (0, import_path3.join)(reasoningDir, commitDir, "reasoning.md");
+      if (!(0, import_fs3.existsSync)(reasoningPath)) continue;
+      const content = (0, import_fs3.readFileSync)(reasoningPath, "utf-8");
       if (content.includes("### Failed attempts")) {
         status.unprocessedReasoning++;
       }
@@ -22160,11 +22421,11 @@ function memoryStatus() {
 }
 function memoryQuery(query, limit = 10) {
   ensureDbSchema();
-  return dbQueryKnowledge(query, limit);
+  return dbQueryKnowledge(expandQuery(query), limit);
 }
 function memoryList(type) {
   const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) return [];
+  if (!(0, import_fs3.existsSync)(dbPath)) return [];
   const whereClause = type ? `WHERE type = '${esc2(type)}'` : "";
   const sql = `SELECT id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path FROM knowledge ${whereClause} ORDER BY created_at DESC LIMIT 50;`;
   try {
@@ -22181,6 +22442,97 @@ function memoryList(type) {
     return [];
   }
 }
+function getMemoryConfig() {
+  const configPath = (0, import_path3.join)(getCwd2(), ".dev-flow.json");
+  try {
+    if ((0, import_fs3.existsSync)(configPath)) {
+      const config2 = JSON.parse((0, import_fs3.readFileSync)(configPath, "utf-8"));
+      return {
+        tier: config2?.memory?.tier ?? 0,
+        sessionSummary: config2?.memory?.sessionSummary ?? false,
+        chromadb: config2?.memory?.chromadb ?? false,
+        periodicCapture: config2?.memory?.periodicCapture ?? false,
+        captureInterval: config2?.memory?.captureInterval ?? 10
+      };
+    }
+  } catch {
+  }
+  return { tier: 0, sessionSummary: false, chromadb: false, periodicCapture: false, captureInterval: 10 };
+}
+function memorySave(text, title, tags, type) {
+  ensureDbSchema();
+  const project = getProjectName();
+  const platform = detectCurrentPlatform();
+  const autoTitle = title || text.slice(0, 60).replace(/\n/g, " ");
+  const entryType = type === "pitfall" || type === "pattern" || type === "decision" ? type : "decision";
+  const entry = {
+    id: generateId(entryType, autoTitle),
+    type: entryType,
+    platform,
+    title: autoTitle,
+    problem: text,
+    solution: tags?.join(", ") || "",
+    sourceProject: project,
+    sourceSession: "manual",
+    createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+    filePath: ""
+  };
+  writeKnowledgeEntry(entry);
+  dbInsertKnowledge(entry);
+  const config2 = getMemoryConfig();
+  if (config2.tier >= 2 && config2.chromadb) {
+    const semantic = getSemanticSearch();
+    semantic.addEntry(entry.id, `${entry.title} ${entry.problem} ${entry.solution}`, {
+      type: entry.type,
+      platform: entry.platform,
+      project: entry.sourceProject,
+      created_at: entry.createdAt
+    }).catch(() => {
+    });
+  }
+  return { id: entry.id, message: `Saved: ${autoTitle}` };
+}
+function memorySearch(query, limit = 10, type) {
+  ensureDbSchema();
+  const dbPath = getDbPath();
+  if (!(0, import_fs3.existsSync)(dbPath)) return [];
+  const expandedQuery = expandQuery(query);
+  const typeFilter = type ? ` AND k.type = '${esc2(type)}'` : "";
+  const sql = `SELECT k.id, k.type, k.title, k.platform, k.created_at FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc2(expandedQuery)}'${typeFilter} ORDER BY rank LIMIT ${limit};`;
+  try {
+    const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (!result) return [];
+    return result.split("\n").map((line) => {
+      const [id, entryType, title, platform, createdAt] = line.split("|||");
+      return { id, type: entryType, title, platform, createdAt };
+    });
+  } catch {
+    return [];
+  }
+}
+function memoryGet(ids) {
+  ensureDbSchema();
+  const dbPath = getDbPath();
+  if (!(0, import_fs3.existsSync)(dbPath) || ids.length === 0) return [];
+  const idList = ids.map((id) => `'${esc2(id)}'`).join(",");
+  const sql = `SELECT id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path FROM knowledge WHERE id IN (${idList});`;
+  try {
+    const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (!result) return [];
+    return result.split("\n").map((line) => {
+      const [id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split("|||");
+      return { id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
+    });
+  } catch {
+    return [];
+  }
+}
 function extractFromProject(dryRun = false) {
   ensureDbSchema();
   const cwd = getCwd2();
@@ -22188,9 +22540,9 @@ function extractFromProject(dryRun = false) {
   const platform = detectCurrentPlatform();
   const now = (/* @__PURE__ */ new Date()).toISOString();
   let pitfalls = 0, patterns = 0, decisions = 0, skippedDuplicates = 0;
-  const claudeMdPath = (0, import_path2.join)(cwd, "CLAUDE.md");
-  if ((0, import_fs2.existsSync)(claudeMdPath)) {
-    const content = (0, import_fs2.readFileSync)(claudeMdPath, "utf-8");
+  const claudeMdPath = (0, import_path3.join)(cwd, "CLAUDE.md");
+  if ((0, import_fs3.existsSync)(claudeMdPath)) {
+    const content = (0, import_fs3.readFileSync)(claudeMdPath, "utf-8");
     const pitfallsMatch = content.match(/## (?:Known Pitfalls|已知陷阱)\n([\s\S]*?)(?=\n## |$)/i);
     if (pitfallsMatch) {
       const lines = pitfallsMatch[1].trim().split("\n");
@@ -22212,8 +22564,8 @@ function extractFromProject(dryRun = false) {
               createdAt: now,
               filePath: ""
             };
-            const pitfallsPath = (0, import_path2.join)(getKnowledgeDir(), "platforms", platform, "pitfalls.md");
-            if ((0, import_fs2.existsSync)(pitfallsPath) && isDuplicate((0, import_fs2.readFileSync)(pitfallsPath, "utf-8"), entry.title, entry.problem)) {
+            const pitfallsPath = (0, import_path3.join)(getKnowledgeDir(), "platforms", platform, "pitfalls.md");
+            if ((0, import_fs3.existsSync)(pitfallsPath) && isDuplicate((0, import_fs3.readFileSync)(pitfallsPath, "utf-8"), entry.title, entry.problem)) {
               skippedDuplicates++;
             } else if (!dryRun) {
               writeKnowledgeEntry(entry);
@@ -22242,8 +22594,8 @@ function extractFromProject(dryRun = false) {
           createdAt: now,
           filePath: ""
         };
-        const pitfallsPath = (0, import_path2.join)(getKnowledgeDir(), "platforms", platform, "pitfalls.md");
-        if ((0, import_fs2.existsSync)(pitfallsPath) && isDuplicate((0, import_fs2.readFileSync)(pitfallsPath, "utf-8"), entry.title, entry.problem)) {
+        const pitfallsPath = (0, import_path3.join)(getKnowledgeDir(), "platforms", platform, "pitfalls.md");
+        if ((0, import_fs3.existsSync)(pitfallsPath) && isDuplicate((0, import_fs3.readFileSync)(pitfallsPath, "utf-8"), entry.title, entry.problem)) {
           skippedDuplicates++;
         } else if (!dryRun) {
           writeKnowledgeEntry(entry);
@@ -22298,8 +22650,8 @@ function extractFromProject(dryRun = false) {
     patterns++;
   }
   for (const item of scanHandoffs()) {
-    const pitfallsPath = (0, import_path2.join)(getKnowledgeDir(), "platforms", item.platform || platform, "pitfalls.md");
-    if ((0, import_fs2.existsSync)(pitfallsPath) && isDuplicate((0, import_fs2.readFileSync)(pitfallsPath, "utf-8"), item.title, item.problem)) {
+    const pitfallsPath = (0, import_path3.join)(getKnowledgeDir(), "platforms", item.platform || platform, "pitfalls.md");
+    if ((0, import_fs3.existsSync)(pitfallsPath) && isDuplicate((0, import_fs3.readFileSync)(pitfallsPath, "utf-8"), item.title, item.problem)) {
       skippedDuplicates++;
       continue;
     }
@@ -22348,19 +22700,19 @@ function getCurrentBranch2() {
   }
 }
 function getReasoningDir() {
-  return (0, import_path3.join)(getCwd3(), ".git", "claude", "commits");
+  return (0, import_path4.join)(getCwd3(), ".git", "claude", "commits");
 }
 function getBranchAttemptsFile() {
   const cwd = getCwd3();
   const branch = getCurrentBranch2().replace(/\//g, "-");
-  return (0, import_path3.join)(cwd, ".git", "claude", "branches", branch, "attempts.jsonl");
+  return (0, import_path4.join)(cwd, ".git", "claude", "branches", branch, "attempts.jsonl");
 }
 function reasoningGenerate(commitHash, commitMessage) {
   const cwd = getCwd3();
   const branch = getCurrentBranch2();
-  const outputDir = (0, import_path3.join)(getReasoningDir(), commitHash);
+  const outputDir = (0, import_path4.join)(getReasoningDir(), commitHash);
   const attemptsFile = getBranchAttemptsFile();
-  (0, import_fs3.mkdirSync)(outputDir, { recursive: true });
+  (0, import_fs4.mkdirSync)(outputDir, { recursive: true });
   let content = `# Commit: ${commitHash.slice(0, 8)}
 
 ## Branch
@@ -22370,12 +22722,12 @@ ${branch}
 ${commitMessage}
 
 `;
-  const ledgersDir = (0, import_path3.join)(cwd, "thoughts", "ledgers");
-  if ((0, import_fs3.existsSync)(ledgersDir)) {
-    const ledgers = (0, import_fs3.readdirSync)(ledgersDir).filter((f) => f.endsWith(".md") && f.startsWith("TASK-"));
+  const ledgersDir = (0, import_path4.join)(cwd, "thoughts", "ledgers");
+  if ((0, import_fs4.existsSync)(ledgersDir)) {
+    const ledgers = (0, import_fs4.readdirSync)(ledgersDir).filter((f) => f.endsWith(".md") && f.startsWith("TASK-"));
     if (ledgers.length > 0) {
-      const ledgerPath = (0, import_path3.join)(ledgersDir, ledgers[0]);
-      const ledgerContent = (0, import_fs3.readFileSync)(ledgerPath, "utf-8");
+      const ledgerPath = (0, import_path4.join)(ledgersDir, ledgers[0]);
+      const ledgerContent = (0, import_fs4.readFileSync)(ledgerPath, "utf-8");
       content += `## Context from Ledger
 
 `;
@@ -22394,9 +22746,9 @@ ${goalMatch[1].trim().split("\n")[0]}
   content += `## What was tried
 
 `;
-  if ((0, import_fs3.existsSync)(attemptsFile)) {
+  if ((0, import_fs4.existsSync)(attemptsFile)) {
     try {
-      const attempts = (0, import_fs3.readFileSync)(attemptsFile, "utf-8").split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+      const attempts = (0, import_fs4.readFileSync)(attemptsFile, "utf-8").split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
       const failures = attempts.filter((a) => a.type === "build_fail");
       const passes = attempts.filter((a) => a.type === "build_pass");
       if (failures.length > 0) {
@@ -22419,7 +22771,7 @@ ${goalMatch[1].trim().split("\n")[0]}
         content += `Build passed on first try.
 `;
       }
-      (0, import_fs3.writeFileSync)(attemptsFile, "");
+      (0, import_fs4.writeFileSync)(attemptsFile, "");
     } catch {
       content += `_No build attempts recorded._
 `;
@@ -22444,10 +22796,10 @@ ${goalMatch[1].trim().split("\n")[0]}
     content += `- (unable to determine)
 `;
   }
-  (0, import_fs3.writeFileSync)((0, import_path3.join)(outputDir, "reasoning.md"), content);
-  const persistentDir = (0, import_path3.join)(cwd, "thoughts", "reasoning");
-  (0, import_fs3.mkdirSync)(persistentDir, { recursive: true });
-  (0, import_fs3.writeFileSync)((0, import_path3.join)(persistentDir, `${commitHash.slice(0, 8)}-reasoning.md`), content);
+  (0, import_fs4.writeFileSync)((0, import_path4.join)(outputDir, "reasoning.md"), content);
+  const persistentDir = (0, import_path4.join)(cwd, "thoughts", "reasoning");
+  (0, import_fs4.mkdirSync)(persistentDir, { recursive: true });
+  (0, import_fs4.writeFileSync)((0, import_path4.join)(persistentDir, `${commitHash.slice(0, 8)}-reasoning.md`), content);
   try {
     ensureDbSchema();
     const failedMatch = content.match(/### Failed attempts\n([\s\S]*?)(?=### Summary|## |$)/);
@@ -22459,19 +22811,19 @@ ${goalMatch[1].trim().split("\n")[0]}
   return {
     success: true,
     message: `Generated:${commitHash.slice(0, 8)}`,
-    data: { path: (0, import_path3.join)(outputDir, "reasoning.md"), persistentPath: (0, import_path3.join)(persistentDir, `${commitHash.slice(0, 8)}-reasoning.md`) }
+    data: { path: (0, import_path4.join)(outputDir, "reasoning.md"), persistentPath: (0, import_path4.join)(persistentDir, `${commitHash.slice(0, 8)}-reasoning.md`) }
   };
 }
 function reasoningRecall(keyword, limit = 5) {
   const reasoningDir = getReasoningDir();
   const cwd = getCwd3();
   const matches = [];
-  if ((0, import_fs3.existsSync)(reasoningDir)) {
-    for (const commitDir of (0, import_fs3.readdirSync)(reasoningDir)) {
+  if ((0, import_fs4.existsSync)(reasoningDir)) {
+    for (const commitDir of (0, import_fs4.readdirSync)(reasoningDir)) {
       if (matches.length >= limit) break;
-      const reasoningPath = (0, import_path3.join)(reasoningDir, commitDir, "reasoning.md");
-      if (!(0, import_fs3.existsSync)(reasoningPath)) continue;
-      const content = (0, import_fs3.readFileSync)(reasoningPath, "utf-8");
+      const reasoningPath = (0, import_path4.join)(reasoningDir, commitDir, "reasoning.md");
+      if (!(0, import_fs4.existsSync)(reasoningPath)) continue;
+      const content = (0, import_fs4.readFileSync)(reasoningPath, "utf-8");
       if (!content.toLowerCase().includes(keyword.toLowerCase())) continue;
       let commitMessage = "";
       let date4 = "";
@@ -22501,12 +22853,12 @@ function reasoningRecall(keyword, limit = 5) {
       });
     }
   }
-  const ledgersDir = (0, import_path3.join)(cwd, "thoughts", "ledgers");
+  const ledgersDir = (0, import_path4.join)(cwd, "thoughts", "ledgers");
   const ledgerMatches = [];
-  if ((0, import_fs3.existsSync)(ledgersDir)) {
-    for (const file2 of (0, import_fs3.readdirSync)(ledgersDir)) {
+  if ((0, import_fs4.existsSync)(ledgersDir)) {
+    for (const file2 of (0, import_fs4.readdirSync)(ledgersDir)) {
       if (!file2.endsWith(".md")) continue;
-      const content = (0, import_fs3.readFileSync)((0, import_path3.join)(ledgersDir, file2), "utf-8");
+      const content = (0, import_fs4.readFileSync)((0, import_path4.join)(ledgersDir, file2), "utf-8");
       if (content.toLowerCase().includes(keyword.toLowerCase())) {
         const lines = content.split("\n");
         const matchLine = lines.find(
@@ -22530,12 +22882,12 @@ function reasoningRecall(keyword, limit = 5) {
     }
   } catch {
   }
-  const persistentDir = (0, import_path3.join)(cwd, "thoughts", "reasoning");
-  if ((0, import_fs3.existsSync)(persistentDir)) {
-    for (const file2 of (0, import_fs3.readdirSync)(persistentDir)) {
+  const persistentDir = (0, import_path4.join)(cwd, "thoughts", "reasoning");
+  if ((0, import_fs4.existsSync)(persistentDir)) {
+    for (const file2 of (0, import_fs4.readdirSync)(persistentDir)) {
       if (!file2.endsWith("-reasoning.md")) continue;
       if (matches.length >= limit) break;
-      const content = (0, import_fs3.readFileSync)((0, import_path3.join)(persistentDir, file2), "utf-8");
+      const content = (0, import_fs4.readFileSync)((0, import_path4.join)(persistentDir, file2), "utf-8");
       if (!content.toLowerCase().includes(keyword.toLowerCase())) continue;
       const hash2 = file2.replace("-reasoning.md", "");
       if (matches.find((m) => m.commitHash === hash2)) continue;
@@ -22565,10 +22917,10 @@ function reasoningAggregate(baseBranch = "master") {
       cwd
     }).trim().split("\n").filter((h) => h);
     for (const commit of commits) {
-      const reasoningPath = (0, import_path3.join)(reasoningDir, commit, "reasoning.md");
-      if (!(0, import_fs3.existsSync)(reasoningPath)) continue;
+      const reasoningPath = (0, import_path4.join)(reasoningDir, commit, "reasoning.md");
+      if (!(0, import_fs4.existsSync)(reasoningPath)) continue;
       foundAny = true;
-      const content = (0, import_fs3.readFileSync)(reasoningPath, "utf-8");
+      const content = (0, import_fs4.readFileSync)(reasoningPath, "utf-8");
       const msg = (0, import_child_process9.execSync)(`git log -1 --format="%s" ${commit}`, {
         encoding: "utf-8",
         cwd
@@ -22764,8 +23116,8 @@ function branchPrune() {
 
 // src/continuity/defaults.ts
 var import_child_process11 = require("child_process");
-var import_fs4 = require("fs");
-var import_path4 = require("path");
+var import_fs5 = require("fs");
+var import_path5 = require("path");
 function getCwd5() {
   try {
     return (0, import_child_process11.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
@@ -22868,9 +23220,9 @@ function inferReviewers() {
   const reviewers = [];
   const codeownersPaths = [".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"];
   for (const coPath of codeownersPaths) {
-    const fullPath = (0, import_path4.join)(cwd, coPath);
-    if ((0, import_fs4.existsSync)(fullPath)) {
-      const content = (0, import_fs4.readFileSync)(fullPath, "utf-8");
+    const fullPath = (0, import_path5.join)(cwd, coPath);
+    if ((0, import_fs5.existsSync)(fullPath)) {
+      const content = (0, import_fs5.readFileSync)(fullPath, "utf-8");
       const lines = content.split("\n").filter((l) => l && !l.startsWith("#"));
       for (const file2 of files) {
         for (const line of lines) {
@@ -22946,10 +23298,10 @@ function inferAll() {
 }
 
 // src/continuity/task-sync.ts
-var import_fs5 = require("fs");
+var import_fs6 = require("fs");
 function parseLedgerState(ledgerPath) {
-  if (!(0, import_fs5.existsSync)(ledgerPath)) return [];
-  const content = (0, import_fs5.readFileSync)(ledgerPath, "utf-8");
+  if (!(0, import_fs6.existsSync)(ledgerPath)) return [];
+  const content = (0, import_fs6.readFileSync)(ledgerPath, "utf-8");
   const tasks = [];
   const stateMatch = content.match(/## State\s*\n([\s\S]*?)(?=\n## |$)/m);
   if (!stateMatch) return [];
@@ -23045,8 +23397,8 @@ function getTaskSyncSummary(ledgerPath) {
   return `TASKS|${tasks.length} total|${completed} done|${inProgress} active|${pending} pending`;
 }
 function exportLedgerAsJson(ledgerPath) {
-  if (!(0, import_fs5.existsSync)(ledgerPath)) return null;
-  const content = (0, import_fs5.readFileSync)(ledgerPath, "utf-8");
+  if (!(0, import_fs6.existsSync)(ledgerPath)) return null;
+  const content = (0, import_fs6.readFileSync)(ledgerPath, "utf-8");
   const taskIdMatch = ledgerPath.match(/TASK-\d+/);
   const taskId = taskIdMatch ? taskIdMatch[0] : "unknown";
   return {
@@ -23059,9 +23411,9 @@ function exportLedgerAsJson(ledgerPath) {
 
 // src/continuity/context-injector.ts
 var import_child_process12 = require("child_process");
-var import_fs6 = require("fs");
-var import_path5 = require("path");
-var import_os2 = require("os");
+var import_fs7 = require("fs");
+var import_path6 = require("path");
+var import_os3 = require("os");
 
 // src/coordination/coordinator.ts
 var TaskCoordinator = class {
@@ -23532,18 +23884,23 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "dev_memory",
-      description: "[~60 tokens] Manage knowledge consolidation (consolidate/status/query/list/extract)",
+      description: "[~60 tokens] Manage knowledge consolidation (consolidate/status/query/list/extract/save/search/get)",
       inputSchema: {
         type: "object",
         properties: {
           action: {
             type: "string",
-            enum: ["consolidate", "status", "query", "list", "extract"],
+            enum: ["consolidate", "status", "query", "list", "extract", "save", "search", "get"],
             description: "Action to perform"
           },
           query: { type: "string", description: "Search query (for query action)" },
           type: { type: "string", description: "Filter by type: pitfall|pattern|decision (for list action)" },
-          dryRun: { type: "boolean", description: "Preview only, no writes (for extract action)" }
+          dryRun: { type: "boolean", description: "Preview only, no writes (for extract action)" },
+          text: { type: "string", description: "Text content to save (for save action)" },
+          title: { type: "string", description: "Title for saved entry (for save action, auto-generated if omitted)" },
+          tags: { type: "string", description: "Comma-separated tags (for save action)" },
+          ids: { type: "string", description: "Comma-separated entry IDs (for get action)" },
+          limit: { type: "number", description: "Max results (for search action, default 10)" }
         }
       }
     },
@@ -23699,7 +24056,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return tasksTool(args?.action, args?.ledgerPath);
       // Memory tools
       case "dev_memory":
-        return memoryTool(args?.action, args?.query, args?.type, args?.dryRun);
+        return memoryTool(args?.action, args?.query, args?.type, args?.dryRun, args?.text, args?.title, args?.tags, args?.ids, args?.limit);
       // Coordination tools
       case "dev_coordinate":
         return coordinateTool(args?.action, args?.mode, args?.tasks, args?.taskId);
@@ -24169,7 +24526,7 @@ function tasksTool(action, ledgerPath) {
       return { content: [{ type: "text", text: "\u274C Action required: summary|export|sync" }] };
   }
 }
-function memoryTool(action, query, type, dryRun) {
+function memoryTool(action, query, type, dryRun, text, title, tags, ids, limit) {
   switch (action) {
     case "consolidate": {
       const result = memoryConsolidate();
@@ -24207,8 +24564,37 @@ ${lines.join("\n")}` }] };
       const result = extractFromProject(dryRun ?? false);
       return { content: [{ type: "text", text: result.message }] };
     }
+    case "save": {
+      if (!text) return { content: [{ type: "text", text: "\u274C text required for save" }] };
+      const tagArray = tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : void 0;
+      const result = memorySave(text, title, tagArray, type);
+      return { content: [{ type: "text", text: `\u2705 ${result.message}` }] };
+    }
+    case "search": {
+      if (!query) return { content: [{ type: "text", text: "\u274C query required for search" }] };
+      const results = memorySearch(query, limit || 10, type);
+      if (results.length === 0) {
+        return { content: [{ type: "text", text: `No results for "${query}"` }] };
+      }
+      const lines = results.map((r) => `${r.id}|[${r.type}]|${r.title}|${r.platform}|${r.createdAt.slice(0, 10)}`);
+      return { content: [{ type: "text", text: `Found:${results.length}
+${lines.join("\n")}` }] };
+    }
+    case "get": {
+      if (!ids) return { content: [{ type: "text", text: "\u274C ids required for get (comma-separated)" }] };
+      const idArray = ids.split(",").map((i) => i.trim()).filter(Boolean);
+      const results = memoryGet(idArray);
+      if (results.length === 0) {
+        return { content: [{ type: "text", text: "No entries found for provided IDs" }] };
+      }
+      const entries = results.map((r) => `## [${r.type}] ${r.title}
+Platform: ${r.platform} | Project: ${r.sourceProject}
+**Problem**: ${r.problem}
+**Solution**: ${r.solution}`);
+      return { content: [{ type: "text", text: entries.join("\n\n") }] };
+    }
     default:
-      return { content: [{ type: "text", text: "\u274C Action required: consolidate|status|query|list|extract" }] };
+      return { content: [{ type: "text", text: "\u274C Action required: consolidate|status|query|list|extract|save|search|get" }] };
   }
 }
 var taskCoordinator = new TaskCoordinator();

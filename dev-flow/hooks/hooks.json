@@ -48,6 +48,17 @@
         ]
       }
     ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-summary.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Read|Edit|Write|Bash|Grep|Glob",
@@ -86,6 +97,16 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/track-team.sh delete",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write|Bash|Grep|Glob|WebSearch|WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/observe-batch.sh",
+            "timeout": 20
           }
         ]
       }
