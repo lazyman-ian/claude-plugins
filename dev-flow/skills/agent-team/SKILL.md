@@ -112,6 +112,9 @@ Only approve plans that include verification steps.
 The teammate stays in read-only plan mode until lead approves. Reject with feedback to iterate.
 
 ```
+# Pre-fetch knowledge for each teammate's domain
+knowledge = dev_memory(action='query', query='{task_keywords} {platform}')
+
 # Spawn per task (parallel for independent tasks)
 Task({
   subagent_type: "general-purpose",
@@ -120,6 +123,7 @@ Task({
   # model: sonnet (default)
   prompt: <<PROMPT
 {See Teammate Prompt Template below}
+# Inject knowledge query results into ## Historical Knowledge section
 PROMPT
 })
 
@@ -148,10 +152,14 @@ Verify results, aggregate, shutdown teammates, clean up.
 3. Issues found → SendMessage teammate to fix
 4. Aggregate results for PR summary:
    dev_aggregate(action='pr_ready', taskId='TASK-{id}')
-5. All done → shutdown teammates:
+5. Consolidate team knowledge into knowledge base:
+   dev_memory(action='consolidate')
+   # Handoffs → pitfalls, reasoning → patterns, ledgers → decisions
+   # Available to next session via SessionStart injection
+6. All done → shutdown teammates:
    SendMessage({ type: "shutdown_request", recipient: "{name}" })
-6. TeamDelete()
-7. Summary: report results + aggregated changes to user
+7. TeamDelete()
+8. Summary: report results + aggregated changes to user
 ```
 
 ## Teammate Prompt Template
@@ -176,6 +184,11 @@ You are a developer working on {task_description}.
 - Branch: {branch_name}
 - Plan: {plan_path} (if applicable)
 
+## Historical Knowledge (injected by lead)
+{dev_memory query results — platform pitfalls + task-related patterns}
+If this section is empty, query before starting:
+  dev_memory(action:'query', query:'{module keywords}')
+
 ## Output Format
 - Passing verification: {verify_command}
 - Committed code via /dev commit
@@ -183,6 +196,8 @@ You are a developer working on {task_description}.
 
 ## Steps
 1. Read relevant context (CLAUDE.md, existing code)
+   - If Historical Knowledge is empty: dev_memory(action:'query', query:'{module keywords}')
+   - Note any pitfalls or patterns before starting
 2. Implement the assigned module/feature
 3. Run verification: {verify_command}
 4. If verify passes → /dev commit
@@ -204,6 +219,10 @@ You are a developer working on {task_description}.
 - Task(subagent_type="dev-flow:debug-agent") — Debug issues
 - Task(subagent_type="codebase-pattern-finder") — Find existing patterns
 - Task(subagent_type="research:research-agent") — External docs/API lookup
+
+## Available MCP Tools
+- dev_memory(action:'query', query:'...') — Search historical pitfalls and patterns
+- dev_handoff(action:'write', handoff={...}) — Write completion handoff for lead aggregation
 
 ## Thinking Rules
 - Before implementing, briefly consider alternatives (Why this approach?)

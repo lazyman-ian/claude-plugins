@@ -135,6 +135,10 @@ Spawn per-platform teammate using `agent-team` patterns:
 ```
 TeamCreate({ team_name: "TASK-{id}" })
 
+# Pre-fetch platform-specific knowledge for each teammate
+ios_knowledge = dev_memory(action='query', query='ios pitfalls {task_keywords}')
+android_knowledge = dev_memory(action='query', query='android pitfalls {task_keywords}')
+
 Task({
   subagent_type: "general-purpose",
   team_name: "TASK-{id}",
@@ -142,9 +146,15 @@ Task({
   prompt: <<PROMPT
 You are {platform} developer at {repo_path} implementing TASK-{id}.
 
+## Historical Knowledge (injected by lead)
+{dev_memory query results — platform pitfalls + task-related patterns}
+If empty, query: dev_memory(action:'query', query:'{platform} {task keywords}')
+
 ## Steps
 1. git -C {repo_path} checkout {branch}
 2. Read {repo_path}/CLAUDE.md
+   - If Historical Knowledge is empty: dev_memory(action:'query', query:'{platform} {module keywords}')
+   - Note any pitfalls or patterns before starting
 3. /implement-plan — execute "Platform: {Platform}" section from {plan_path}
    (plan has frontmatter v2.0 — implement-plan auto-creates tasks from phases)
 4. Each phase done → /dev commit
@@ -163,6 +173,10 @@ You are {platform} developer at {repo_path} implementing TASK-{id}.
 - All: Task(subagent_type="codebase-pattern-finder")
 - All: Task(subagent_type="research:research-agent")
 
+## Available MCP Tools
+- dev_memory(action:'query', query:'...') — Search historical pitfalls and patterns
+- dev_handoff(action:'write', handoff={...}) — Write completion handoff
+
 ## Rules
 - Uncertain → SendMessage lead
 - Verify fails → keep fixing, don't report done
@@ -176,10 +190,12 @@ PROMPT
 1. Review: git -C {repo} diff {base}..{branch} --stat
 2. Issues → SendMessage teammate to fix
 3. Aggregate all handoffs: dev_aggregate(action='pr_ready', taskId='TASK-{id}')
-4. Per repo: /dev pr → auto-push + create PR
-5. /describe → PR description (use aggregated summary)
-6. Shutdown teammates → TeamDelete
-7. Summary: PR links per platform
+4. Consolidate team knowledge: dev_memory(action='consolidate')
+   # Handoffs → pitfalls, reasoning → patterns → available next session
+5. Per repo: /dev pr → auto-push + create PR
+6. /describe → PR description (use aggregated summary)
+7. Shutdown teammates → TeamDelete
+8. Summary: PR links per platform
 ```
 
 ## Platform Resolution
