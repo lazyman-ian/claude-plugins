@@ -48,9 +48,14 @@ Optional custom configuration. The `platform` field affects `dev_config`, knowle
     "test": "pytest -x",
     "verify": "ruff check . && mypy . && pytest -x"
   },
-  "scopes": ["api", "models", "utils", "tests"]
+  "scopes": ["api", "models", "utils", "tests"],
+  "memory": {
+    "tier": 0
+  }
 }
 ```
+
+**`memory` 字段必须包含**，否则知识系统不生效。Tier 说明见 CLAUDE.md "Knowledge System" 章节。
 
 ## Usage
 
