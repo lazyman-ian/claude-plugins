@@ -15,6 +15,13 @@ lazyman-ian marketplace for Claude Code plugins. Contains 4 plugins in a single 
 
 ## Build Commands
 
+### Project Initialization
+
+**Recommended:** Use `/dev-flow:init` to create `.dev-flow.json` (most reliable)
+- SessionStart hook auto-creation may fail due to AGENT_TYPE filtering or environment issues
+- For monorepo projects: Set `"platform": "monorepo"` explicitly
+- Manual creation fallback: See `.dev-flow.json` structure in Architecture section
+
 ### dev-flow MCP Server (TypeScript)
 
 ```bash

@@ -126,6 +126,21 @@ allowed-tools: [specific, tools, only]
 
 ## Key Patterns
 
+### Hook Debugging
+
+```bash
+# Test hook output
+echo '{"type":"test"}' | hooks/script.sh
+
+# Suppress stderr to see clean JSON
+echo '{"type":"test"}' | hooks/script.sh 2>/dev/null
+
+# Check Node.js hook dependencies
+ls -l hooks/dist/*.mjs
+```
+
+**Note:** Node.js hooks using `console.error()` can pollute stderr. Use JSON `message` field instead.
+
 ### Continuity System
 
 - **Ledgers**: `thoughts/ledgers/CONTINUITY_CLAUDE-*.md` - Track task state across sessions

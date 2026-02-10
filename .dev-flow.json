@@ -1,0 +1,12 @@
+{
+  "platform": "monorepo",
+  "commands": {
+    "fix": "npm run --prefix dev-flow/mcp-server bundle",
+    "check": "npm run --prefix dev-flow/mcp-server build",
+    "verify": "npm run --prefix dev-flow/mcp-server bundle"
+  },
+  "scopes": ["dev-flow", "research", "utils", "ios-swift", "docs", "hooks", "skills", "agents", "commands"],
+  "memory": {
+    "tier": 3
+  }
+}

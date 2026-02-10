@@ -188,7 +188,7 @@ All handoffs in ${handoffDir}:
     }
   } else {
     if (sessionType !== "startup") {
-      console.error(`\u26A0 No ledger found. Run /dev ledger to track session state.`);
+      // Removed console.error to avoid stderr pollution in hook execution
       message = `[${sessionType}] No ledger found. Consider running /dev ledger to track session state.`;
     }
   }
