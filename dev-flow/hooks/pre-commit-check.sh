@@ -51,6 +51,32 @@ if echo "$STAGED_DIFF" | grep -q "randomUUID\|generateId\|uuid()" 2>/dev/null; t
 fi
 
 # =============================================================================
+# 5. Knowledge-aware pitfall check (FTS5 query)
+# =============================================================================
+DB_PATH="$PROJECT_DIR/.claude/cache/artifact-index/context.db"
+if [[ -f "$DB_PATH" ]]; then
+    # Extract keywords from added lines only (not deleted)
+    ADDED_LINES=$(git -C "$PROJECT_DIR" diff --cached -U0 2>/dev/null | grep '^+' | grep -v '^+++' | head -100)
+    KW=$(echo "$ADDED_LINES" | grep -oE '[a-zA-Z]{4,}' | sort -u | tr '\n' ' ' | head -c 200)
+
+    if [[ -n "$KW" ]]; then
+        FTS=$(echo "$KW" | /usr/bin/sed 's/ / OR /g')
+        HITS=$(sqlite3 -separator '|||' "$DB_PATH" \
+            "SELECT k.title, substr(k.problem, 1, 120) FROM knowledge k
+             JOIN knowledge_fts f ON k.rowid = f.rowid
+             WHERE knowledge_fts MATCH '${FTS}' AND k.type = 'pitfall'
+             ORDER BY rank LIMIT 3;" 2>/dev/null || true)
+
+        if [[ -n "$HITS" ]]; then
+            WARNINGS="$WARNINGS\n⚠️ Knowledge pitfalls matched:"
+            while IFS='|||' read -r title problem; do
+                [[ -n "$title" ]] && WARNINGS="$WARNINGS\n  - $title: $problem"
+            done <<< "$HITS"
+        fi
+    fi
+fi
+
+# =============================================================================
 # Output
 # =============================================================================
 if [[ -n "$WARNINGS" ]]; then

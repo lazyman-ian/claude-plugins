@@ -92,12 +92,33 @@ gh pr create \
 dev_ledger(action="update", content="PR created: #123")
 ```
 
-### Step 7: 触发代码审查 (可选)
+### Step 7: 代码审查
+
+**无条件 spawn code-reviewer agent**（深度由 agent 自行判定）：
 
 ```
-→ 自动 spawn code-reviewer agent
-→ 输出审查结果
+Task(subagent_type="dev-flow:code-reviewer",
+     prompt="PR review mode. Branch diff: git diff master...HEAD
+             Auto-classify risk and review depth.
+             Check commit review coverage (reasoning files in .git/claude/commits/).
+             Focus on cross-cutting concerns and module interactions.
+             Include positive notes and knowledge saving.")
 ```
+
+Agent 在独立 context 中自动完成：
+1. 检查 commit 审查覆盖率（有 reasoning = 已审查过）
+2. 分析目录跨度、敏感文件、commit 数量
+3. 自动选择深度（全量 / 跨模块 spot check / docs-only skip）
+4. 返回 P0-P3 分级报告
+
+| 审查结果 | 行为 |
+|---------|------|
+| P0/P1 found | ⚠️ 追加到 PR description，建议创建 Draft PR |
+| P2/P3 only | 追加到 PR body 的 "Review Notes" section |
+| Clean | 在 PR body 追加 "✅ Code review passed" |
+
+> 深度决策权在 code-reviewer agent，不在主流程。
+> 强制跳过: `/dev-flow:pr --no-review`
 
 ## 输出
 

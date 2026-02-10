@@ -35,6 +35,39 @@ git diff --cached --stat
 ℹ️ 没有需要提交的变更
 ```
 
+### Step 2.5: Code Review Gate
+
+**无条件 spawn code-reviewer agent**（深度由 agent 自行判定，主流程不参与决策）：
+
+```
+Task(subagent_type="dev-flow:code-reviewer",
+     prompt="Review staged changes (commit gate mode).
+             Files: <git diff --cached --name-only>
+             Report P0/P1 only. Auto-classify risk level.
+             Read branch-scoped review session log for previous review context.
+             After review, append findings to review session log.")
+```
+
+Agent 在独立 context 中自动完成：
+1. 读取 review session log（前次审查的跨模块 context）
+2. 分析 diff 大小、敏感文件、新文件等信号
+3. 查询 `dev_memory` 匹配 pitfalls
+4. **关联当前改动与之前审查发现**（跨 commit 检测）
+5. 自动选择审查深度（🔴 Full / 🟡 Medium / 🟢 Quick / ⚪ Skip）
+6. 返回分级报告 + 写回 session log
+
+| Agent 返回 | 行为 |
+|-----------|------|
+| P0/P1 issues found | ❌ 停止提交，展示问题，要求修复 |
+| P2/P3 only | ⚠️ 显示 warnings，继续提交 |
+| Risk ⚪ (docs-only) | ✅ Agent 确认无需审查，继续提交 |
+| No issues | ✅ 继续提交 |
+
+> 为什么不在主流程判定深度？防止主 agent 为省 token 合理化跳过审查。
+> 深度决策权在 code-reviewer agent（独立 context，无偏差）。
+>
+> 强制跳过: `/dev-flow:commit --no-review`（仅供紧急修复，PR 审查会补偿）
+
 ### Step 3: 智能 Scope 推断
 ```
 dev_defaults(action="scope")

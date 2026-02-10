@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-dev-flow-plugin (v4.0.0) is a Claude Code plugin providing unified development workflow automation: planning → coding → commit → PR → release. Features VDD (Verification-Driven Development), multi-agent collaboration, generic agent-team orchestration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
+dev-flow-plugin (v4.1.0) is a Claude Code plugin providing unified development workflow automation: planning → coding → review → commit → PR → release. Features VDD (Verification-Driven Development), multi-layer automated code review (P0-P3 severity), multi-agent collaboration, generic agent-team orchestration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
 
 ## Build & Development
 
@@ -23,11 +23,11 @@ npm run --prefix mcp-server dev       # Run with ts-node
 ### Plugin Structure
 
 ```
-.claude-plugin/plugin.json  # Plugin manifest (v4.0.0)
+.claude-plugin/plugin.json  # Plugin manifest (v4.1.0)
 .mcp.json                   # MCP server config → scripts/mcp-server.cjs
-skills/                     # 9 skills (SKILL.md + references/)
-commands/                   # 21 command definitions (includes /verify, /init, /extract-knowledge)
-agents/                     # 12 agent prompts
+skills/                     # 10 skills (SKILL.md + references/)
+commands/                   # 22 command definitions (includes /verify, /init, /extract-knowledge, /review)
+agents/                     # 12 agent prompts + references/ (security/quality checklists)
 hooks/hooks.json            # 6 hook types (PreToolUse, Setup, SessionStart, PreCompact, Stop, PostToolUse)
 scripts/track-team.sh       # Session→team mapping for StatusLine (PostToolUse: TeamCreate/TeamDelete)
 templates/thoughts/schema/  # JSON schemas for meta-iterate and handoff outputs
@@ -192,18 +192,36 @@ Session → [auto-handoff] → [dev_memory consolidate] → Knowledge → [Sessi
 ### Hook Integration
 
 - `PreToolUse(Bash(git commit*))`: Block raw git commit, enforce /dev commit
+- `PreToolUse(Bash(git commit*))`: Pre-commit knowledge pitfall check (FTS5 query)
 - `Setup`: Initialize dev-flow environment + memory config on first run
-- `SessionStart`: Load active ledger + platform knowledge + last session summary
+- `SessionStart`: Load active ledger + platform knowledge + last session summary + init review session log
 - `PreCompact`: Backup transcript before context compaction
 - `Stop`: Generate session summary via Haiku or heuristic (Tier 1+)
 - `PostToolUse`: Tool counter + dev reminders + periodic observation capture (Tier 3)
+
+### Review System (v4.1.0)
+
+Multi-layer automated code review with P0-P3 severity, integrated at 4 workflow points:
+
+```
+/dev commit  → code-reviewer agent (commit-gate: P0/P1 blocks)
+/dev review  → code-reviewer agent (standalone: P0-P3 full)
+/dev pr      → code-reviewer agent (PR: P0-P3 full)
+Agent Team   → reviewer teammate (persistent, cross-module)
+```
+
+**Key design**: Review depth decided by code-reviewer agent in isolated context (not by main agent), preventing skip-bias. Agent auto-classifies risk from diff signals (sensitive files, change size, pitfall matches).
+
+**Review Session Log**: `.git/claude/review-session-{branch}.md` — branch-scoped file that accumulates review context across commits. Each code-reviewer spawn reads previous findings before reviewing, enabling cross-commit issue detection without Agent Teams.
+
+**Reference checklists**: `agents/references/security-checklist.md`, `agents/references/code-quality-checklist.md`
 
 ### Agent Orchestration
 
 Agents in `agents/` are spawned via Task tool for complex operations:
 - `plan-agent.md` - Create implementation plans
 - `implement-agent.md` - TDD execution
-- `code-reviewer.md` - PR review
+- `code-reviewer.md` - Multi-dimensional review with P0-P3 severity + review session log
 - `evaluate/diagnose/propose/apply/verify-agent.md` - Meta-iterate cycle
 - `validate-agent.md` - Validate plan tech choices
 - `pr-describer.md` - Generate PR descriptions
@@ -254,29 +272,27 @@ dev_config → python|fix:black .|check:ruff .|scopes:api,models|src:custom
            → ios|fix:swiftlint --fix|check:swiftlint|scopes:...|src:auto
 ```
 
-## Recent Changes (v3.15.0)
+## Recent Changes (v4.1.0)
 
-### StatusLine Session Isolation
+### Multi-Layer Code Review System
 
-**Problem**: StatusLine displayed all Agent Teams across sessions, causing confusion when multiple sessions were active.
+**Problem**: dev-flow had 5 review agents (code-reviewer, validate-agent, verify-agent, evaluate-agent, diagnose-agent) and self-check skill, but none were integrated into the main commit/PR workflow. Cross-cutting bugs (Auth+CORS+SSE) shipped undetected.
 
-**Solution**: Implemented dual-strategy session isolation:
+**Solution**: Automated review at 4 workflow points with P0-P3 severity:
 
-1. **Primary**: Session→team mapping via `PostToolUse` hooks
-   - `TeamCreate` → `track-team.sh create` → writes mapping
-   - `TeamDelete` → `track-team.sh delete` → clears mapping
-   - Mapping stored in `~/.claude/state/dev-flow/session_teams.json`
+| Point | Mechanism | Depth Decision |
+|-------|-----------|---------------|
+| `/dev commit` Step 2.5 | code-reviewer agent (isolated context) | Agent auto-classifies risk |
+| `/dev review` | code-reviewer agent (standalone) | Full P0-P3 |
+| `/dev pr` Step 7 | code-reviewer agent (mandatory) | Agent checks commit coverage |
+| Agent Team Phase 4 | reviewer teammate (persistent) | Cross-module accumulated context |
 
-2. **Fallback**: Time-based filter (5-minute window)
-   - Activated if mapping file missing/corrupted
-   - Ensures StatusLine always works
+**Key design decisions**:
+- Review depth decided by code-reviewer agent, not main agent (prevents skip-bias)
+- Branch-scoped review session log (`.git/claude/review-session-{branch}.md`) for cross-commit context
+- Pre-commit hook FTS5 pitfall check (fast, warns only)
+- Reference checklists: `agents/references/security-checklist.md`, `code-quality-checklist.md`
 
-**Files Modified**:
-- `scripts/statusline.sh`: Updated `get_team_line()` with dual-strategy logic
-- `hooks/hooks.json`: Added `TeamCreate`/`TeamDelete` PostToolUse hooks
-- `scripts/track-team.sh`: New hook script for mapping management
-- `docs/session-team-mapping.md`: Complete implementation guide
+**New files**: `commands/review.md`, `agents/references/security-checklist.md`, `agents/references/code-quality-checklist.md`, `skills/api-implementer/`
 
-**Impact**: Each session now sees only its own Agent Team, preventing cross-session confusion.
-
-**Automatic**: No user configuration required, works out-of-the-box.
+**Modified**: `agents/code-reviewer.md` (rewritten), `commands/commit.md` (Step 2.5), `commands/pr.md` (Step 7 mandatory), `hooks/pre-commit-check.sh` (FTS5), `hooks/session-start-continuity.sh` (review log init + task recovery), `skills/agent-team/SKILL.md` (reviewer teammate + interaction protocol), `skills/dev/SKILL.md` (/review command)

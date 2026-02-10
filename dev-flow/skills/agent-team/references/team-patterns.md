@@ -17,6 +17,80 @@ Lead
     Lead aggregates
 ```
 
+### Fan-out + Continuous Review (Recommended for 3+ agents)
+
+Best for: 3+ agents with cross-module interactions or security-sensitive code.
+
+```
+Lead
+├── Agent A (Module 1) ──┐
+├── Agent B (Module 2) ──┼── parallel impl
+├── Agent C (Module 3) ──┘
+│                         ↕ SendMessage after each commit
+└── Reviewer (opus) ────── persistent, accumulates cross-module context
+         ↓
+    Reviewer final summary → Lead aggregates
+```
+
+**Key advantage over one-shot Phase 4 review**: Reviewer accumulates context incrementally. When reviewer sees Agent B's CORS change after already reviewing Agent A's Auth change, it can spot the Auth+CORS interaction issue immediately — not 30 minutes later in batch review.
+
+**Setup**:
+```
+TeamCreate({ team_name: "TASK-{id}" })
+
+# Implementation tasks
+TaskCreate({ subject: "Module 1: Auth guards" })
+TaskCreate({ subject: "Module 2: API + SSE endpoints" })
+TaskCreate({ subject: "Module 3: CORS + middleware config" })
+
+# Reviewer task (no blockedBy — reviewer is always available)
+TaskCreate({ subject: "Continuous review: cross-module audit" })
+
+# Spawn implementers (parallel)
+Task({ name: "auth-dev", prompt: "..." })
+Task({ name: "api-dev", prompt: "..." })
+Task({ name: "config-dev", prompt: "..." })
+
+# Spawn reviewer (opus, persistent)
+Task({
+  subagent_type: "dev-flow:code-reviewer",
+  team_name: "TASK-{id}",
+  name: "reviewer",
+  model: "opus",
+  prompt: "{See Reviewer Prompt Template in SKILL.md}"
+})
+TaskUpdate({ taskId: "4", owner: "reviewer" })
+```
+
+**Interaction flow**:
+```
+Timeline:
+  t1: auth-dev commits guard changes
+      → SendMessage reviewer "committed auth guard, files: src/auth/guard.ts"
+      → reviewer reads diff, notes auth patterns ✅
+
+  t2: config-dev commits CORS config
+      → SendMessage reviewer "committed CORS config, files: src/config/cors.ts"
+      → reviewer reads diff, cross-references with auth guard
+      → 🔴 FINDS: "OPTIONS preflight not excluded from AuthGuard!"
+      → SendMessage auth-dev "P1: AuthGuard blocks OPTIONS, fix guard.ts"
+      → SendMessage config-dev "P1: CORS preflight needs guard exclusion"
+
+  t3: api-dev commits SSE endpoint with reply.hijack()
+      → SendMessage reviewer "committed SSE, files: src/api/sse.controller.ts"
+      → reviewer cross-references with CORS config
+      → 🔴 FINDS: "reply.hijack() discards CORS headers set by middleware!"
+      → SendMessage api-dev "P1: flush CORS headers before hijack()"
+
+  t4: Lead requests final summary
+      → reviewer produces full P0-P3 report with accumulated context
+```
+
+**Cost**: ~1.2x cost of basic fan-out (reviewer opus context). ROI: catches cross-cutting bugs that would cost 3x in post-merge fixes.
+
+**When NOT to use**: Single-module changes, all agents work on independent features with zero shared infrastructure (rare).
+
+
 **Setup**:
 ```
 TeamCreate({ team_name: "TASK-{id}" })
@@ -105,36 +179,51 @@ for i, batch in enumerate(batches):
 
 ### Review-Chain (Code Review)
 
-Best for: code that needs review before merge.
+Best for: code that needs review before merge, especially cross-module changes.
 
 ```
-Implementer → Reviewer → (fix if needed) → Done
+Implementer → Reviewer (P0-P3) → (fix P0/P1) → Done
 ```
+
+**Note**: Per-commit review is automatic via `/dev commit` Step 2.5. This pattern adds a dedicated cross-module reviewer for changes spanning multiple modules.
 
 **Setup**:
 ```
 TaskCreate({ subject: "Implement feature" })
-TaskCreate({ subject: "Review implementation" })
+TaskCreate({ subject: "Cross-module review (P0-P3)" })
 
 TaskUpdate({ taskId: "2", addBlockedBy: ["1"] })
 
-# Spawn implementer
+# Spawn implementer (commit review is built-in)
 Task({ name: "impl-dev", prompt: "Implement ..." })
 
-# After impl done → spawn reviewer
+# After impl done → spawn dedicated reviewer (opus for depth)
 Task({
   subagent_type: "dev-flow:code-reviewer",
   name: "reviewer",
-  prompt: "Review changes in {branch}"
+  model: "opus",
+  prompt: "Full branch review (all dimensions, P0-P3).
+           Branch diff: git diff master...HEAD
+           Focus on cross-cutting concerns: Auth+CORS, Guard ordering,
+           SSE+Headers, module boundary mismatches.
+           Report format: P0-P3 with file:line references.
+           Save novel findings: dev_memory(action='save', ...)"
 })
 ```
+
+**Review Results**:
+| Severity | Action |
+|----------|--------|
+| P0/P1 | SendMessage impl-dev to fix, re-review after |
+| P2/P3 | Record in handoff for PR description |
+| Clean | Proceed to merge |
 
 ### Evaluator-Optimizer (Iterative Refinement)
 
 Best for: tasks with clear evaluation criteria that benefit from feedback cycles (code quality, translation, complex refactoring).
 
 ```
-Generator → Evaluator → (feedback loop) → Done
+Generator → Evaluator (P0-P3) → (feedback loop, max 3 rounds) → Done
   Agent A      Agent B
 ```
 
@@ -146,15 +235,47 @@ TaskCreate({ subject: "Evaluate and provide feedback" })
 # Spawn generator
 Task({ name: "generator", prompt: "Implement {feature}. When done, SendMessage evaluator." })
 
-# Spawn evaluator
+# Spawn evaluator (uses P0-P3 severity for concrete feedback)
 Task({
   subagent_type: "dev-flow:code-reviewer",
   name: "evaluator",
-  prompt: "Review generator's work against {criteria}. SendMessage generator with specific feedback. Repeat until quality passes."
+  model: "opus",
+  prompt: "Review generator's work using P0-P3 severity across all 4 dimensions
+           (Design, Security, Performance, Error Handling).
+           Evaluation criteria: {criteria}
+           Round limit: 3 iterations max.
+           Each round: P0-P3 report → SendMessage generator with specific fixes.
+           Pass condition: zero P0/P1 findings.
+           Save novel findings: dev_memory(action='save', ...)"
 })
 ```
 
-**Key**: Define clear evaluation criteria upfront. The evaluator must have concrete rubrics, not vague "looks good" checks. Limit to 3 iteration rounds to prevent infinite loops.
+**Key**: The evaluator uses P0-P3 severity for concrete, actionable feedback — not vague "looks good" checks. Pass condition = zero P0/P1. Limit to 3 rounds to prevent infinite loops.
+
+## Review Integration
+
+Multi-layer review ensures quality at every stage of team work:
+
+```
+Teammate commits → /dev commit Step 2.5 → per-file P0/P1 gate (auto)
+All tasks done   → Phase 4 reviewer      → cross-module P0-P3 (lead spawns)
+PR created       → /dev pr Step 7         → full branch P0-P3 (auto)
+```
+
+| Layer | Scope | Catches | Who |
+|-------|-------|---------|-----|
+| **Per-commit** (auto) | Single teammate's staged changes | Per-file bugs, security, pitfalls | code-reviewer (sonnet) |
+| **Cross-module** (Phase 4) | All teammates' combined work | Module boundary mismatches, cross-cutting concerns | code-reviewer (opus) |
+| **PR review** (auto) | Full branch vs base | Architectural drift, missed interactions | code-reviewer (sonnet/opus) |
+
+**Why all 3 layers?**
+- Per-commit review catches obvious P0/P1 per file
+- But cross-cutting issues (Auth+CORS+SSE) span multiple files from different teammates
+- Only the Phase 4 cross-module reviewer sees the full picture
+
+**When to skip layers**:
+- Small team (1-2 agents), single module → per-commit + PR review sufficient
+- Large team (3+ agents), cross-module → all 3 layers recommended
 
 ## Teammate Prompt Best Practices
 
@@ -236,6 +357,8 @@ N+2. SendMessage lead: done + summary
 | Messaged shutdown teammate | Wasted waiting | Check member status before messaging |
 | Teammate idle >30min | Resource waste | Complete → assign next task or shutdown |
 | Skipped plan re-review | Quality risk | Updated plans must be re-reviewed before approval |
+| Skipped cross-module review | Cross-cutting bugs ship | Always run Phase 4 reviewer for 3+ agent teams |
+| Teammate bypasses review | P0/P1 in production | `/dev commit` review gate is mandatory, no `--no-review` for teams |
 
 ## Sizing Guide
 

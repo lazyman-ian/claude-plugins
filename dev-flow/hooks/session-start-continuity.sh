@@ -65,6 +65,17 @@ STATE_DIR="${HOME}/.claude/state/dev-flow"
 mkdir -p "$STATE_DIR"
 echo '{"read":0,"edit":0,"bash":0,"grep":0}' > "$STATE_DIR/tool_stats.json"
 
+# Initialize branch-scoped review session log
+REVIEW_DIR="$PROJECT_DIR/.git/claude"
+mkdir -p "$REVIEW_DIR" 2>/dev/null || true
+BRANCH=$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null || echo "detached")
+SAFE_BRANCH=$(echo "$BRANCH" | /usr/bin/sed 's/\//-/g')
+REVIEW_LOG="$REVIEW_DIR/review-session-${SAFE_BRANCH}.md"
+# Fresh log per session (same branch, new session = reset)
+printf "# Review Session: %s\n\nBranch: %s\nCreated: %s\n\n" "$BRANCH" "$BRANCH" "$(date '+%Y-%m-%d %H:%M')" > "$REVIEW_LOG"
+# Cleanup: delete review logs older than 7 days (stale branches)
+/usr/bin/find "$REVIEW_DIR" -name "review-session-*.md" -mtime +7 -delete 2>/dev/null || true
+
 # Branch change detection
 # Cross-platform hash: md5 on macOS, md5sum on Linux
 if command -v md5 &>/dev/null; then
@@ -117,6 +128,23 @@ if [[ "$SESSION_TYPE" == "startup" ]]; then
         TIP=$("$HOME/.claude/scripts/show-tip.sh" 2>/dev/null || echo "💡 /dev commit - 提交代码")
     fi
 
+    # Check for in-progress tasks in ledger (extract [→] items)
+    TASK_RECOVERY=""
+    LEDGER_DIR="$PROJECT_DIR/thoughts/ledgers"
+    if [[ -d "$LEDGER_DIR" ]]; then
+        LATEST_LEDGER=$(ls -t "$LEDGER_DIR"/CONTINUITY_CLAUDE-*.md 2>/dev/null | head -1)
+        if [[ -n "$LATEST_LEDGER" ]]; then
+            IN_PROGRESS=$(grep -E '^\s*-\s*\[→\]' "$LATEST_LEDGER" 2>/dev/null | /usr/bin/sed 's/^[[:space:]]*- \[→\] //' | head -3)
+            PENDING=$(grep -cE '^\s*-\s*\[ \]' "$LATEST_LEDGER" 2>/dev/null || echo "0")
+            if [[ -n "$IN_PROGRESS" ]]; then
+                TASK_RECOVERY="⚡ Unfinished: $(echo "$IN_PROGRESS" | head -1)"
+                if [[ "$PENDING" -gt 0 ]]; then
+                    TASK_RECOVERY="$TASK_RECOVERY (+${PENDING} pending)"
+                fi
+            fi
+        fi
+    fi
+
     # Check PR status for merged PRs (suggest archive)
     PR_STATUS_MSG=""
     if [[ "$CURRENT_BRANCH" =~ TASK-([0-9]+) ]]; then
@@ -160,6 +188,11 @@ if [[ "$SESSION_TYPE" == "startup" ]]; then
     # Append PR status if available
     if [[ -n "$PR_STATUS_MSG" ]]; then
         NEW_MSG="$NEW_MSG\n$PR_STATUS_MSG"
+    fi
+
+    # Prepend task recovery (most important info first)
+    if [[ -n "$TASK_RECOVERY" ]]; then
+        NEW_MSG="$TASK_RECOVERY\n$NEW_MSG"
     fi
 
     OUTPUT=$(echo "$OUTPUT" | jq --arg tip "$NEW_MSG" '.message = $tip | .systemMessage = $tip')

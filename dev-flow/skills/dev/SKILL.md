@@ -18,8 +18,9 @@ Use `/dev-flow:` commands for all Git workflow operations:
 |---------|---------|
 | `/dev-flow:dev` | Check status + next step |
 | `/dev-flow:start` | Start new task (branch + ledger) |
-| `/dev-flow:commit` | Create commit with reasoning |
-| `/dev-flow:pr` | Create pull request |
+| `/dev-flow:review` | Code review (anytime, P0-P3) |
+| `/dev-flow:commit` | Create commit with review gate |
+| `/dev-flow:pr` | Create PR with auto-review |
 | `/dev-flow:release` | Create release tag |
 | `/dev-flow:ledger` | Manage continuity ledgers |
 | `/dev-flow:tasks` | Sync ledger with Task Management |
@@ -55,7 +56,7 @@ IDLE → DEVELOPING → READY_TO_PUSH → WAITING_QA → PR_OPEN → READY_TO_RE
 | Phase | Action |
 |-------|--------|
 | IDLE | `/dev-flow:start TASK-XXX` |
-| DEVELOPING | `make fix` → `/dev-flow:commit` |
+| DEVELOPING | `make fix` → `/dev-flow:review` → `/dev-flow:commit` |
 | READY_TO_PUSH | `git push` |
 | WAITING_QA | `/dev-flow:pr` |
 | PR_OPEN | Wait for merge |
@@ -87,8 +88,9 @@ IDLE → DEVELOPING → READY_TO_PUSH → WAITING_QA → PR_OPEN → READY_TO_RE
 # Start new task
 /dev-flow:start TASK-123 "Add feature"
 
-# Commit changes
-make fix && /dev-flow:commit
+# Review + Commit
+/dev-flow:review            # Optional standalone review
+make fix && /dev-flow:commit  # Commit includes review gate
 
 # Create PR
 /dev-flow:pr

@@ -20,10 +20,11 @@ Design the environment (tests, verify commands, task boundaries) so agents can s
 
 ## Model Strategy
 
-| Phase | Model | Reasoning | Cost Impact |
-|-------|-------|-----------|-------------|
+| Role | Model | Reasoning | Cost Impact |
+|------|-------|-----------|-------------|
 | **Planning** | `opus` | Architecture, module decomposition, dependency analysis | Higher cost, deeper reasoning |
 | **Implementation** | `sonnet` (default) | Code generation, balanced quality | Medium cost |
+| **Review teammate** | `opus` | Cross-module reasoning, security analysis, pattern recognition | Higher cost, catches cross-cutting bugs |
 | **Quick tasks** | `haiku` | File checks, simple validations, formatting | Lower cost |
 
 **Estimated savings**: 40-50% compared to all-opus, with minimal quality impact.
@@ -96,11 +97,62 @@ dev_coordinate(action='plan', mode='fan-out', tasks=[
   { id: 't3', targetFiles: ['src/auth.ts'] }  # conflict with t1!
 ])
 # → Serialize conflicts: TaskUpdate({ taskId: 't3', addBlockedBy: ['t1'] })
+
+# 5. Spawn review teammate (for 3+ impl agents or security-sensitive work)
+Task({
+  subagent_type: "dev-flow:code-reviewer",
+  team_name: "TASK-{id}",
+  name: "reviewer",
+  model: "opus",
+  prompt: <<PROMPT
+{See Reviewer Prompt Template below}
+PROMPT
+})
 ```
+
+**何时启用 reviewer teammate**:
+
+| 条件 | Reviewer? | 原因 |
+|------|-----------|------|
+| 3+ implementation agents | ✅ 启用 | 跨模块交互风险高 |
+| 涉及 auth/cors/security 文件 | ✅ 启用 | 安全敏感需要持续审查 |
+| 2 agents, 独立模块 | ❌ 不需要 | per-commit review 足够 |
+| 1 agent | ❌ 不需要 | 无跨模块风险 |
 
 ### Phase 3: Execute (Team, use **sonnet**)
 
 Spawn teammates, monitor progress, handle errors.
+
+**Two-layer review**:
+
+| Layer | 机制 | 覆盖范围 |
+|-------|------|---------|
+| **Per-commit** (自动) | `/dev commit` Step 2.5 code-reviewer agent | 单文件 P0/P1 |
+| **Cross-module** (reviewer teammate) | 持久化 reviewer 积累跨模块 context | 跨模块交互 |
+
+**Reviewer 交互协议** (当 reviewer teammate 存在时):
+
+Implementer 提交后通知 reviewer：
+```
+# Implementer 完成 commit 后
+SendMessage({
+  type: "message",
+  recipient: "reviewer",
+  content: "Committed {hash}: {commit_message}\nFiles: {changed_files}\nPlease review for cross-module concerns.",
+  summary: "Review request: {module}"
+})
+```
+
+Reviewer 审查后回复：
+```
+# 无问题
+SendMessage({ recipient: "{impl}", content: "✅ LGTM, no cross-module issues.", summary: "Review passed" })
+
+# 有问题
+SendMessage({ recipient: "{impl}", content: "🔴 P1: {file}:{line} — {issue}. Fix before next commit.", summary: "P1 found, fix needed" })
+```
+
+**优势**: Reviewer 持续积累 context —— 看到 Auth 改动后再看 CORS 改动，能发现两者的交互问题。一次性 Phase 4 review 做不到这种增量关联。
 
 **Delegate Mode**: For 3+ teammates, press `Shift+Tab` to restrict lead to coordination-only (spawn, message, shutdown, task management). Prevents lead from implementing tasks meant for teammates.
 
@@ -142,12 +194,40 @@ TaskUpdate({ taskId: "1", owner: "{module}-dev" })
 
 ### Phase 4: Close (Lead)
 
-Verify results, aggregate, shutdown teammates, clean up.
+Verify results, aggregate, review, shutdown teammates, clean up.
 
 ```
-1. Spawn dedicated opus reviewer for quality-critical projects:
-   Task({ subagent_type: "dev-flow:code-reviewer", name: "reviewer", model: "opus", ... })
-   See references/management-guide.md § Dedicated Reviewer
+1. Final review:
+
+   A) 有 reviewer teammate (推荐，3+ agents):
+      # Reviewer 已持续审查，只需请求最终报告
+      SendMessage({
+        recipient: "reviewer",
+        content: "All implementation tasks complete. Please provide final
+                  cross-module review summary (P0-P3) for PR description.
+                  Include: cross-cutting findings, module boundary issues,
+                  positive patterns observed.",
+        summary: "Request final review summary"
+      })
+      # Reviewer 有完整 context，报告更准确
+
+   B) 无 reviewer teammate (1-2 agents):
+      # 一次性 spawn code-reviewer (无跨模块 context)
+      Task({
+        subagent_type: "dev-flow:code-reviewer",
+        name: "reviewer",
+        model: "opus",
+        prompt: "PR review mode. Branch diff: git diff master...HEAD
+                 Auto-classify risk. Check commit review coverage.
+                 Focus on cross-module interactions."
+      })
+
+   | Result | Action |
+   |--------|--------|
+   | P0/P1 found | SendMessage teammate to fix before proceeding |
+   | P2/P3 only | Record in PR description as follow-up |
+   | Clean | Proceed to aggregation |
+
 2. Review: check each task completed, verify results
 3. Issues found → SendMessage teammate to fix
 4. Aggregate results for PR summary:
@@ -200,8 +280,13 @@ If this section is empty, query before starting:
    - Note any pitfalls or patterns before starting
 2. Implement the assigned module/feature
 3. Run verification: {verify_command}
-4. If verify passes → /dev commit
-5. SendMessage to lead: done + summary
+4. If verify passes → /dev commit (includes automatic code review gate)
+   - P0/P1 found → fix before retry
+   - P2/P3 → proceed, note in summary
+5. If reviewer teammate exists → SendMessage reviewer with commit hash + changed files
+   - Wait for reviewer response before next major change
+   - Reviewer P0/P1 → fix immediately
+6. SendMessage to lead: done + summary + any review findings
 
 ## Task Boundaries
 - Only modify files in: {directory_scope}
@@ -210,7 +295,8 @@ If this section is empty, query before starting:
 
 ## Available Skills
 - /implement-plan — Execute plan phases (supports TDD mode with "use tdd")
-- /dev commit — Smart commit
+- /dev commit — Smart commit (includes review gate: P0/P1 blocks, P2/P3 warns)
+- /dev review — Standalone code review (use before commit for large changes)
 - /self-check — Pre-commit quality check
 - /deslop — Remove AI slop
 
@@ -232,7 +318,64 @@ If this section is empty, query before starting:
 ## Rules
 - Uncertain → SendMessage lead, don't decide alone
 - Verify fails → keep fixing, don't report done
+- Review P0/P1 → fix before commit, don't skip
 - Follow existing code style in the repo
+```
+
+## Reviewer Prompt Template
+
+Dedicated reviewer teammate — stays alive throughout Phase 3, accumulates cross-module context.
+
+```
+You are the dedicated code reviewer for this team.
+
+## Objective
+Review each teammate's commits incrementally. Accumulate cross-module context
+to catch interaction bugs that per-commit reviews miss.
+
+## Context
+- Working directory: {repo_path}
+- Branch: {branch_name}
+- Team members: {list of impl teammates and their modules}
+- Module boundaries: {module → directory mapping}
+
+## Historical Knowledge (injected by lead)
+{dev_memory query results — project pitfalls, especially cross-cutting concerns}
+
+## How You Work
+1. Teammates SendMessage you after each commit with hash + changed files
+2. For each review request:
+   a. Read the diff: git diff {hash}~1..{hash}
+   b. Check against your accumulated context (previous reviews)
+   c. Cross-reference with other modules' recent changes
+   d. Report P0-P3 findings back to the teammate
+3. Track a mental model of all module interactions as you review
+
+## Cross-Module Focus
+The #1 reason you exist: catch issues spanning multiple teammates' work.
+- Auth + CORS interactions (guard ordering, preflight bypass)
+- SSE/streaming + header propagation (hijack losing middleware headers)
+- Shared types/interfaces changed by one teammate, consumed by another
+- Configuration that affects multiple modules (env vars, feature flags)
+
+## Review Report Format (per commit)
+Quick: "✅ LGTM" or "🔴 P1: file:line — issue"
+No need for full structured report on each commit.
+
+## Final Summary (when lead requests)
+Full P0-P3 structured report covering ALL reviewed changes:
+- Cross-cutting findings
+- Module boundary issues
+- Accumulated risk assessment
+- Positive patterns observed
+- Knowledge to save: dev_memory(action:'save', ...)
+
+## Rules
+- P0/P1 → SendMessage teammate immediately, they must fix
+- P2/P3 → Note for final summary, don't interrupt teammate
+- If you spot a cross-module issue → SendMessage BOTH affected teammates + lead
+- Never approve code you haven't read the diff for
+- Save novel cross-cutting pitfalls: dev_memory(action:'save', tags:'pitfall,...')
 ```
 
 ## Error Handling
@@ -280,6 +423,17 @@ Feature: user profiles
 - test-dev: Write integration tests (tests/profiles/)
 ```
 
+### With Dedicated Reviewer (Cross-Module)
+
+```
+/agent-team
+Implement API with auth + CORS + SSE:
+- auth-dev: Auth guards and JWT (src/auth/)
+- api-dev: REST controllers and SSE endpoints (src/api/)
+- config-dev: CORS, env config, middleware (src/config/)
+- reviewer: Review all commits, focus on auth+cors+sse interactions
+```
+
 ## Collaboration Modes
 
 Choose the mode that fits your task. See `references/team-patterns.md` for details.
@@ -287,6 +441,7 @@ Choose the mode that fits your task. See `references/team-patterns.md` for detai
 | Mode | When to Use | Parallelism |
 |------|-------------|-------------|
 | **Fan-out** | Independent modules, no shared files | Full parallel |
+| **Fan-out + Reviewer** | 3+ agents or security-sensitive | Full parallel + 1 reviewer |
 | **Pipeline** | Sequential phases (plan → impl → test) | Serial |
 | **Master-Worker** | Batch of similar tasks | N workers |
 | **Review-Chain** | Code needs review before merge | 2 agents |

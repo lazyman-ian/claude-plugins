@@ -2,8 +2,11 @@
 ###
 # Tool Enforcer Hook - PreToolUse(Bash)
 #
-# Detects Bash commands that should use native tools instead
-# Based on command-tools.md decision tree
+# Blocks Bash commands that should use native tools instead.
+# Based on command-tools.md decision tree.
+#
+# Exit 2 = block action (stderr shown as error)
+# Exit 0 = allow
 ###
 
 set -o pipefail
@@ -11,44 +14,40 @@ set -o pipefail
 input=$(cat)
 tool=$(echo "$input" | jq -r '.tool_name // empty' 2>/dev/null || echo "")
 
-# Only process Bash tool
 if [ "$tool" != "Bash" ]; then
-    echo '{"result": "continue"}'
     exit 0
 fi
 
 command=$(echo "$input" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")
-suggestions=()
 
-# Check for ls (should use Glob)
-if [[ "$command" =~ ^[[:space:]]*(ls|/bin/ls)[[:space:]] ]]; then
-    suggestions+=("💡 \`ls\` → 使用 \`Glob\` 工具更高效")
+# Allow piped commands (e.g., `git log | head`) - these are legitimate Bash usage
+if [[ "$command" == *"|"* ]]; then
+    exit 0
 fi
 
-# Check for find (should use Glob)
+# Check for standalone file operation commands (block)
+# ls → Glob
+if [[ "$command" =~ ^[[:space:]]*(ls|/bin/ls)([[:space:]]|$) ]]; then
+    echo "Use Glob tool instead of ls. Example: Glob(\"pattern/*\")" >&2
+    exit 2
+fi
+
+# find → Glob
 if [[ "$command" =~ ^[[:space:]]*(find|/usr/bin/find)[[:space:]] ]]; then
-    suggestions+=("💡 \`find\` → 使用 \`Glob\` 工具更高效")
+    echo "Use Glob tool instead of find. Example: Glob(\"**/*.ts\")" >&2
+    exit 2
 fi
 
-# Check for cat/head/tail (should use Read)
-if [[ "$command" =~ ^[[:space:]]*(cat|head|tail|/bin/cat)[[:space:]] ]]; then
-    suggestions+=("💡 \`cat/head/tail\` → 使用 \`Read\` 工具更高效")
+# cat/head/tail → Read
+if [[ "$command" =~ ^[[:space:]]*(cat|head|tail|/bin/cat)([[:space:]]|$) ]]; then
+    echo "Use Read tool instead of cat/head/tail. Example: Read(\"file.ts\", limit=20)" >&2
+    exit 2
 fi
 
-# Check for grep/rg (should use Grep)
+# grep/rg → Grep
 if [[ "$command" =~ ^[[:space:]]*(grep|rg|/usr/bin/grep)[[:space:]] ]]; then
-    suggestions+=("💡 \`grep\` → 使用 \`Grep\` 工具更高效")
+    echo "Use Grep tool instead of grep/rg. Example: Grep(\"pattern\", path=\"src/\")" >&2
+    exit 2
 fi
 
-# Output suggestions if any
-if [ ${#suggestions[@]} -gt 0 ]; then
-    message="## Tool Enforcer\n\n"
-    for s in "${suggestions[@]}"; do
-        message+="$s\n"
-    done
-    message+="\n参考: command-tools.md 决策树"
-
-    echo "{\"result\": \"continue\", \"message\": \"$message\"}"
-else
-    echo '{"result": "continue"}'
-fi
+exit 0
