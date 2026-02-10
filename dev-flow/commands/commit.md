@@ -102,8 +102,10 @@ dev_defaults(action="scope")
 ### Step 5: 执行提交
 ```bash
 git add .
-git commit -m "type(scope): subject"
+DEV_FLOW_COMMIT=1 git commit -m "type(scope): subject"
 ```
+
+> `DEV_FLOW_COMMIT=1` 前缀让 commit-guard hook 放行。无此前缀的 `git commit` 会被拦截。
 
 ### Step 6: 生成 Reasoning
 ```

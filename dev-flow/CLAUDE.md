@@ -141,6 +141,12 @@ ls -l hooks/dist/*.mjs
 
 **Note:** Node.js hooks using `console.error()` can pollute stderr. Use JSON `message` field instead.
 
+### Commit Guard
+
+`commit-guard.sh` blocks ALL raw `git commit` (including chained `git add && git commit`). `/dev commit` bypasses via `DEV_FLOW_COMMIT=1` prefix.
+
+**Hook matcher caveat**: `Bash(git commit*)` only matches commands STARTING with `git commit`. Use `Bash(*git commit*)` to catch chained commands.
+
 ### Continuity System
 
 - **Ledgers**: `thoughts/ledgers/CONTINUITY_CLAUDE-*.md` - Track task state across sessions

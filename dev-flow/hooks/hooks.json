@@ -10,6 +10,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Bash(*git commit*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/commit-guard.sh",
+            "timeout": 3
+          }
+        ]
       }
     ],
     "SessionStart": [
