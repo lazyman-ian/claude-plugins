@@ -193,8 +193,7 @@ Session → [auto-handoff] → [dev_memory consolidate] → Knowledge → [Sessi
 
 - `PreToolUse(Bash(git commit*))`: Block raw git commit, enforce /dev commit
 - `PreToolUse(Bash(git commit*))`: Pre-commit knowledge pitfall check (FTS5 query)
-- `Setup`: Initialize dev-flow environment + memory config on first run
-- `SessionStart`: Load active ledger + platform knowledge + last session summary + init review session log
+- `SessionStart`: Warn if not initialized + load active ledger + platform knowledge + last session summary + init review session log
 - `PreCompact`: Backup transcript before context compaction
 - `Stop`: Generate session summary via Haiku or heuristic (Tier 1+)
 - `PostToolUse`: Tool counter + dev reminders + periodic observation capture (Tier 3)

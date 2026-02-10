@@ -131,9 +131,17 @@ If you use `--with-keybindings`, adds to `~/.claude/settings.json`:
 
 **Keybinding Prefix**: `ctrl+d` (dev-flow prefix)
 
-## Auto-Setup
+## Why Init is Required
 
-On SessionStart, dev-flow automatically creates `.dev-flow.json` and `thoughts/` directories if missing. This command is useful for re-initialization or platform override.
+**`/dev-flow:init` is the ONLY way to initialize a project.** SessionStart will warn if `.dev-flow.json` is missing but will NOT auto-create it.
+
+Without initialization:
+- `dev_config` returns generic commands (no platform-specific lint/format)
+- `dev_memory` has no knowledge system (missing `memory.tier` config)
+- `dev_defaults` cannot infer scopes (no `scopes` array)
+- `/dev commit` quality checks use placeholder commands
+
+**Run `/dev-flow:init` once per project before using any other dev-flow commands.**
 
 **Idempotent Design:** All operations check for existence before creating. Safe to run on projects with:
 - Existing `thoughts/` directories (legacy projects)

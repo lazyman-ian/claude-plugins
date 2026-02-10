@@ -18,30 +18,10 @@ fi
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 
-# === Auto-setup (idempotent, fast) ===
-# Create .dev-flow.json if missing
+# === Check project setup ===
+INIT_WARNING=""
 if [[ ! -f "$PROJECT_DIR/.dev-flow.json" ]]; then
-    _P="unknown" _F="echo 'Configure fix command'" _C="echo 'Configure check command'" _S="[]"
-    if [[ -f "$PROJECT_DIR/Package.swift" ]] || ls "$PROJECT_DIR"/*.xcodeproj &>/dev/null; then
-        _P="ios" _F="swiftlint --fix && swiftformat ." _C="swiftlint" _S='["ui","api","models","utils","tests"]'
-    elif [[ -f "$PROJECT_DIR/build.gradle" || -f "$PROJECT_DIR/build.gradle.kts" ]]; then
-        _P="android" _F="./gradlew ktlintFormat" _C="./gradlew ktlintCheck" _S='["ui","api","data","domain","utils"]'
-    elif [[ -f "$PROJECT_DIR/package.json" ]]; then
-        _P="node" _F="npm run lint:fix || npx eslint --fix ." _C="npm run lint || npx eslint ." _S='["api","components","utils","hooks","services"]'
-    elif [[ -f "$PROJECT_DIR/pyproject.toml" || -f "$PROJECT_DIR/requirements.txt" ]]; then
-        _P="python" _F="black . && ruff check --fix ." _C="ruff check . && mypy ." _S='["api","models","utils","tests"]'
-    elif [[ -f "$PROJECT_DIR/go.mod" ]]; then
-        _P="go" _F="gofmt -w . && golangci-lint run --fix" _C="golangci-lint run" _S='["cmd","pkg","internal","api"]'
-    elif [[ -f "$PROJECT_DIR/Cargo.toml" ]]; then
-        _P="rust" _F="cargo fmt && cargo clippy --fix --allow-dirty" _C="cargo clippy" _S='["src","lib","bin","tests"]'
-    fi
-    jq -n --arg p "$_P" --arg f "$_F" --arg c "$_C" --argjson s "$_S" \
-        '{platform:$p,commands:{fix:$f,check:$c},scopes:$s,memory:{tier:0}}' > "$PROJECT_DIR/.dev-flow.json"
-fi
-# Create thoughts directories + gitignore
-mkdir -p "$PROJECT_DIR/thoughts/ledgers" "$PROJECT_DIR/thoughts/handoffs" "$PROJECT_DIR/thoughts/plans" "$PROJECT_DIR/thoughts/shared/plans" 2>/dev/null || true
-if [[ ! -f "$PROJECT_DIR/thoughts/.gitignore" ]]; then
-    printf '*.local.md\n.DS_Store\n' > "$PROJECT_DIR/thoughts/.gitignore"
+    INIT_WARNING="⚠️ No .dev-flow.json found. Run /dev-flow:init to set up."
 fi
 # Daily cache cleanup (frequency-guarded)
 _STAMP="/tmp/claude-cleanup-$(echo "$PROJECT_DIR" | md5 -q 2>/dev/null || echo "$PROJECT_DIR" | md5sum | cut -d' ' -f1).txt"
@@ -193,6 +173,11 @@ if [[ "$SESSION_TYPE" == "startup" ]]; then
     # Prepend task recovery (most important info first)
     if [[ -n "$TASK_RECOVERY" ]]; then
         NEW_MSG="$TASK_RECOVERY\n$NEW_MSG"
+    fi
+
+    # Prepend init warning (highest priority)
+    if [[ -n "$INIT_WARNING" ]]; then
+        NEW_MSG="$INIT_WARNING\n$NEW_MSG"
     fi
 
     OUTPUT=$(echo "$OUTPUT" | jq --arg tip "$NEW_MSG" '.message = $tip | .systemMessage = $tip')
