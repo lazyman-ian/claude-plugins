@@ -130,6 +130,11 @@ If you use `--with-keybindings`, adds to `~/.claude/settings.json`:
 
 On SessionStart, dev-flow automatically creates `.dev-flow.json` and `thoughts/` directories if missing. This command is useful for re-initialization or platform override.
 
+**Idempotent Design:** All operations check for existence before creating. Safe to run on projects with:
+- Existing `thoughts/` directories (legacy projects)
+- Partial initialization (directories exist, config missing)
+- Fully initialized projects (no changes made)
+
 ## Examples
 
 ### New iOS Project
@@ -155,6 +160,22 @@ User: /dev-flow:init --minimal
 → No config file
 → No platform detection
 ```
+
+### Partial Initialization (Legacy Project)
+```
+Scenario: Project has thoughts/ but missing .dev-flow.json
+
+User: /dev-flow:init
+→ Detects existing structure:
+   ✓ thoughts/ledgers (5 files)
+   ✓ thoughts/handoffs (3 files)
+→ Creates missing components:
+   + .dev-flow.json (platform: auto-detected)
+   + thoughts/.gitignore (if missing)
+→ Result: Fully initialized without data loss
+```
+
+**Note:** All operations are idempotent - safe to re-run without overwriting existing files.
 
 ## Related Commands
 
