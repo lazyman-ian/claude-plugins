@@ -60,7 +60,7 @@ if [[ -f "$DB_PATH" ]]; then
     KW=$(echo "$ADDED_LINES" | grep -oE '[a-zA-Z]{4,}' | sort -u | tr '\n' ' ' | head -c 200)
 
     if [[ -n "$KW" ]]; then
-        FTS=$(echo "$KW" | /usr/bin/sed 's/ / OR /g')
+        FTS=$(echo "$KW" | /usr/bin/sed "s/'/''/g" | /usr/bin/sed 's/ / OR /g')
         HITS=$(sqlite3 -separator '|||' "$DB_PATH" \
             "SELECT k.title, substr(k.problem, 1, 120) FROM knowledge k
              JOIN knowledge_fts f ON k.rowid = f.rowid

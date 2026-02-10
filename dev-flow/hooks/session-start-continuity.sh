@@ -134,7 +134,7 @@ if [[ "$SESSION_TYPE" == "startup" ]]; then
     if [[ -d "$LEDGER_DIR" ]]; then
         LATEST_LEDGER=$(ls -t "$LEDGER_DIR"/CONTINUITY_CLAUDE-*.md 2>/dev/null | head -1)
         if [[ -n "$LATEST_LEDGER" ]]; then
-            IN_PROGRESS=$(grep -E '^\s*-\s*\[→\]' "$LATEST_LEDGER" 2>/dev/null | /usr/bin/sed 's/^[[:space:]]*- \[→\] //' | head -3)
+            IN_PROGRESS=$(grep -E '^\s*-\s*\[→\]' "$LATEST_LEDGER" 2>/dev/null || true | /usr/bin/sed 's/^[[:space:]]*- \[→\] //' | head -3)
             PENDING=$(grep -cE '^\s*-\s*\[ \]' "$LATEST_LEDGER" 2>/dev/null || echo "0")
             if [[ -n "$IN_PROGRESS" ]]; then
                 TASK_RECOVERY="⚡ Unfinished: $(echo "$IN_PROGRESS" | head -1)"

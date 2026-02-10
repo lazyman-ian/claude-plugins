@@ -20,8 +20,10 @@ fi
 
 command=$(echo "$input" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")
 
-# Allow piped commands (e.g., `git log | head`) - these are legitimate Bash usage
-if [[ "$command" == *"|"* ]]; then
+# Allow piped commands only if first command is not a blocked file operation
+# e.g., `git log | head` → allow, `find . | wc` → still block
+first_cmd=$(echo "$command" | /usr/bin/sed 's/|.*//' | /usr/bin/sed 's/^[[:space:]]*//')
+if [[ "$command" == *"|"* ]] && ! [[ "$first_cmd" =~ ^(ls|find|cat|head|tail|grep|rg)([[:space:]]|$) ]]; then
     exit 0
 fi
 
