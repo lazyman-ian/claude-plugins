@@ -35,27 +35,34 @@ Detection priority: `.dev-flow.json` > file-based auto-detect.
 
 > **Mixed projects**: Use `.dev-flow.json` to explicitly set platform.
 
-### 3. Configuration File (.dev-flow.json)
+### 3. Memory Tier Selection
 
-Optional custom configuration. The `platform` field affects `dev_config`, knowledge injection, and `dev_memory` classification:
+Use `AskUserQuestion` to let the user choose memory tier:
+
+| Tier | Features | Cost | Requirements |
+|------|----------|------|-------------|
+| **0 (Recommended)** | FTS5 search, save/search/get | Free | sqlite3 (system) |
+| 1 | + Session summaries on stop | ~$0.001/sess | Optional: ANTHROPIC_API_KEY |
+| 2 | + ChromaDB semantic search | Same | + `npm install chromadb` |
+| 3 | + Periodic observation capture | ~$0.005/sess | Same as Tier 1 |
+
+### 4. Configuration File (.dev-flow.json)
+
+Write config using detected platform + selected tier:
 
 ```json
 {
-  "platform": "python",
+  "platform": "<detected>",
   "commands": {
-    "fix": "black . && ruff check --fix .",
-    "check": "ruff check . && mypy .",
-    "test": "pytest -x",
-    "verify": "ruff check . && mypy . && pytest -x"
+    "fix": "<platform-specific>",
+    "check": "<platform-specific>"
   },
-  "scopes": ["api", "models", "utils", "tests"],
+  "scopes": ["<auto-detected>"],
   "memory": {
-    "tier": 0
+    "tier": "<user-selected>"
   }
 }
 ```
-
-**`memory` 字段必须包含**，否则知识系统不生效。Tier 说明见 CLAUDE.md "Knowledge System" 章节。
 
 ## Usage
 
@@ -91,49 +98,44 @@ Optional custom configuration. The `platform` field affects `dev_config`, knowle
 📚 See CLAUDE.md for full workflow guide
 ```
 
-### 4. Memory Tier Setup (post-init)
+### 5. Memory Tier Setup (auto, based on Step 3 selection)
 
-After creating `.dev-flow.json`, automatically validate the selected memory tier:
+Immediately after writing `.dev-flow.json`:
+
+**Step 5a**: Initialize DB
 
 ```
 dev_memory(action="status")
 ```
 
-This triggers lazy DB creation (`ensureDbSchema`) and reports current state.
+Triggers lazy `ensureDbSchema()` — creates sqlite3 DB + FTS5 tables.
 
-**Tier-specific checks:**
-
-| Tier | Check | Auto-action |
-|------|-------|-------------|
-| 0 | `which sqlite3` | None needed (system tool) |
-| 1 | `sqlite3` + `ANTHROPIC_API_KEY` | Warn if key missing (heuristic fallback OK) |
-| 2 | Tier 1 + `chromadb` npm package | Install if missing (see below) |
-| 3 | Tier 2 + observation hooks active | Same as Tier 2 |
-
-**ChromaDB auto-install (Tier 2+):**
+**Step 5b**: Tier-specific deps (only if tier >= 1)
 
 ```bash
-# Check if chromadb is importable from MCP server context
-node -e "require('chromadb')" 2>/dev/null
-# If not found:
-npm install --prefix ${CLAUDE_PLUGIN_ROOT}/mcp-server chromadb
-npm run --prefix ${CLAUDE_PLUGIN_ROOT}/mcp-server bundle
+# Tier 1+: Check API key
+if [[ -z "$ANTHROPIC_API_KEY" ]]; then
+    echo "⚠️ ANTHROPIC_API_KEY not set — session summaries use heuristic fallback (git-log based)"
+fi
+
+# Tier 2+: Install ChromaDB
+if ! node -e "require('chromadb')" 2>/dev/null; then
+    npm install --prefix ${CLAUDE_PLUGIN_ROOT}/mcp-server chromadb
+    npm run --prefix ${CLAUDE_PLUGIN_ROOT}/mcp-server bundle
+fi
 ```
 
-> If `CLAUDE_PLUGIN_ROOT` is unavailable (non-plugin install), guide user to install globally: `npm install -g chromadb`
+> Non-plugin install: `npm install -g chromadb`
 
-**Output example (Tier 2):**
+**Output:**
 
 ```
-🧠 Memory: Tier 2
+🧠 Memory: Tier <N>
 
-✅ sqlite3 3.51.0 (FTS5 supported)
-✅ Knowledge DB: .claude/cache/artifact-index/context.db (created)
-⚠️ ANTHROPIC_API_KEY not set — session summaries use heuristic fallback
-📦 Installing chromadb... done
-✅ ChromaDB: semantic search enabled
-
-Memory ready. Knowledge persists across sessions.
+✅ sqlite3 + FTS5
+✅ Knowledge DB created
+[⚠️ ANTHROPIC_API_KEY not set — heuristic fallback]
+[✅ ChromaDB installed]
 ```
 
 ### Already Initialized
