@@ -45,8 +45,13 @@ LEARNED=""
 COMPLETED=""
 NEXT_STEPS=""
 
-if [ -n "$ANTHROPIC_API_KEY" ]; then
-  # --- Haiku-powered summary (high quality) ---
+# API config: DEV_FLOW_* > ANTHROPIC_API_KEY defaults
+API_KEY="${DEV_FLOW_API_KEY:-$ANTHROPIC_API_KEY}"
+API_URL="${DEV_FLOW_API_URL:-https://api.anthropic.com/v1/messages}"
+API_MODEL="${DEV_FLOW_MODEL:-claude-haiku-4-5-20251001}"
+
+if [ -n "$API_KEY" ]; then
+  # --- LLM-powered summary (high quality) ---
   PROMPT="Summarize this Claude Code session concisely. Return ONLY valid JSON with these exact fields (1-2 sentences each):
 {\"request\": \"what the user asked for\", \"investigated\": \"what was explored/researched\", \"learned\": \"key insights or discoveries\", \"completed\": \"what was accomplished\", \"next_steps\": \"what should happen next\"}
 
@@ -58,12 +63,12 @@ ${EXCERPT}"
 
   ESCAPED_PROMPT=$(echo "$PROMPT" | jq -Rs '.')
 
-  RESPONSE=$(/usr/bin/curl -s --max-time 10 https://api.anthropic.com/v1/messages \
-    -H "x-api-key: $ANTHROPIC_API_KEY" \
+  RESPONSE=$(/usr/bin/curl -s --max-time 10 "${API_URL}" \
+    -H "x-api-key: $API_KEY" \
     -H "anthropic-version: 2023-06-01" \
     -H "content-type: application/json" \
     -d "{
-      \"model\": \"claude-haiku-4-5-20251001\",
+      \"model\": \"${API_MODEL}\",
       \"max_tokens\": 300,
       \"messages\": [{
         \"role\": \"user\",

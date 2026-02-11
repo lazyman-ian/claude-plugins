@@ -70,8 +70,13 @@ PROJECT=$(basename "$CWD" 2>/dev/null || echo "unknown")
 
 OBS_TEXT=""
 
-if [ -n "$ANTHROPIC_API_KEY" ]; then
-  # --- Haiku-powered classification (high quality) ---
+# API config: DEV_FLOW_* > ANTHROPIC_API_KEY defaults
+API_KEY="${DEV_FLOW_API_KEY:-$ANTHROPIC_API_KEY}"
+API_URL="${DEV_FLOW_API_URL:-https://api.anthropic.com/v1/messages}"
+API_MODEL="${DEV_FLOW_MODEL:-claude-haiku-4-5-20251001}"
+
+if [ -n "$API_KEY" ]; then
+  # --- LLM-powered classification (high quality) ---
   PROMPT="Classify these ${INTERVAL} tool uses from a Claude Code session into structured observations.
 
 Return ONLY a JSON array. Each observation should capture a meaningful unit of work (combine related tools). Types: decision, bugfix, feature, refactor, discovery.
@@ -90,12 +95,12 @@ ${TOOL_LOG}"
 
   ESCAPED_PROMPT=$(echo "$PROMPT" | jq -Rs '.')
 
-  RESPONSE=$(/usr/bin/curl -s --max-time 15 https://api.anthropic.com/v1/messages \
-    -H "x-api-key: $ANTHROPIC_API_KEY" \
+  RESPONSE=$(/usr/bin/curl -s --max-time 15 "${API_URL}" \
+    -H "x-api-key: $API_KEY" \
     -H "anthropic-version: 2023-06-01" \
     -H "content-type: application/json" \
     -d "{
-      \"model\": \"claude-haiku-4-5-20251001\",
+      \"model\": \"${API_MODEL}\",
       \"max_tokens\": 500,
       \"messages\": [{
         \"role\": \"user\",

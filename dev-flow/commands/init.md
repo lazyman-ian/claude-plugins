@@ -113,9 +113,11 @@ Triggers lazy `ensureDbSchema()` — creates sqlite3 DB + FTS5 tables.
 **Step 5b**: Tier-specific deps (only if tier >= 1)
 
 ```bash
-# Tier 1+: Check API key
-if [[ -z "$ANTHROPIC_API_KEY" ]]; then
-    echo "⚠️ ANTHROPIC_API_KEY not set — session summaries use heuristic fallback (git-log based)"
+# Tier 1+: Check API key (DEV_FLOW_API_KEY > ANTHROPIC_API_KEY)
+API_KEY="${DEV_FLOW_API_KEY:-$ANTHROPIC_API_KEY}"
+if [[ -z "$API_KEY" ]]; then
+    echo "⚠️ No API key — session summaries use heuristic fallback (git-log based)"
+    echo "   Set DEV_FLOW_API_KEY or ANTHROPIC_API_KEY for Haiku-powered summaries"
 fi
 
 # Tier 2+: Install ChromaDB
@@ -127,6 +129,24 @@ fi
 
 > Non-plugin install: `npm install -g chromadb`
 
+**Environment Variables** (Tier 1+):
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `DEV_FLOW_API_KEY` | API key (preferred, avoids OAuth conflict) | `$ANTHROPIC_API_KEY` |
+| `DEV_FLOW_API_URL` | Full messages endpoint URL | `https://api.anthropic.com/v1/messages` |
+| `DEV_FLOW_MODEL` | Model name for summaries/observations | `claude-haiku-4-5-20251001` |
+
+> **订阅用户**: 使用 `DEV_FLOW_API_KEY` 避免与 Claude Code OAuth 认证冲突。
+> **第三方 API**: 设置 `DEV_FLOW_API_URL` + `DEV_FLOW_MODEL` 指向兼容 Anthropic API 格式的服务。
+>
+> 示例 (Moonshot):
+> ```bash
+> export DEV_FLOW_API_KEY="sk-xxx"
+> export DEV_FLOW_API_URL="https://api.moonshot.cn/anthropic/v1/messages"
+> export DEV_FLOW_MODEL="moonshot-v1-8k"
+> ```
+
 **Output:**
 
 ```
@@ -134,7 +154,7 @@ fi
 
 ✅ sqlite3 + FTS5
 ✅ Knowledge DB created
-[⚠️ ANTHROPIC_API_KEY not set — heuristic fallback]
+[⚠️ No API key — heuristic fallback]
 [✅ ChromaDB installed]
 ```
 

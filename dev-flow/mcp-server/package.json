@@ -19,7 +19,8 @@
   "author": "guoyuan94",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.25.1"
+    "@modelcontextprotocol/sdk": "^1.25.1",
+    "chromadb": "^3.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
