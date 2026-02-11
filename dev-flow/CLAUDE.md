@@ -28,7 +28,7 @@ npm run --prefix mcp-server dev       # Run with ts-node
 skills/                     # 10 skills (SKILL.md + references/)
 commands/                   # 22 command definitions (includes /verify, /init, /extract-knowledge, /review)
 agents/                     # 12 agent prompts + references/ (security/quality checklists)
-hooks/hooks.json            # 6 hook types (PreToolUse, Setup, SessionStart, PreCompact, Stop, PostToolUse)
+hooks/hooks.json            # 6 hook types (PreToolUse x3, SessionStart, PreCompact, Stop, PostToolUse x4)
 scripts/track-team.sh       # Session→team mapping for StatusLine (PostToolUse: TeamCreate/TeamDelete)
 templates/thoughts/schema/  # JSON schemas for meta-iterate and handoff outputs
 docs/                       # keybindings.md, hooks-setup.md
@@ -154,9 +154,9 @@ ls -l hooks/dist/*.mjs
 - **Task Sync**: Bridge ledger state with Claude Code Task Management tools
 - Both stored in git for persistence
 
-### Knowledge System (v4.0.0)
+### Knowledge System (v4.0.0+)
 
-4-tier progressive memory with closed-loop knowledge consolidation:
+4-tier progressive memory with closed-loop knowledge consolidation. Tier selected interactively during `/dev-flow:init`, upgradeable via `--tier N`:
 
 ```
 Session → [auto-handoff] → [dev_memory consolidate] → Knowledge → [SessionStart inject] → Next Session
@@ -197,8 +197,8 @@ Session → [auto-handoff] → [dev_memory consolidate] → Knowledge → [Sessi
 
 ### Hook Integration
 
-- `PreToolUse(Bash(git commit*))`: Block raw git commit, enforce /dev commit
-- `PreToolUse(Bash(git commit*))`: Pre-commit knowledge pitfall check (FTS5 query)
+- `PreToolUse(Bash(git commit*))`: Pre-commit knowledge pitfall check (FTS5 query, warns only)
+- `PreToolUse(Bash(*git commit*))`: Commit guard — blocks raw `git commit` (including chained), enforces `/dev commit` via `DEV_FLOW_COMMIT=1` prefix
 - `SessionStart`: Warn if not initialized + load active ledger + platform knowledge + last session summary + init review session log
 - `PreCompact`: Backup transcript before context compaction
 - `Stop`: Generate session summary via Haiku or heuristic (Tier 1+)
@@ -298,6 +298,14 @@ dev_config → python|fix:black .|check:ruff .|scopes:api,models|src:custom
 - Pre-commit hook FTS5 pitfall check (fast, warns only)
 - Reference checklists: `agents/references/security-checklist.md`, `code-quality-checklist.md`
 
-**New files**: `commands/review.md`, `agents/references/security-checklist.md`, `agents/references/code-quality-checklist.md`, `skills/api-implementer/`
+**New files**: `commands/review.md`, `agents/references/security-checklist.md`, `agents/references/code-quality-checklist.md`, `hooks/commit-guard.sh`
 
-**Modified**: `agents/code-reviewer.md` (rewritten), `commands/commit.md` (Step 2.5), `commands/pr.md` (Step 7 mandatory), `hooks/pre-commit-check.sh` (FTS5), `hooks/session-start-continuity.sh` (review log init + task recovery), `skills/agent-team/SKILL.md` (reviewer teammate + interaction protocol), `skills/dev/SKILL.md` (/review command)
+**Modified**: `agents/code-reviewer.md` (rewritten), `commands/commit.md` (Step 2.5 review gate + DEV_FLOW_COMMIT=1), `commands/pr.md` (Step 7 mandatory), `commands/init.md` (interactive tier selection + --tier upgrade + post-init validation), `hooks/hooks.json` (added `Bash(*git commit*)` matcher), `hooks/pre-commit-check.sh` (FTS5 + SQL escape), `hooks/session-start-continuity.sh` (removed auto-setup, warn-only + review log init), `skills/agent-team/SKILL.md` (reviewer teammate), `skills/dev/SKILL.md` (/review command)
+
+### Commit Guard & Init Refactor
+
+**Commit Guard**: `commit-guard.sh` blocks ALL raw `git commit` via `Bash(*git commit*)` matcher (catches chained commands). `/dev commit` bypasses with `DEV_FLOW_COMMIT=1` prefix. Background: prompt-level rules proved insufficient — agent bypassed `/dev commit` 3/4 times in practice.
+
+**Init as Single Source**: SessionStart no longer auto-creates `.dev-flow.json` or `thoughts/` directories. Must run `/dev-flow:init` explicitly. SessionStart warns if not initialized.
+
+**Interactive Tier Selection**: `/dev-flow:init` asks user to choose memory tier (0-3) via AskUserQuestion. `--tier N` flag for lightweight tier upgrade without full re-init. Post-init auto-validates DB and installs ChromaDB for tier 2+.
