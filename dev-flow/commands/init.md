@@ -91,6 +91,51 @@ Optional custom configuration. The `platform` field affects `dev_config`, knowle
 📚 See CLAUDE.md for full workflow guide
 ```
 
+### 4. Memory Tier Setup (post-init)
+
+After creating `.dev-flow.json`, automatically validate the selected memory tier:
+
+```
+dev_memory(action="status")
+```
+
+This triggers lazy DB creation (`ensureDbSchema`) and reports current state.
+
+**Tier-specific checks:**
+
+| Tier | Check | Auto-action |
+|------|-------|-------------|
+| 0 | `which sqlite3` | None needed (system tool) |
+| 1 | `sqlite3` + `ANTHROPIC_API_KEY` | Warn if key missing (heuristic fallback OK) |
+| 2 | Tier 1 + `chromadb` npm package | Install if missing (see below) |
+| 3 | Tier 2 + observation hooks active | Same as Tier 2 |
+
+**ChromaDB auto-install (Tier 2+):**
+
+```bash
+# Check if chromadb is importable from MCP server context
+node -e "require('chromadb')" 2>/dev/null
+# If not found:
+npm install --prefix ${CLAUDE_PLUGIN_ROOT}/mcp-server chromadb
+npm run --prefix ${CLAUDE_PLUGIN_ROOT}/mcp-server bundle
+```
+
+> If `CLAUDE_PLUGIN_ROOT` is unavailable (non-plugin install), guide user to install globally: `npm install -g chromadb`
+
+**Output example (Tier 2):**
+
+```
+🧠 Memory: Tier 2
+
+✅ sqlite3 3.51.0 (FTS5 supported)
+✅ Knowledge DB: .claude/cache/artifact-index/context.db (created)
+⚠️ ANTHROPIC_API_KEY not set — session summaries use heuristic fallback
+📦 Installing chromadb... done
+✅ ChromaDB: semantic search enabled
+
+Memory ready. Knowledge persists across sessions.
+```
+
 ### Already Initialized
 ```
 ℹ️  dev-flow already initialized
