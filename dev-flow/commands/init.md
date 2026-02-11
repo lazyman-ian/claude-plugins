@@ -158,7 +158,30 @@ Run `/dev-flow:init --force` to reinitialize
 | `--platform <name>` | Skip detection, use specified platform |
 | `--minimal` | Only create directories, no config |
 | `--force` | Reinitialize even if already exists |
+| `--tier <0-3>` | Update memory tier only (skip platform/directory setup) |
 | `--with-keybindings` | Add keybindings to settings.json |
+
+### Tier Upgrade (`--tier`)
+
+Changes memory tier without touching other config. Reads existing `.dev-flow.json`, updates `memory.tier`, then runs Step 5 only.
+
+```bash
+/dev-flow:init --tier 3
+```
+
+Flow:
+1. Read existing `.dev-flow.json` (must exist, error if not)
+2. Update `memory.tier` to specified value
+3. Run Step 5a (DB init) + Step 5b (deps check/install)
+
+```
+🧠 Memory: Tier 0 → 3
+
+✅ sqlite3 + FTS5 (already initialized)
+⚠️ ANTHROPIC_API_KEY not set — heuristic fallback
+📦 Installing chromadb... done
+✅ Tier 3 active: session summaries + observations + semantic search
+```
 
 ## Keybindings Setup
 
