@@ -23,16 +23,17 @@ make check  # 验证
 修复后再次运行 `/dev-flow:commit`
 ```
 
-### Step 2: 分析变更
-```bash
-git status --short
-git diff --stat
-git diff --cached --stat
+### Step 2: Prepare (Server-side)
+```
+dev_commit(action="prepare")
+→ { token, files, diff_stat }
 ```
 
-如果无变更：
+Server 自动检查 staged changes、计算 diff hash、记录 review log 时间戳。
+
+如果无 staged changes：
 ```
-ℹ️ 没有需要提交的变更
+❌ No staged changes. Run `git add` first.
 ```
 
 ### Step 2.5: Code Review Gate
@@ -99,13 +100,22 @@ dev_defaults(action="scope")
 - Subject: 祈使句，首字母小写，无句号，≤50 字符
 - **无 Claude 署名** - 提交显示为用户创建
 
-### Step 5: 执行提交
-```bash
-git add .
-DEV_FLOW_COMMIT=1 git commit -m "type(scope): subject"
+### Step 5: Finalize (Server-verified)
+```
+dev_commit(action="finalize", token="<token>", message="type(scope): subject")
 ```
 
-> `DEV_FLOW_COMMIT=1` 前缀让 commit-guard hook 放行。无此前缀的 `git commit` 会被拦截。
+Server 验证：
+1. Token 匹配（session 有效）
+2. Diff hash 未变（review 后未改代码）
+3. Review session log 已更新（reviewer 已执行）
+
+如果需要跳过 review（紧急修复）：
+```
+dev_commit(action="finalize", token="<token>", message="...", skip_review=true)
+```
+
+> Server 内部使用 `DEV_FLOW_COMMIT=1 git commit` 执行，commit-guard hook 自动放行。
 
 ### Step 6: 生成 Reasoning
 ```

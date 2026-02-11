@@ -90,6 +90,7 @@ export function getPythonCommands(): PlatformCommands {
 | `dev_coordinate` | ~40 | Multi-agent task planning/dispatch |
 | `dev_handoff` | ~50 | Handoff document management |
 | `dev_aggregate` | ~60 | Aggregate results for PR |
+| `dev_commit` | ~30 | Server-enforced commit: prepare → review → finalize |
 | `dev_memory` | ~60 | Knowledge: consolidate/status/query/list/extract/save/search/get |
 
 ### Workflow Phases

@@ -19,6 +19,7 @@ import * as ios from './platforms/ios';
 import * as android from './platforms/android';
 import * as continuity from './continuity';
 import * as coordination from './coordination';
+import { commitTool } from './git/commit';
 
 const server = new Server(
   { name: 'dev-flow-mcp', version: '2.1.0' },
@@ -296,6 +297,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         },
       },
     },
+    {
+      name: 'dev_commit',
+      description: '[~30 tokens] Server-enforced commit flow (prepare/finalize with review gate)',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', enum: ['prepare', 'finalize'], description: 'Action to perform' },
+          token: { type: 'string', description: 'Token from prepare (finalize only)' },
+          message: { type: 'string', description: 'Commit message (finalize only)' },
+          skip_review: { type: 'boolean', description: 'Skip review verification (emergency only)' },
+        },
+      },
+    },
   ],
 }));
 
@@ -452,6 +466,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return handoffTool(args?.action as string, args?.handoff as string, args?.handoffId as string, args?.taskId as string, args?.keyword as string);
       case 'dev_aggregate':
         return aggregateTool(args?.action as string, args?.handoffIds as string, args?.taskId as string);
+      case 'dev_commit':
+        return commitTool(args?.action as string, args?.token as string, args?.message as string, args?.skip_review as boolean);
       default:
         throw new Error(`Unknown tool: ${name}`);
     }

@@ -23645,6 +23645,122 @@ ${handoff.open_questions.map((q) => `- [ ] ${q}`).join("\n")}
   }
 };
 
+// src/git/commit.ts
+var import_child_process13 = require("child_process");
+var import_crypto = require("crypto");
+var activeSession = null;
+var SESSION_TTL = 10 * 60 * 1e3;
+function execCommand4(cmd) {
+  try {
+    return (0, import_child_process13.execSync)(cmd, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+  } catch {
+    return "";
+  }
+}
+function hashDiff() {
+  const diff = execCommand4("git diff --cached");
+  return (0, import_crypto.createHash)("sha256").update(diff).digest("hex").slice(0, 16);
+}
+function getReviewLogMtime() {
+  const branch = execCommand4("git branch --show-current");
+  const logPath = `.git/claude/review-session-${branch}.md`;
+  try {
+    const stat = (0, import_child_process13.execSync)(`/usr/bin/stat -f %m "${logPath}" 2>/dev/null`, {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"]
+    }).trim();
+    return parseInt(stat, 10) || 0;
+  } catch {
+    return 0;
+  }
+}
+function commitPrepare() {
+  const diffStat = execCommand4("git diff --cached --stat");
+  if (!diffStat) {
+    throw new Error("No staged changes. Run `git add` first.");
+  }
+  const files = execCommand4("git diff --cached --name-only").split("\n").filter(Boolean);
+  const token = hashDiff();
+  const reviewLogMtime = getReviewLogMtime();
+  activeSession = {
+    token,
+    diffHash: token,
+    files,
+    reviewLogMtime,
+    createdAt: Date.now()
+  };
+  return { token, files, diff_stat: diffStat };
+}
+function commitFinalize(token, message, skipReview) {
+  if (!activeSession) {
+    throw new Error('No active commit session. Run dev_commit(action="prepare") first.');
+  }
+  if (Date.now() - activeSession.createdAt > SESSION_TTL) {
+    activeSession = null;
+    throw new Error('Commit session expired (10min). Run dev_commit(action="prepare") again.');
+  }
+  if (token !== activeSession.token) {
+    throw new Error(
+      `Token mismatch. Expected: ${activeSession.token}, got: ${token}. Run prepare again.`
+    );
+  }
+  const currentHash = hashDiff();
+  if (currentHash !== activeSession.diffHash) {
+    activeSession = null;
+    throw new Error(
+      "Staged diff changed after prepare (code modified after review). Run prepare \u2192 review \u2192 finalize again."
+    );
+  }
+  if (!skipReview) {
+    const currentMtime = getReviewLogMtime();
+    if (currentMtime <= activeSession.reviewLogMtime) {
+      throw new Error(
+        "Review session log not updated since prepare. Run code-reviewer before finalize, or use skip_review=true for emergency."
+      );
+    }
+  }
+  const output = execCommand4(`DEV_FLOW_COMMIT=1 git commit -m "${message.replace(/"/g, '\\"')}"`);
+  if (!output) {
+    throw new Error("git commit failed. Check staged changes and message format.");
+  }
+  const hashMatch = output.match(/\[[\w/.-]+ ([a-f0-9]+)\]/);
+  const hash2 = hashMatch ? hashMatch[1] : execCommand4("git rev-parse --short HEAD");
+  activeSession = null;
+  return { hash: hash2, message };
+}
+function commitTool(action, token, message, skipReview) {
+  switch (action) {
+    case "prepare": {
+      const result = commitPrepare();
+      return {
+        content: [
+          {
+            type: "text",
+            text: `token:${result.token}
+files:${result.files.join(",")}
+${result.diff_stat}`
+          }
+        ]
+      };
+    }
+    case "finalize": {
+      if (!token) return { content: [{ type: "text", text: "\u274C token required" }] };
+      if (!message) return { content: [{ type: "text", text: "\u274C message required" }] };
+      const result = commitFinalize(token, message, skipReview);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `\u2705 ${result.hash}|${result.message}`
+          }
+        ]
+      };
+    }
+    default:
+      return { content: [{ type: "text", text: "\u274C Action required: prepare|finalize" }] };
+  }
+}
+
 // src/index.ts
 var server = new Server(
   { name: "dev-flow-mcp", version: "2.1.0" },
@@ -23919,6 +24035,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           taskId: { type: "string", description: "Task ID to aggregate all handoffs for" }
         }
       }
+    },
+    {
+      name: "dev_commit",
+      description: "[~30 tokens] Server-enforced commit flow (prepare/finalize with review gate)",
+      inputSchema: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["prepare", "finalize"], description: "Action to perform" },
+          token: { type: "string", description: "Token from prepare (finalize only)" },
+          message: { type: "string", description: "Commit message (finalize only)" },
+          skip_review: { type: "boolean", description: "Skip review verification (emergency only)" }
+        }
+      }
     }
   ]
 }));
@@ -24064,6 +24193,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return handoffTool(args?.action, args?.handoff, args?.handoffId, args?.taskId, args?.keyword);
       case "dev_aggregate":
         return aggregateTool(args?.action, args?.handoffIds, args?.taskId);
+      case "dev_commit":
+        return commitTool(args?.action, args?.token, args?.message, args?.skip_review);
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
