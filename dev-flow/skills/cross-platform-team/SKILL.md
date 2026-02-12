@@ -1,6 +1,6 @@
 ---
 name: cross-platform-team
-description: Orchestrates Agent Teams for parallel cross-platform development across multiple repositories (iOS/Android/Web). Composes existing skills (create-plan, implement-plan, dev commit, dev pr, research) instead of reimplementing. This skill should be used when user says "cross-platform", "跨平台开发", "multi-repo team", "同时开发", "parallel platform", "iOS Android Web 同时", "组队开发多仓库". Triggers on /cross-platform-team, 跨平台并行, 多仓库协作.
+description: Use when developing the same feature across iOS, Android, and Web simultaneously in multiple repositories. Triggers on "cross-platform", "跨平台开发", "multi-repo team", "iOS Android Web 同时".
 memory: user
 context: fork
 allowed-tools: [Read, Glob, Grep, Bash, Skill, Task, TeamCreate, TeamDelete, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet, AskUserQuestion, mcp__Framelink_MCP_for_Figma__get_figma_data, mcp__plugin_dev-flow_dev-flow__*, mcp__apple-docs__*, mcp__sosumi__*, mcp__plugin_context7_context7__*]
@@ -90,6 +90,7 @@ Repo: {repo_path}
 4. Step completeness: missing i18n, push handling, UI entry?
 5. Dependencies: prerequisite file changes?
 6. Verify command: matches CLAUDE.md/Makefile?
+7. UI-task design_ref: if task has design_ref field, verify Figma constraints are reflected in steps
 
 ## Output (SendMessage to lead)
 - Pass items
@@ -157,9 +158,14 @@ If empty, query: dev_memory(action:'query', query:'{platform} {task keywords}')
    - Note any pitfalls or patterns before starting
 3. /implement-plan — execute "Platform: {Platform}" section from {plan_path}
    (plan has frontmatter v2.0 — implement-plan auto-creates tasks from phases)
-4. Each phase done → /dev commit
-5. All done → /self-check
-6. SendMessage lead: done + git diff --stat
+4. Self-Review (MANDATORY before reporting done):
+   - [ ] All plan steps implemented (no silent skips)
+   - [ ] Edge cases handled
+   - [ ] Platform conventions followed (naming, patterns)
+   - [ ] No AI slop (redundant comments, over-defensive code)
+5. Each phase done → /dev commit
+6. All done → /self-check
+7. SendMessage lead: done + git diff --stat
 
 ## Code Cleanup
 - /deslop after implementation
@@ -190,12 +196,13 @@ PROMPT
 1. Review: git -C {repo} diff {base}..{branch} --stat
 2. Issues → SendMessage teammate to fix
 3. Aggregate all handoffs: dev_aggregate(action='pr_ready', taskId='TASK-{id}')
-4. Consolidate team knowledge: dev_memory(action='consolidate')
+4. Verify per repo: /dev-flow:verify (platform-specific lint + build + test)
+5. Consolidate team knowledge: dev_memory(action='consolidate')
    # Handoffs → pitfalls, reasoning → patterns → available next session
-5. Per repo: /dev pr → auto-push + create PR
-6. /describe → PR description (use aggregated summary)
-7. Shutdown teammates → TeamDelete
-8. Summary: PR links per platform
+6. Per repo: /dev pr → auto-push + create PR
+7. /describe → PR description (use aggregated summary)
+8. Shutdown teammates → TeamDelete
+9. Summary: PR links per platform
 ```
 
 ## Platform Resolution

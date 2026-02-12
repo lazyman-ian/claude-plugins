@@ -10,7 +10,7 @@
     {
       "name": "dev-flow",
       "description": "Unified development workflow: planning → coding → commit → PR → release with VDD, automated code review (P0-P3), 4-tier memory system, and cross-platform team orchestration",
-      "version": "4.1.0",
+      "version": "5.0.0",
       "author": {
         "name": "lazyman",
         "email": "nickyuan94@gmail.com"

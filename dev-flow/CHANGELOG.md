@@ -5,6 +5,48 @@ All notable changes to dev-flow plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-02-12
+
+### Added
+
+- **5-Gate Execution Pipeline**: Per-task quality gates in implement-plan
+  - Gate 1: Fresh subagent per task (context isolation, anti-corruption)
+  - Gate 2: 11-point self-review checklist (completeness, quality, discipline, testing)
+  - Gate 3: Spec review via new `spec-reviewer` agent (implementation matches plan exactly)
+  - Gate 4: Quality review via `code-reviewer` (P0-P3 severity)
+  - Gate 5: Batch checkpoint (pause every N tasks for architect coherence check)
+- **brainstorm skill**: Independent pre-creative-work exploration via Socratic questioning (extracted from create-plan)
+- **verify skill**: Internal skill enforcing "no completion claims without fresh verification evidence" (5-step gate: IDENTIFY → RUN → READ → VERIFY → CLAIM)
+- **spec-reviewer agent**: Verifies implementation matches spec exactly with APPROVED/REQUEST CHANGES output
+- **`/dev finish` command**: Branch completion with 4 options (merge locally, push & PR, keep, discard)
+- **`/dev brainstorm` command**: Trigger brainstorm skill for design exploration
+- **Adaptive plan granularity**: logic-task (2-5min, complete code) and ui-task (5-15min, Figma design_ref)
+- **Receiving-review reference**: Feedback protocol for handling spec/quality review results
+- **API template reference**: `create-plan/references/api-template.md` with NestJS/Fastify checklists
+
+### Changed
+
+- **create-plan**: Narrowed to single Implementation Planning mode (brainstorm extracted), added task granularity evaluation
+- **implement-plan**: Restructured with 5-gate pipeline section, batch checkpoint reference
+- **agent-team**: Self-review in teammate prompt template, merged spec+quality reviewer, verify skill in Phase 4 Close
+- **cross-platform-team**: UI-task spec review in plan reviewer checklist, platform-specific verify in Close, self-review in teammate prompt
+- **debugging**: Phase 5 VERIFY now references verify skill protocol
+- **implement-agent**: Added 11-point self-review checklist before handoff
+- **task-executor.md**: Complete rewrite to 6-step pipeline (Prepare → Implement → Self-Review → Spec Review → Quality Review → Complete)
+- **agent-orchestration.md**: Added batch checkpoint mechanism with interval table
+- **CSO optimization**: 9 skill descriptions rewritten to state only triggering conditions
+
+### Removed
+
+- **api-implementer skill**: Absorbed into `create-plan/references/api-template.md`
+- **Design Exploration mode** from create-plan (now in brainstorm skill)
+
+### Documentation
+
+- CLAUDE.md (root + dev-flow): Updated version, architecture, skill inventory, 5-gate pipeline section
+- CHANGELOG.md: Full v5.0.0 release notes
+- README.md: Version badge updated
+
 ## [4.0.0] - 2026-02-09
 
 ### Added

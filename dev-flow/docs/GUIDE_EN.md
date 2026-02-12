@@ -1,6 +1,6 @@
 # dev-flow Plugin Complete Guide
 
-> Claude Code Development Workflow Automation | v4.0.0
+> Claude Code Development Workflow Automation | v5.0.0
 
 ## Table of Contents
 
@@ -89,20 +89,29 @@ STARTING|✅0|checkout
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
+│               /dev-flow:brainstorm (optional)                    │
+│       Socratic questioning → Generate options → Evaluate         │
+│       → Decide → Persist decisions                               │
+│       For: design exploration when requirements are unclear      │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
 │                   /dev-flow:plan (optional)                      │
 │              Research → Design → Iterate → Generate plan         │
+│              v5.0: logic-task (2-5min) + ui-task (5-15min)       │
 │              Output: thoughts/shared/plans/xxx.md                │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │                 /dev-flow:validate (optional)                    │
-│              Validate tech choices against 2024-2025 practices   │
+│              Validate tech choices against best practices        │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                   /dev-flow:implement                            │
-│                  TDD: Red → Green → Refactor                     │
-│                  Large tasks: Multi-Agent coordination           │
+│              /dev-flow:implement (5-Gate Pipeline)               │
+│    Per-task: Fresh Subagent → Self-Review (11-point)             │
+│              → Spec Review → Quality Review                      │
+│              → Batch Checkpoint (every N tasks)                   │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
@@ -115,8 +124,9 @@ STARTING|✅0|checkout
 │                    /dev-flow:commit                              │
 │       1. lint fix (auto-format)                                  │
 │       2. lint check (validate)                                   │
-│       3. git commit (auto scope + message)                       │
-│       4. reasoning record                                        │
+│       3. code review (P0/P1 blocks commit)                       │
+│       4. git commit (auto scope + message)                       │
+│       5. reasoning record                                        │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
@@ -127,8 +137,9 @@ STARTING|✅0|checkout
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                   /dev-flow:release                              │
-│              Version suggestion → Tag → Release Notes            │
+│              /dev-flow:finish or /dev-flow:release               │
+│       finish: merge/PR/keep/discard (4 options)                  │
+│       release: Version suggestion → Tag → Release Notes          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -870,6 +881,17 @@ The `platform` field in `.dev-flow.json` also affects:
 ---
 
 ## Version History
+
+### v5.0.0 (2026-02-12)
+
+- **5-Gate Execution Pipeline**: Per-task quality gates — Fresh Subagent → Self-Review (11-point) → Spec Review → Quality Review → Batch Checkpoint
+- **brainstorm skill**: Independent pre-creative-work exploration via Socratic questioning
+- **verify skill**: Internal skill enforcing "no completion claims without fresh verification evidence"
+- **spec-reviewer agent**: Verifies implementation matches plan exactly
+- **Adaptive Plan Granularity**: logic-task (2-5min, complete code) + ui-task (5-15min, Figma design_ref)
+- **`/dev finish` command**: Branch completion with 4 options (merge/PR/keep/discard)
+- **CSO Optimization**: All skill descriptions rewritten to state only triggering conditions
+- **api-implementer absorbed**: Moved to create-plan/references/api-template.md
 
 ### v4.0.0 (2026-02-09)
 

@@ -1,6 +1,6 @@
 # dev-flow Plugin 完整指南
 
-> Claude Code 开发工作流自动化插件 | v4.0.0
+> Claude Code 开发工作流自动化插件 | v5.0.0
 
 ## 目录
 
@@ -89,20 +89,28 @@ STARTING|✅0|checkout
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
+│                /dev-flow:brainstorm (可选)                       │
+│       苏格拉底式提问 → 生成方案 → 评估 → 决策持久化             │
+│       适用: 需求不清晰时的设计探索                               │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
 │                   /dev-flow:plan (可选)                          │
 │              研究 → 设计 → 迭代 → 生成计划                       │
+│              v5.0: logic-task (2-5min) + ui-task (5-15min)       │
 │              输出: thoughts/shared/plans/xxx.md                  │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │                 /dev-flow:validate (可选)                        │
-│              验证技术选型是否符合 2024-2025 最佳实践              │
+│              验证技术选型是否符合最佳实践                         │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                   /dev-flow:implement                            │
-│                  TDD: Red → Green → Refactor                     │
-│                  大任务: Multi-Agent 协调                        │
+│              /dev-flow:implement (5-Gate Pipeline)               │
+│    Per-task: Fresh Subagent → Self-Review (11 点)                │
+│              → Spec Review → Quality Review                      │
+│              → Batch Checkpoint (每 N 个 task)                   │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
@@ -115,8 +123,9 @@ STARTING|✅0|checkout
 │                    /dev-flow:commit                              │
 │       1. lint fix (自动格式化)                                   │
 │       2. lint check (验证)                                       │
-│       3. git commit (自动 scope + message)                       │
-│       4. reasoning 记录                                          │
+│       3. code review (P0/P1 阻止提交)                            │
+│       4. git commit (自动 scope + message)                       │
+│       5. reasoning 记录                                          │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
@@ -127,8 +136,9 @@ STARTING|✅0|checkout
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                   /dev-flow:release                              │
-│              版本建议 → Tag → Release Notes                      │
+│              /dev-flow:finish 或 /dev-flow:release               │
+│       finish: merge/PR/keep/discard 四选一                       │
+│       release: 版本建议 → Tag → Release Notes                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -872,6 +882,17 @@ Tasks: 2/5 (40%) | → 1 active | 2 pending
 ---
 
 ## 版本历史
+
+### v5.0.0 (2026-02-12)
+
+- **5-Gate Execution Pipeline**: 每个 plan task 经过 5 层质量门禁 — Fresh Subagent → Self-Review (11 点) → Spec Review → Quality Review → Batch Checkpoint
+- **brainstorm skill**: 独立的创意探索技能，苏格拉底式提问 + YAGNI 约束
+- **verify skill**: 内部技能，禁止未经验证的完成声明 (IDENTIFY → RUN → READ → VERIFY → CLAIM)
+- **spec-reviewer agent**: 验证实现与 plan 精确匹配
+- **自适应 Plan 粒度**: logic-task (2-5min，完整代码) + ui-task (5-15min，Figma 参考)
+- **`/dev finish` 命令**: 分支完成四选一 (merge/PR/keep/discard)
+- **CSO 优化**: 所有 skill 描述只保留触发条件
+- **api-implementer 吸收**: 移入 create-plan/references/api-template.md
 
 ### v4.0.0 (2026-02-09)
 

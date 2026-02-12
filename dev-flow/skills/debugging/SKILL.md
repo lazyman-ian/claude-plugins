@@ -1,6 +1,6 @@
 ---
 name: debugging
-description: Systematic debugging using 4-phase root cause analysis with subagent-driven rapid iteration. This skill should be used when user says "debug", "调试", "troubleshoot", "diagnose", "排查", "修复 bug", "fix bug", "investigate", "analyze crash". Triggers on /debug, 调试, 排查问题, 修复错误.
+description: Use when debugging failures, investigating crashes, troubleshooting unexpected behavior, or fixing bugs. Triggers on "debug", "调试", "troubleshoot", "排查", "fix bug", "修复bug".
 model: opus
 memory: project
 context: fork
@@ -100,14 +100,23 @@ dev_memory(action="save", title="<pattern-name>", text="Root cause: ... Fix: ...
 
 ### Phase 5: VERIFY
 
-**Goal**: Confirm the fix works.
+**Goal**: Confirm the fix works using the `verify` skill protocol.
+
+**Process** (follows verify skill):
+1. **IDENTIFY**: Get verification command from `dev_config()` or plan's `verify` field
+2. **RUN**: Execute verification — full output, capture exit code
+3. **READ**: Exit code 0? Proceed. Non-0? STOP, report failure
+4. **VERIFY**: Output confirms fix works? Not just "test suite found"?
+5. **ONLY THEN**: Claim fix is complete
 
 **Verification checklist:**
-- [ ] Original issue is resolved
-- [ ] No regressions introduced
+- [ ] Original issue is resolved (verified by running, not by assumption)
+- [ ] No regressions introduced (full test suite, not just affected test)
 - [ ] Edge cases handled
-- [ ] Tests pass (if applicable)
+- [ ] Tests pass: exit code 0 (not "should work")
 - [ ] Performance acceptable
+
+**Forbidden**: "The fix should work", "Tests passed earlier", "Looks correct".
 
 ## Subagent-Driven Debugging
 

@@ -1,6 +1,6 @@
 ---
 name: dev
-description: Provides development workflow hub for git operations, commits, PRs, and releases. This skill should be used when user says "commit", "push", "create PR", "release", "git status", "check status", "提交代码", "推送", "创建PR", "发布版本", "查看状态". Triggers on /dev, /commit, /pr, /release, 代码提交, 版本发布, git操作.
+description: Use for git workflow operations: commits, PRs, releases, branch management, and status checks. Triggers on "commit", "push", "create PR", "release", "提交代码", "创建PR", "发布版本".
 model: sonnet
 memory: project
 allowed-tools: [Bash, Read, Glob, Grep, Edit, Write, mcp__plugin_dev-flow_dev-flow__*]
@@ -22,6 +22,7 @@ Use `/dev-flow:` commands for all Git workflow operations:
 | `/dev-flow:commit` | Create commit with review gate |
 | `/dev-flow:pr` | Create PR with auto-review |
 | `/dev-flow:release` | Create release tag |
+| `/dev-flow:finish` | Complete branch development |
 | `/dev-flow:ledger` | Manage continuity ledgers |
 | `/dev-flow:tasks` | Sync ledger with Task Management |
 | `/dev-flow:recall` | Search historical decisions |
@@ -94,6 +95,9 @@ make fix && /dev-flow:commit  # Commit includes review gate
 
 # Create PR
 /dev-flow:pr
+
+# Finish branch
+/dev-flow:finish            # Verify + choose: merge/PR/keep/discard
 
 # Sync tasks (for complex multi-phase work)
 /dev-flow:tasks export

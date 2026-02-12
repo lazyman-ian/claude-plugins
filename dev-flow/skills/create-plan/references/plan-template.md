@@ -23,6 +23,17 @@ phases:
     depends_on: []          # phase IDs
     target_files: ["path/to/file.ts"]
     verify: ["make test"]
+    tasks:                 # optional: fine-grained task breakdown
+      - id: "1.1"
+        type: logic-task   # logic-task | ui-task
+        description: "..."
+        estimated_minutes: 3
+        files:
+          create: ["path/to/file.ts"]
+          modify: ["path/to/other.ts:45-60"]
+          test: ["tests/file.test.ts"]
+        verify: "npm test -- --testPathPattern=file"
+        commit: "feat(scope): description"
   - id: 2
     name: "Phase Name"
     complexity: high
@@ -141,6 +152,8 @@ key_decisions: {}           # populated during design exploration
 - **`model`** based on complexity: `low` → haiku, `medium` → sonnet, `high` → opus
 - **`verify`** is fallback; at runtime `dev_config()` takes priority for platform commands
 - **`key_decisions`** populated during Design Exploration mode (persisted via `dev_handoff`)
+- **`tasks`** optional: fine-grained breakdown for complex phases. Enables 5-gate pipeline in implement-plan.
+- **`tasks.type`**: `logic-task` (complete code, 2-5 min) or `ui-task` (Figma ref, 5-15 min)
 - **Backward compatible**: `implement-plan` checks `plan_version`; if absent, falls back to legacy parsing
 
 ---
@@ -178,6 +191,77 @@ key_decisions: {}           # populated during design exploration
 - [ ] Error messages user-friendly
 - [ ] Works on mobile devices
 ```
+
+---
+
+## Task Formats (v5.0.0)
+
+### logic-task (backend, tools, algorithms)
+
+```yaml
+tasks:
+  - id: "1.1"
+    type: logic-task
+    description: "Create JWT token utility"
+    estimated_minutes: 3
+    files:
+      create: ["src/utils/jwt.ts"]
+      test: ["tests/utils/jwt.test.ts"]
+    steps:
+      - "Write failing test for generateToken()"
+      - "Implement generateToken() with RS256"
+      - "Write failing test for verifyToken()"
+      - "Implement verifyToken()"
+    code: |
+      // Complete implementation code
+      export function generateToken(payload: JwtPayload): string {
+        return jwt.sign(payload, privateKey, { algorithm: 'RS256' });
+      }
+    verify: "npm test -- --testPathPattern=jwt"
+    commit: "feat(auth): add JWT token utility"
+```
+
+Features: Complete code in plan, 2-5 min scope, TDD steps, precise verify command.
+
+### ui-task (frontend, mobile, design)
+
+```yaml
+tasks:
+  - id: "2.1"
+    type: ui-task
+    description: "Implement PropertyCard component"
+    estimated_minutes: 10
+    files:
+      create: ["src/components/PropertyCard.swift"]
+      modify: ["src/views/ListingView.swift:45-60"]
+      test: ["tests/PropertyCardTests.swift"]
+    figma:
+      file_key: "abc123"
+      node_id: "456:789"
+      design_constraints:
+        - "Card height: 120pt, corner radius: 12pt"
+        - "Image aspect ratio: 16:9, left-aligned"
+        - "Title: SF Pro Display Semibold 17pt"
+    data_binding:
+      - "title → property.address"
+      - "price → property.formattedPrice"
+    interaction:
+      - "Tap → navigate to PropertyDetailView(id:)"
+    verify: "manual: screenshot comparison with Figma"
+    commit: "feat(ui): implement PropertyCard component"
+```
+
+Features: Figma reference instead of complete code, design constraints as verification, 5-15 min scope.
+
+### When to Use Which
+
+| Signal | Task Type | Granularity |
+|--------|-----------|-------------|
+| Pure logic, no UI | logic-task | 2-5 min, complete code |
+| UI with Figma design | ui-task | 5-15 min, design ref |
+| Simple phase (≤2 files) | No tasks needed | Phase-level |
+| Database/API/tools | logic-task | 2-5 min |
+| Complex component | ui-task | 5-15 min |
 
 ---
 

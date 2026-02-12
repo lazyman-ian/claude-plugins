@@ -1,6 +1,6 @@
 ---
 name: self-check
-description: Development self-check before commit. Auto-detects project type and runs relevant checks. Use when user says "self check", "自检", "code check", "pre-commit check", "检查代码质量". Triggers on /self-check, 代码自检, 提交前检查.
+description: Use before committing to check code quality, run linting, and verify standards. Triggers on "self check", "自检", "code check", "pre-commit check", "检查代码质量".
 model: sonnet
 memory: project
 allowed-tools: [Bash, Read, Glob, Grep]

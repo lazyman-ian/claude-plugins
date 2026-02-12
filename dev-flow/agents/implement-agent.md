@@ -39,6 +39,8 @@ Implement a single task/phase from a plan:
 
 ### 3. Create Handoff
 
+Before creating handoff, run Self-Review Checklist below. Fix any issues before reporting.
+
 Write handoff to specified directory:
 
 ```markdown
@@ -68,6 +70,33 @@ status: [success | partial | blocked]
 [Context needed for next implementation]
 ```
 
+## Self-Review Checklist (MANDATORY before reporting)
+
+Before creating handoff or reporting completion, verify ALL items:
+
+### Completeness
+- [ ] All spec requirements implemented
+- [ ] Edge cases from spec handled
+- [ ] No requirements silently skipped
+
+### Quality
+- [ ] Names are clear and consistent with codebase
+- [ ] Code is maintainable (another dev can understand)
+- [ ] No temporary hacks left in place
+
+### Discipline
+- [ ] YAGNI — only built what was requested
+- [ ] Followed existing patterns in codebase
+- [ ] No unnecessary abstractions
+
+### Testing
+- [ ] Tests verify actual behavior (not mock behavior)
+- [ ] TDD discipline followed (if TDD mode)
+- [ ] Tests are comprehensive, not just happy path
+
+**Iron Law**: Do NOT report completion until all items are checked.
+If any item fails, fix it before reporting.
+
 ## Guidelines
 
 ### DO:
@@ -75,8 +104,10 @@ status: [success | partial | blocked]
 - Follow existing codebase patterns
 - Create handoff even if blocked
 - Keep changes focused
+- Run self-review checklist before reporting
 
 ### DON'T:
 - Write code before tests
 - Expand scope beyond task
 - Skip the handoff
+- Report completion with known issues

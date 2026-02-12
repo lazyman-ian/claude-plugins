@@ -1,6 +1,6 @@
 ---
 name: agent-team
-description: Orchestrates Agent Teams for parallel development on any project. Handles team lifecycle, task graphs, model selection (opus for planning, sonnet for coding), and teammate coordination. This skill should be used when user says "agent team", "team up", "parallel agents", "organize team", "组队开发", "并行开发", "多agent协作", "团队协作". Triggers on /agent-team, 组建团队, 并行任务.
+description: Use when organizing parallel development with multiple agents, team coordination, or fan-out tasks. Triggers on "agent team", "team up", "parallel agents", "组队开发", "并行开发", "多agent协作".
 memory: user
 context: fork
 allowed-tools: [Read, Glob, Grep, Bash, Skill, Task, TeamCreate, TeamDelete, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet, AskUserQuestion, mcp__plugin_dev-flow_dev-flow__*]
@@ -123,12 +123,22 @@ PROMPT
 
 Spawn teammates, monitor progress, handle errors.
 
+**Per-teammate execution flow** (v5.0.0):
+1. Read task → `dev_memory(query)` → get relevant knowledge
+2. Implement (TDD if applicable)
+3. **Self-review** (11-point checklist) — fix issues before reporting
+4. Run verification command
+5. `/dev commit` → reviewer teammate notification
+6. Reviewer: **merged spec + quality review** — accumulated context advantage
+7. P0/P1 or spec mismatch → teammate fixes
+8. Pass → `TaskUpdate(completed)` → next task
+
 **Two-layer review**:
 
 | Layer | 机制 | 覆盖范围 |
 |-------|------|---------|
 | **Per-commit** (自动) | `/dev commit` Step 2.5 code-reviewer agent | 单文件 P0/P1 |
-| **Cross-module** (reviewer teammate) | 持久化 reviewer 积累跨模块 context | 跨模块交互 |
+| **Cross-module** (reviewer teammate) | 持久化 reviewer 积累跨模块 context + spec compliance | 跨模块交互 + 需求匹配 |
 
 **Reviewer 交互协议** (当 reviewer teammate 存在时):
 
@@ -138,7 +148,7 @@ Implementer 提交后通知 reviewer：
 SendMessage({
   type: "message",
   recipient: "reviewer",
-  content: "Committed {hash}: {commit_message}\nFiles: {changed_files}\nPlease review for cross-module concerns.",
+  content: "Committed {hash}: {commit_message}\nFiles: {changed_files}\nTask: {task_description}\nPlease review for spec compliance + cross-module concerns.",
   summary: "Review request: {module}"
 })
 ```
@@ -146,13 +156,16 @@ SendMessage({
 Reviewer 审查后回复：
 ```
 # 无问题
-SendMessage({ recipient: "{impl}", content: "✅ LGTM, no cross-module issues.", summary: "Review passed" })
+SendMessage({ recipient: "{impl}", content: "✅ LGTM (spec + quality), no cross-module issues.", summary: "Review passed" })
 
 # 有问题
 SendMessage({ recipient: "{impl}", content: "🔴 P1: {file}:{line} — {issue}. Fix before next commit.", summary: "P1 found, fix needed" })
+
+# Spec 不匹配
+SendMessage({ recipient: "{impl}", content: "📋 SPEC: Missing requirement X from task. Implement before proceeding.", summary: "Spec mismatch, fix needed" })
 ```
 
-**优势**: Reviewer 持续积累 context —— 看到 Auth 改动后再看 CORS 改动，能发现两者的交互问题。一次性 Phase 4 review 做不到这种增量关联。
+**优势**: Reviewer 持续积累 context —— 看到 Auth 改动后再看 CORS 改动，能发现两者的交互问题。合并 spec+quality 审查避免上下文切换开销。
 
 **Delegate Mode**: For 3+ teammates, press `Shift+Tab` to restrict lead to coordination-only (spawn, message, shutdown, task management). Prevents lead from implementing tasks meant for teammates.
 
@@ -204,12 +217,12 @@ Verify results, aggregate, review, shutdown teammates, clean up.
       SendMessage({
         recipient: "reviewer",
         content: "All implementation tasks complete. Please provide final
-                  cross-module review summary (P0-P3) for PR description.
-                  Include: cross-cutting findings, module boundary issues,
+                  spec + quality review summary (P0-P3) for PR description.
+                  Include: spec coverage, cross-cutting findings, module boundary issues,
                   positive patterns observed.",
         summary: "Request final review summary"
       })
-      # Reviewer 有完整 context，报告更准确
+      # Reviewer 有完整 context + spec knowledge，报告更准确
 
    B) 无 reviewer teammate (1-2 agents):
       # 一次性 spawn code-reviewer (无跨模块 context)
@@ -226,20 +239,23 @@ Verify results, aggregate, review, shutdown teammates, clean up.
    |--------|--------|
    | P0/P1 found | SendMessage teammate to fix before proceeding |
    | P2/P3 only | Record in PR description as follow-up |
-   | Clean | Proceed to aggregation |
+   | Clean | Proceed to verification |
 
 2. Review: check each task completed, verify results
 3. Issues found → SendMessage teammate to fix
-4. Aggregate results for PR summary:
+4. **Verify** (via verify skill): run full verification suite
+   - Failure → SendMessage relevant teammate to fix
+   - Pass → proceed to aggregation
+5. Aggregate results for PR summary:
    dev_aggregate(action='pr_ready', taskId='TASK-{id}')
-5. Consolidate team knowledge into knowledge base:
+6. Consolidate team knowledge into knowledge base:
    dev_memory(action='consolidate')
    # Handoffs → pitfalls, reasoning → patterns, ledgers → decisions
    # Available to next session via SessionStart injection
-6. All done → shutdown teammates:
+7. All done → shutdown teammates:
    SendMessage({ type: "shutdown_request", recipient: "{name}" })
-7. TeamDelete()
-8. Summary: report results + aggregated changes to user
+8. TeamDelete()
+9. Summary: report results + aggregated changes to user
 ```
 
 ## Teammate Prompt Template
@@ -279,14 +295,20 @@ If this section is empty, query before starting:
    - If Historical Knowledge is empty: dev_memory(action:'query', query:'{module keywords}')
    - Note any pitfalls or patterns before starting
 2. Implement the assigned module/feature
-3. Run verification: {verify_command}
-4. If verify passes → /dev commit (includes automatic code review gate)
+3. **Self-Review** (MANDATORY before reporting):
+   - Completeness: All spec requirements? Edge cases? No silent skips?
+   - Quality: Clear names? Maintainable? No temp hacks?
+   - Discipline: YAGNI? Existing patterns? No over-abstraction?
+   - Testing: Real behavior tests? Not just happy path?
+   - If any item fails → fix before proceeding
+4. Run verification: {verify_command}
+5. If verify passes → /dev commit (includes automatic code review gate)
    - P0/P1 found → fix before retry
    - P2/P3 → proceed, note in summary
-5. If reviewer teammate exists → SendMessage reviewer with commit hash + changed files
+6. If reviewer teammate exists → SendMessage reviewer with commit hash + changed files
    - Wait for reviewer response before next major change
    - Reviewer P0/P1 → fix immediately
-6. SendMessage to lead: done + summary + any review findings
+7. SendMessage to lead: done + summary + any review findings
 
 ## Task Boundaries
 - Only modify files in: {directory_scope}
@@ -322,20 +344,24 @@ If this section is empty, query before starting:
 - Follow existing code style in the repo
 ```
 
-## Reviewer Prompt Template
+## Reviewer Prompt Template (v5.0.0)
 
-Dedicated reviewer teammate — stays alive throughout Phase 3, accumulates cross-module context.
+Dedicated reviewer teammate — stays alive throughout Phase 3, accumulates cross-module context. Performs **merged spec + quality review** for efficiency (avoids context switching between separate reviewers).
 
 ```
-You are the dedicated code reviewer for this team.
+You are the dedicated spec + quality reviewer for this team.
 
 ## Objective
-Review each teammate's commits incrementally. Accumulate cross-module context
-to catch interaction bugs that per-commit reviews miss.
+Review each teammate's work for BOTH:
+1. **Spec compliance** — Does implementation match plan requirements exactly?
+2. **Code quality** — P0-P3 severity (security, correctness, maintainability)
+
+Accumulate cross-module context to catch interaction bugs that per-commit reviews miss.
 
 ## Context
 - Working directory: {repo_path}
 - Branch: {branch_name}
+- Plan: {plan_path} (read for spec requirements)
 - Team members: {list of impl teammates and their modules}
 - Module boundaries: {module → directory mapping}
 
@@ -346,9 +372,15 @@ to catch interaction bugs that per-commit reviews miss.
 1. Teammates SendMessage you after each commit with hash + changed files
 2. For each review request:
    a. Read the diff: git diff {hash}~1..{hash}
-   b. Check against your accumulated context (previous reviews)
-   c. Cross-reference with other modules' recent changes
-   d. Report P0-P3 findings back to the teammate
+   b. **Spec check**: Compare diff against plan requirements for that task
+      - All requirements implemented? Nothing missing? Nothing extra?
+      - Correct file paths, function signatures, test coverage?
+   c. **Quality check**: P0-P3 severity review
+      - Architecture patterns, error handling, security
+      - Reference: agents/references/code-quality-checklist.md
+   d. Check against your accumulated context (previous reviews)
+   e. Cross-reference with other modules' recent changes
+   f. Report findings back to the teammate
 3. Track a mental model of all module interactions as you review
 
 ## Cross-Module Focus
@@ -359,11 +391,13 @@ The #1 reason you exist: catch issues spanning multiple teammates' work.
 - Configuration that affects multiple modules (env vars, feature flags)
 
 ## Review Report Format (per commit)
-Quick: "✅ LGTM" or "🔴 P1: file:line — issue"
+Quick: "✅ LGTM (spec + quality)" or "🔴 P1: file:line — issue"
+For spec issues: "📋 SPEC: Missing requirement X from plan task Y"
 No need for full structured report on each commit.
 
 ## Final Summary (when lead requests)
 Full P0-P3 structured report covering ALL reviewed changes:
+- Spec compliance summary (requirements coverage)
 - Cross-cutting findings
 - Module boundary issues
 - Accumulated risk assessment
@@ -371,10 +405,11 @@ Full P0-P3 structured report covering ALL reviewed changes:
 - Knowledge to save: dev_memory(action:'save', ...)
 
 ## Rules
-- P0/P1 → SendMessage teammate immediately, they must fix
+- P0/P1 or spec mismatch → SendMessage teammate immediately, they must fix
 - P2/P3 → Note for final summary, don't interrupt teammate
 - If you spot a cross-module issue → SendMessage BOTH affected teammates + lead
 - Never approve code you haven't read the diff for
+- Never trust teammate's self-report — always read the actual code
 - Save novel cross-cutting pitfalls: dev_memory(action:'save', tags:'pitfall,...')
 ```
 

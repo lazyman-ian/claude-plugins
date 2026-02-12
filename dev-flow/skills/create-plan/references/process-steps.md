@@ -185,6 +185,22 @@ For each phase in the plan, populate the YAML frontmatter `phases` array:
 
 Set `plan_version: "2.0"` and `status: draft`. Fill `created` with today's date.
 
+### 4e. Evaluate Task Granularity
+
+For each phase, decide whether to break into tasks:
+
+1. **Assess complexity**: Count target files, evaluate logic depth
+2. **Apply threshold**: 6+ files OR high complexity → break into tasks
+3. **Choose task type**:
+   - Backend/API/tools → `logic-task` (2-5 min, complete code in plan)
+   - UI/frontend/mobile → `ui-task` (5-15 min, Figma ref + constraints)
+4. **Write tasks**: Use format from `references/plan-template.md` § Task Formats
+
+**Auto-detection hints for plan-agent**:
+- `target_files` contain `.swift`, `.tsx`, `.vue` → likely ui-task
+- `target_files` contain `.ts`, `.py`, `.go` (no UI) → likely logic-task
+- Mixed → split into separate tasks by type
+
 ---
 
 ## Step 5: Review

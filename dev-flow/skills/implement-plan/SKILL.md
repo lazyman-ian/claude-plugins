@@ -1,6 +1,6 @@
 ---
 name: implement-plan
-description: Executes implementation plans with TDD and agent orchestration. This skill should be used when user says "implement plan", "execute plan", "follow the plan", "start implementation", "按计划实现", "执行方案", "开始实现", "实现功能", or when using TDD with "use tdd", "test driven", "测试驱动", "red green refactor". Triggers on /implement_plan, 执行计划, 代码实现, TDD开发, 测试驱动.
+description: Use when executing approved implementation plans, following TDD, or implementing features step-by-step. Triggers on "implement plan", "execute plan", "follow the plan", "按计划实现", "执行方案", "use tdd", "测试驱动".
 model: opus
 memory: project
 context: fork
@@ -26,6 +26,28 @@ Execute approved technical plans from `thoughts/shared/plans/` with optional TDD
 | **Agent Orchestration** | 4+ tasks, context preservation critical |
 | **TDD Mode** | User requests test-driven development |
 | **Agent Teams** | 3+ parallelizable phases, no file conflicts |
+
+## 5-Gate Per-Task Pipeline (v5.0.0)
+
+When a plan phase has `tasks` array in frontmatter, each task goes through 5 quality gates:
+
+```
+Task → Fresh Subagent → Self-Review → Spec Review → Quality Review → Complete
+```
+
+| Gate | Mechanism | Blocker? |
+|------|-----------|----------|
+| 1. Fresh Context | New subagent per task (context isolation) | — |
+| 2. Self-Review | 11-point checklist in implement-agent | Fix before reporting |
+| 3. Spec Review | spec-reviewer agent checks requirement match | REQUEST CHANGES → retry (max 2) |
+| 4. Quality Review | code-reviewer agent P0-P3 | P0/P1 → block, P2/P3 → note |
+| 5. Verification | verify skill (run verify command) | Fail → stay in_progress |
+
+**When to use 5-gate**: Phases with `tasks` array (fine-grained plan).
+**When to skip**: Simple phases without tasks → standard phase-level execution with commit-time review only.
+
+See `references/task-executor.md` for detailed per-task workflow.
+
 
 ## TDD Mode (RED-GREEN-REFACTOR)
 
@@ -99,6 +121,7 @@ Check user input for TDD keywords:
 | `references/task-management.md` | Task creation/tracking patterns |
 | `references/agent-orchestration.md` | Using agent mode (4+ tasks) |
 | `references/task-executor.md` | Single task TDD workflow |
+| `references/receiving-review.md` | How to handle review feedback |
 
 ## Direct Implementation
 

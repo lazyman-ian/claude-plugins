@@ -1,6 +1,9 @@
 ---
 name: create-plan
-description: Creates detailed implementation plans through interactive research and design exploration. This skill should be used when user says "create plan", "make a plan", "design architecture", "plan feature", "制定计划", "设计方案", "规划功能", "架构设计", or when exploring design options with "brainstorm", "explore options", "设计讨论", "细化方案". Triggers on /create_plan, 实现计划, 功能规划, 技术方案, 设计探索.
+description: >-
+  Use when creating implementation plans, designing feature architecture, or
+  preparing step-by-step technical strategies. Triggers on "create plan",
+  "make a plan", "plan feature", "制定计划", "设计方案", "规划功能", "技术方案".
 model: opus
 memory: project
 allowed-tools: [Read, Glob, Grep, WebSearch, Task, TaskCreate, TaskUpdate]
@@ -8,47 +11,20 @@ allowed-tools: [Read, Glob, Grep, WebSearch, Task, TaskCreate, TaskUpdate]
 
 # Implementation Plan
 
-Create detailed implementation plans through interactive, iterative research and design exploration.
+Create detailed implementation plans through interactive, iterative research.
 
 ## When to Use
 
 - Planning new features
 - Designing architecture
 - Preparing implementation strategy
-- Exploring design options and alternatives
 - `/create_plan [ticket-file]`
 
-## Two Modes
+**Note**: For design exploration and brainstorming, use `/brainstorm` first.
 
-### Mode 1: Design Exploration (Brainstorming)
+## Mode
 
-**Triggers**: "brainstorm", "explore options", "设计讨论", "细化方案", "compare approaches"
-
-**When to use**:
-- Requirements are unclear or vague
-- Multiple implementation approaches possible
-- Need to identify hidden constraints
-- Want to evaluate trade-offs
-
-**Process**:
-```
-EXPLORE → GENERATE ALTERNATIVES → EVALUATE → DECIDE → PERSIST → PLAN
-```
-
-1. **Explore**: Use Socratic questioning to uncover requirements
-2. **Generate**: Create 2-4 viable implementation approaches
-3. **Evaluate**: Compare pros/cons, constraints, risks
-4. **Decide**: Get user buy-in on approach
-5. **Plan**: Create detailed implementation plan
-
-### Mode 2: Implementation Planning (Standard)
-
-**Triggers**: "create plan", "make a plan", "制定计划", "设计方案"
-
-**When to use**:
-- Requirements are clear
-- Implementation approach decided
-- Need detailed technical plan
+**Implementation Planning** - Create detailed technical plans from clear requirements.
 
 **Process**:
 ```
@@ -57,29 +33,9 @@ CONTEXT GATHER → RESEARCH → STRUCTURE → WRITE PLAN → REVIEW
 
 ## Initial Response
 
-**Detect mode from user input:**
-
-| User Says | Mode | Response |
-|-----------|------|----------|
-| "brainstorm", "explore", "设计讨论" | Design Exploration | "I'll help explore design options. Let's start by understanding the problem space..." |
-| "create plan", "制定计划" | Implementation Planning | "I'll help create a detailed implementation plan..." |
-
 **If parameters provided**: Skip greeting, read files, begin research.
 
-**If no parameters (Design Exploration mode)**:
-```
-I'll help explore design options and create a plan.
-
-Let's start with some questions to clarify the requirements:
-1. What problem are we solving?
-2. Who are the users/stakeholders?
-3. What constraints do we have (time, tech, resources)?
-4. What does success look like?
-
-Or provide a ticket file: /create_plan thoughts/tickets/eng_1234.md
-```
-
-**If no parameters (Implementation Planning mode)**:
+**If no parameters**:
 ```
 I'll help create a detailed implementation plan.
 
@@ -91,23 +47,9 @@ Please provide:
 Tip: /create_plan thoughts/tickets/eng_1234.md
 ```
 
+**Note**: For brainstorming, use `/brainstorm` first.
+
 ## Process Overview
-
-### Design Exploration Mode
-
-```
-CLARIFY → EXPLORE → GENERATE → EVALUATE → DECIDE → PERSIST → PLAN
-```
-
-1. **Clarify**: Socratic questioning to uncover requirements
-2. **Explore**: Research existing solutions, patterns
-3. **Generate**: Create 2-4 viable approaches
-4. **Evaluate**: Compare trade-offs, constraints, risks
-5. **Decide**: Get user buy-in on approach
-6. **Persist Decisions**: Write exploration decisions via `dev_handoff(action='write')` and sync to plan frontmatter `key_decisions` field
-7. **Plan**: Create detailed implementation plan
-
-### Implementation Planning Mode
 
 ```
 CONTEXT GATHER → RESEARCH → STRUCTURE → WRITE PLAN → REVIEW
@@ -120,38 +62,25 @@ CONTEXT GATHER → RESEARCH → STRUCTURE → WRITE PLAN → REVIEW
 4. **Write**: Create plan in `thoughts/shared/plans/`
 5. **Review**: Iterate until approved
 
-## Design Exploration Techniques
+### Task Granularity (v5.0.0)
 
-### Socratic Questioning
+When writing plan phases, evaluate whether to break them into fine-grained tasks:
 
-Ask questions to uncover hidden requirements:
+| Phase Complexity | Action |
+|-----------------|--------|
+| Simple (≤2 files, straightforward) | Keep as phase-level description |
+| Complex (6+ files OR complex logic) | Break into `tasks` array |
 
-| Question Type | Examples |
-|--------------|----------|
-| **Purpose** | "What problem does this solve?" "Why is this needed?" |
-| **Constraints** | "What are the hard constraints?" "What's non-negotiable?" |
-| **Users** | "Who will use this?" "What are their pain points?" |
-| **Success** | "How do we know this works?" "What does done look like?" |
-| **Risks** | "What could go wrong?" "What are we assuming?" |
+**Two task types:**
 
-### Generating Alternatives
+- **logic-task** (backend/tools/algorithms): 2-5 min, includes complete implementation code
+- **ui-task** (frontend/mobile/design): 5-15 min, includes Figma reference + design constraints
 
-For each design decision, consider:
+See `references/plan-template.md` for task format details.
 
-1. **Conservative**: Minimal change, proven approach
-2. **Balanced**: Moderate change, good trade-offs
-3. **Aggressive**: Significant change, high potential
-4. **Hybrid**: Combine elements from above
+Phases with `tasks` → implement-plan uses 5-gate per-task pipeline.
+Phases without `tasks` → implement-plan uses standard phase-level execution.
 
-### Evaluation Framework
-
-| Criteria | Weight | Approach A | Approach B | Approach C |
-|----------|--------|------------|------------|------------|
-| Implementation effort | High | | | |
-| Maintenance cost | High | | | |
-| Performance | Medium | | | |
-| Scalability | Medium | | | |
-| Risk | High | | | |
 
 ## Reference Menu
 
@@ -207,37 +136,7 @@ If accepted → spawn `validate-agent` → produces validation handoff via `dev_
 3. **Be Thorough**: Read files completely, include file:line refs
 4. **No Open Questions**: Resolve all questions before finalizing
 
-## Examples
-
-### Design Exploration Example
-
-```
-User: "brainstorm authentication options for our API"
-
-[Asks Socratic questions]
-- What types of clients will use this API?
-- What security requirements do we have?
-- Do we need to support third-party integrations?
-
-[Generates alternatives]
-1. JWT with refresh tokens (balanced)
-2. OAuth 2.0 with PKCE (aggressive)
-3. API keys with IP whitelist (conservative)
-
-[Evaluates trade-offs]
-| Approach | Effort | Security | Flexibility |
-|----------|--------|----------|-------------|
-| JWT | Medium | High | High |
-| OAuth | High | Very High | Very High |
-| API Keys | Low | Medium | Low |
-
-[Gets user decision]
-User: "Let's go with JWT approach"
-
-[Creates implementation plan]
-```
-
-### Implementation Planning Example
+## Example
 
 ```
 User: /create_plan thoughts/tickets/eng_1478.md

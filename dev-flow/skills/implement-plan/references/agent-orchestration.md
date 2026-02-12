@@ -248,6 +248,26 @@ If plan has frontmatter, read `parallelizable` flag and `target_files` to auto-i
 
 ---
 
+## Batch Checkpoint
+
+For plans with many tasks, pause every N tasks for architect-level review:
+
+| Plan Size | Checkpoint Interval |
+|-----------|-------------------|
+| 5-8 tasks | Every 3 tasks |
+| 9-15 tasks | Every 4 tasks |
+| 16+ tasks | Every 5 tasks |
+
+At each checkpoint:
+1. Read all handoffs since last checkpoint
+2. Verify cumulative changes are coherent (no drift from plan)
+3. Check for emerging cross-task issues
+4. Decide: continue / adjust plan / escalate to user
+
+Skip checkpoint if remaining tasks ≤ 2.
+
+---
+
 ## Final Aggregation
 
 After all agents complete, aggregate results for PR:

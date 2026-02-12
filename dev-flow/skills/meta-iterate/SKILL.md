@@ -1,6 +1,6 @@
 ---
 name: meta-iterate
-description: Analyzes session performance and iterates agent/skill/rule prompts for self-improvement, and provides skill development guidance. Integrates with /insights for local session analysis. This skill should be used when user says "improve prompts", "analyze sessions", "self-improve", "discover skills", "compound learnings", "learn from sessions", "analyze insights", "read insights report", "优化工作流", "迭代agent", "分析session", "发现新skill", "积累经验", "学习总结", "提取规则", "分析insights", or when developing skills. Triggers on /meta-iterate, 自我改进, 会话分析, prompt优化, skill开发, insights分析.
+description: Use when analyzing session performance, improving agent/skill prompts, developing new skills, or reviewing insights reports. Triggers on "improve prompts", "analyze sessions", "self-improve", "优化工作流", "迭代agent", "分析session", "discover skills", "skill development", "insights analysis".
 model: opus
 memory: user
 context: fork

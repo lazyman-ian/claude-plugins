@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-dev-flow-plugin (v4.1.0) is a Claude Code plugin providing unified development workflow automation: planning → coding → review → commit → PR → release. Features VDD (Verification-Driven Development), multi-layer automated code review (P0-P3 severity), multi-agent collaboration, generic agent-team orchestration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
+dev-flow-plugin (v5.0.0) is a Claude Code plugin providing unified development workflow automation: brainstorm → plan → implement (5-gate pipeline) → review → commit → PR → release. Features VDD (Verification-Driven Development), 5-gate execution pipeline (fresh subagent → self-review → spec review → quality review), multi-layer automated code review (P0-P3 severity), multi-agent collaboration, generic agent-team orchestration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
 
 ## Build & Development
 
@@ -23,11 +23,11 @@ npm run --prefix mcp-server dev       # Run with ts-node
 ### Plugin Structure
 
 ```
-.claude-plugin/plugin.json  # Plugin manifest (v4.1.0)
+.claude-plugin/plugin.json  # Plugin manifest (v5.0.0)
 .mcp.json                   # MCP server config → scripts/mcp-server.cjs
-skills/                     # 10 skills (SKILL.md + references/)
-commands/                   # 22 command definitions (includes /verify, /init, /extract-knowledge, /review)
-agents/                     # 12 agent prompts + references/ (security/quality checklists)
+skills/                     # 11 skills (SKILL.md + references/) — brainstorm, create-plan, implement-plan, verify, debugging, self-check, agent-team, cross-platform-team, dev, config-optimize, meta-iterate
+commands/                   # 24 command definitions (includes /verify, /init, /brainstorm, /finish, /review)
+agents/                     # 13 agent prompts + references/ (security/quality checklists, includes spec-reviewer)
 hooks/hooks.json            # 6 hook types (PreToolUse x3, SessionStart, PreCompact, Stop, PostToolUse x4)
 scripts/track-team.sh       # Session→team mapping for StatusLine (PostToolUse: TeamCreate/TeamDelete)
 templates/thoughts/schema/  # JSON schemas for meta-iterate and handoff outputs
@@ -222,11 +222,28 @@ Agent Team   → reviewer teammate (persistent, cross-module)
 
 **Reference checklists**: `agents/references/security-checklist.md`, `agents/references/code-quality-checklist.md`
 
+### 5-Gate Execution Pipeline (v5.0.0)
+
+Per-task quality gates in implement-plan:
+
+```
+Plan Task → Fresh Subagent → Self-Review (11-point) → Spec Review → Quality Review
+```
+
+| Gate | Agent | Purpose |
+|------|-------|---------|
+| 1. Fresh Subagent | implement-agent | Context isolation, anti-corruption |
+| 2. Self-Review | (built-in) | 11-point checklist before reporting done |
+| 3. Spec Review | spec-reviewer | Implementation matches plan exactly |
+| 4. Quality Review | code-reviewer | P0-P3 code quality |
+| 5. Batch Checkpoint | (orchestrator) | Pause every N tasks for coherence check |
+
 ### Agent Orchestration
 
 Agents in `agents/` are spawned via Task tool for complex operations:
 - `plan-agent.md` - Create implementation plans
-- `implement-agent.md` - TDD execution
+- `implement-agent.md` - TDD execution + 11-point self-review
+- `spec-reviewer.md` - Verify implementation matches spec exactly
 - `code-reviewer.md` - Multi-dimensional review with P0-P3 severity + review session log
 - `evaluate/diagnose/propose/apply/verify-agent.md` - Meta-iterate cycle
 - `validate-agent.md` - Validate plan tech choices
@@ -278,35 +295,40 @@ dev_config → python|fix:black .|check:ruff .|scopes:api,models|src:custom
            → ios|fix:swiftlint --fix|check:swiftlint|scopes:...|src:auto
 ```
 
-## Recent Changes (v4.1.0)
+## Recent Changes (v5.0.0)
 
-### Multi-Layer Code Review System
+### 5-Gate Execution Pipeline
 
-**Problem**: dev-flow had 5 review agents (code-reviewer, validate-agent, verify-agent, evaluate-agent, diagnose-agent) and self-check skill, but none were integrated into the main commit/PR workflow. Cross-cutting bugs (Auth+CORS+SSE) shipped undetected.
+Inspired by [obra/superpowers](https://github.com/obra/superpowers). Every plan task passes through 5 quality gates:
 
-**Solution**: Automated review at 4 workflow points with P0-P3 severity:
+1. **Fresh Subagent**: Context isolation per task (anti-corruption)
+2. **Self-Review**: 11-point checklist (completeness, quality, discipline, testing)
+3. **Spec Review**: New `spec-reviewer` agent verifies implementation matches plan exactly
+4. **Quality Review**: Existing `code-reviewer` for P0-P3 code quality
+5. **Batch Checkpoint**: Pause every N tasks for architect coherence check
 
-| Point | Mechanism | Depth Decision |
-|-------|-----------|---------------|
-| `/dev commit` Step 2.5 | code-reviewer agent (isolated context) | Agent auto-classifies risk |
-| `/dev review` | code-reviewer agent (standalone) | Full P0-P3 |
-| `/dev pr` Step 7 | code-reviewer agent (mandatory) | Agent checks commit coverage |
-| Agent Team Phase 4 | reviewer teammate (persistent) | Cross-module accumulated context |
+### New Skills & Commands
 
-**Key design decisions**:
-- Review depth decided by code-reviewer agent, not main agent (prevents skip-bias)
-- Branch-scoped review session log (`.git/claude/review-session-{branch}.md`) for cross-commit context
-- Pre-commit hook FTS5 pitfall check (fast, warns only)
-- Reference checklists: `agents/references/security-checklist.md`, `code-quality-checklist.md`
+- **brainstorm** skill: Extracted from create-plan. Independent pre-creative-work exploration via Socratic questioning
+- **verify** skill: Internal skill enforcing "no completion claims without fresh verification evidence"
+- `/dev-flow:finish` command: Branch completion with 4 options (merge/PR/keep/discard)
+- `/dev-flow:brainstorm` command: Trigger brainstorm skill
 
-**New files**: `commands/review.md`, `agents/references/security-checklist.md`, `agents/references/code-quality-checklist.md`, `hooks/commit-guard.sh`
+### Adaptive Plan Granularity
 
-**Modified**: `agents/code-reviewer.md` (rewritten), `commands/commit.md` (Step 2.5 review gate + DEV_FLOW_COMMIT=1), `commands/pr.md` (Step 7 mandatory), `commands/init.md` (interactive tier selection + --tier upgrade + post-init validation), `hooks/hooks.json` (added `Bash(*git commit*)` matcher), `hooks/pre-commit-check.sh` (FTS5 + SQL escape), `hooks/session-start-continuity.sh` (removed auto-setup, warn-only + review log init), `skills/agent-team/SKILL.md` (reviewer teammate), `skills/dev/SKILL.md` (/review command)
+Plans now support two task formats:
+- **logic-task** (2-5min): Backend/data — complete code, no screenshots
+- **ui-task** (5-15min): Frontend/mobile — Figma `design_ref`, visual acceptance criteria
 
-### Commit Guard & Init Refactor
+### Skill Changes
 
-**Commit Guard**: `commit-guard.sh` blocks ALL raw `git commit` via `Bash(*git commit*)` matcher (catches chained commands). `/dev commit` bypasses with `DEV_FLOW_COMMIT=1` prefix. Background: prompt-level rules proved insufficient — agent bypassed `/dev commit` 3/4 times in practice.
+- **create-plan**: Narrowed to single mode (brainstorm extracted), added task granularity
+- **implement-plan**: Restructured with 5-gate pipeline, batch checkpoint
+- **agent-team**: Self-review in teammate template, merged spec+quality reviewer
+- **cross-platform-team**: UI-task spec review, platform-specific verify
+- **debugging**: Verify skill reference in VERIFY phase
+- **api-implementer**: Absorbed into `create-plan/references/api-template.md`
 
-**Init as Single Source**: SessionStart no longer auto-creates `.dev-flow.json` or `thoughts/` directories. Must run `/dev-flow:init` explicitly. SessionStart warns if not initialized.
+### CSO (Claude Search Optimization)
 
-**Interactive Tier Selection**: `/dev-flow:init` asks user to choose memory tier (0-3) via AskUserQuestion. `--tier N` flag for lightweight tier upgrade without full re-init. Post-init auto-validates DB and installs ChromaDB for tier 2+.
+All 9 modified skill descriptions rewritten: state ONLY triggering conditions, never summarize workflow.
