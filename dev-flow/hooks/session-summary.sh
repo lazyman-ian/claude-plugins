@@ -9,6 +9,8 @@ INPUT=$(cat)
 STOP_TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+# v2.1.47: last_assistant_message available directly (preferred over transcript parsing)
+LAST_MSG=$(echo "$INPUT" | jq -r '.last_assistant_message // empty' 2>/dev/null)
 TRANSCRIPT=$(echo "$INPUT" | jq -r '.stop_hook_transcript // empty' 2>/dev/null)
 
 # Early exit: Check tier config
@@ -33,10 +35,13 @@ RECENT_COMMITS=$(git -C "$CWD" log --oneline -5 2>/dev/null || echo "")
 UNCOMMITTED=$(git -C "$CWD" diff --stat 2>/dev/null || echo "")
 STAGED=$(git -C "$CWD" diff --cached --stat 2>/dev/null || echo "")
 
-# Extract last portion of transcript for summary (max 3000 chars)
+# Build excerpt: prefer last_assistant_message (v2.1.47), fallback to transcript
+# Use character substring (not tail -c) to avoid breaking multi-byte UTF-8
 EXCERPT=""
-if [ -n "$TRANSCRIPT" ]; then
-  EXCERPT=$(echo "$TRANSCRIPT" | tail -c 3000)
+if [ -n "$LAST_MSG" ]; then
+  EXCERPT="${LAST_MSG: -3000}"
+elif [ -n "$TRANSCRIPT" ]; then
+  EXCERPT="${TRANSCRIPT: -3000}"
 fi
 
 REQUEST=""
