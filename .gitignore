@@ -2,3 +2,9 @@
 .claude/cache/
 .claude/tsc-cache/
 /thoughts/reasoning
+/thoughts/evaluations
+/thoughts/diagnoses
+/thoughts/discoveries
+/thoughts/proposals
+/thoughts/iterations
+/thoughts/backups
