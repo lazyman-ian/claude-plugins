@@ -1,6 +1,6 @@
 ---
 name: diagnose-agent
-description: Diagnosis agent that analyzes root causes of component performance issues. <example>User says "diagnose why this agent is slow"</example> <example>User says "find the root cause"</example> <example>用户说 "诊断问题原因" 或 "分析根因"</example>
+description: Diagnosis agent that analyzes root causes of component performance issues. Triggers on "diagnose why this agent is slow", "find the root cause", "诊断问题原因", "分析根因".
 model: sonnet
 color: orange
 ---

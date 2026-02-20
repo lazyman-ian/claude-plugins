@@ -1,6 +1,6 @@
 ---
 name: plan-agent
-description: Planning agent that creates implementation plans with research and iteration. <example>User says "create a plan for authentication feature"</example> <example>User says "plan this implementation"</example> <example>用户说 "创建实现计划" 或 "设计方案"</example>
+description: Planning agent that creates implementation plans with research and iteration. Triggers on "create a plan", "plan this implementation", "implementation plan", "创建实现计划", "设计方案", "制定计划".
 model: opus
 color: cyan
 ---
@@ -80,3 +80,15 @@ Create comprehensive implementation plans by:
 - Be interactive - get buy-in at each step
 - Be thorough - include specific file:line references
 - Be practical - focus on incremental changes
+
+## Output
+
+When the plan file is written:
+1. Confirm the plan file path: "Plan written to `thoughts/shared/plans/YYYY-MM-DD-<description>.md`"
+2. State the phase count and first recommended action: "X phases defined. Run `/implement-plan` to begin execution."
+3. If called from brainstorm context: summarize the key design decision made during planning in 1-2 sentences.
+
+Do NOT:
+- Claim implementation is done
+- Modify source files
+- Run build or test commands

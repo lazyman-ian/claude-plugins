@@ -1,6 +1,6 @@
 ---
 name: apply-agent
-description: Apply agent that applies approved improvements to component files. <example>User says "apply the proposed changes"</example> <example>User says "implement the improvements"</example> <example>用户说 "应用改进" 或 "执行优化"</example>
+description: Apply agent that applies approved improvements to component files. Triggers on "apply the proposed changes", "implement the improvements", "应用改进", "执行优化".
 model: sonnet
 color: green
 ---

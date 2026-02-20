@@ -10,7 +10,7 @@
     {
       "name": "ios-swift-plugin",
       "description": "iOS/Swift development toolkit with SwiftUI, Concurrency, WidgetKit skills",
-      "version": "1.0.0",
+      "version": "1.1.1",
       "author": {
         "name": "lazyman",
         "email": "nickyuan94@gmail.com"

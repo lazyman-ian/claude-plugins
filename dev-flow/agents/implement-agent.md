@@ -1,6 +1,6 @@
 ---
 name: implement-agent
-description: Implementation agent that executes plan phases with TDD and creates handoffs. <example>User says "implement phase 1 from the plan"</example> <example>User says "execute the implementation plan"</example> <example>用户说 "按计划实现" 或 "执行方案"</example>
+description: Implementation agent that executes plan phases with TDD and creates handoffs. Triggers on "implement phase 1 from the plan", "execute the implementation plan", "按计划实现", "执行方案".
 model: sonnet
 color: green
 ---

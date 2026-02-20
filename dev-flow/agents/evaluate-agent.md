@@ -1,6 +1,6 @@
 ---
 name: evaluate-agent
-description: Evaluation agent that analyzes session performance and identifies improvement targets. <example>User says "evaluate recent sessions"</example> <example>User says "analyze agent performance"</example> <example>用户说 "评估会话质量" 或 "分析性能"</example>
+description: Evaluation agent that analyzes session performance and identifies improvement targets. Triggers on "evaluate recent sessions", "analyze agent performance", "评估会话质量", "分析性能".
 model: sonnet
 memory: user
 color: blue

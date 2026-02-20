@@ -3,7 +3,7 @@
   "name": "dev-flow-local",
   "description": "Local development workflow plugins",
   "owner": {
-    "name": "guoyuan94",
+    "name": "lazyman",
     "email": "nickyuan94@gmail.com"
   },
   "plugins": [
@@ -12,7 +12,7 @@
       "description": "Unified development workflow: planning → coding → commit → PR → release with full automation",
       "version": "5.0.0",
       "author": {
-        "name": "guoyuan94",
+        "name": "lazyman",
         "email": "nickyuan94@gmail.com"
       },
       "source": "./",

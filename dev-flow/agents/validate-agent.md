@@ -1,6 +1,6 @@
 ---
 name: validate-agent
-description: Validation agent that checks plan tech choices against best practices. <example>User says "validate the tech choices in this plan"</example> <example>User says "check if these libraries are current"</example> <example>用户说 "验证技术选型" 或 "检查最佳实践"</example>
+description: Validation agent that checks plan tech choices against best practices. Triggers on "validate the tech choices in this plan", "check if these libraries are current", "验证技术选型", "检查最佳实践".
 model: sonnet
 color: blue
 ---
