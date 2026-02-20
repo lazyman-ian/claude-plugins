@@ -12,9 +12,58 @@
 
 set -o pipefail
 
+# ========== 参数解析 ==========
+EXTRA_CMD=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --extra-cmd) EXTRA_CMD="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
 input=$(cat)
 STATE_DIR="${HOME}/.claude/state/dev-flow"
 mkdir -p "$STATE_DIR"
+
+# ========== 配置系统 ==========
+CONFIG_FILE="$STATE_DIR/statusline-config.json"
+CFG_SHOW_RATE_LIMIT=true
+CFG_SHOW_SPEED=true
+CFG_SHOW_RUNNING_TOOL=true
+CFG_SHOW_METRICS=true
+CFG_SHOW_TASKS=true
+CFG_SHOW_TEAM=true
+CFG_SHOW_AGENTS=true
+CFG_SHOW_SESSION=true
+CFG_RATE_LIMIT_TTL=60
+CFG_SPEED_WINDOW=3
+
+if [ -f "$CONFIG_FILE" ]; then
+    cfg_parsed=$(jq -r '[
+        (if .showRateLimit == false then "false" else "true" end),
+        (if .showSpeed == false then "false" else "true" end),
+        (if .showRunningTool == false then "false" else "true" end),
+        (if .showMetrics == false then "false" else "true" end),
+        (if .showTasks == false then "false" else "true" end),
+        (if .showTeam == false then "false" else "true" end),
+        (if .showAgents == false then "false" else "true" end),
+        (if .showSession == false then "false" else "true" end),
+        (.rateLimitCacheTTL // 60),
+        (.speedWindow // 3)
+    ] | @tsv' "$CONFIG_FILE" 2>/dev/null) || true
+    if [ -n "$cfg_parsed" ]; then
+        CFG_SHOW_RATE_LIMIT=$(echo "$cfg_parsed" | cut -f1)
+        CFG_SHOW_SPEED=$(echo "$cfg_parsed" | cut -f2)
+        CFG_SHOW_RUNNING_TOOL=$(echo "$cfg_parsed" | cut -f3)
+        CFG_SHOW_METRICS=$(echo "$cfg_parsed" | cut -f4)
+        CFG_SHOW_TASKS=$(echo "$cfg_parsed" | cut -f5)
+        CFG_SHOW_TEAM=$(echo "$cfg_parsed" | cut -f6)
+        CFG_SHOW_AGENTS=$(echo "$cfg_parsed" | cut -f7)
+        CFG_SHOW_SESSION=$(echo "$cfg_parsed" | cut -f8)
+        CFG_RATE_LIMIT_TTL=$(echo "$cfg_parsed" | cut -f9)
+        CFG_SPEED_WINDOW=$(echo "$cfg_parsed" | cut -f10)
+    fi
+fi
 
 # ========== 颜色定义 ==========
 RESET="\033[0m"
@@ -41,8 +90,9 @@ parsed=$(echo "$input" | jq -r '[
   (.context_window.total_input_tokens // 0),
   (.context_window.total_output_tokens // 0),
   (.context_window.context_window_size // 200000),
-  (.session_id // "")
-] | @tsv' 2>/dev/null || echo "0	0	0		0	0		0	0	0	0	200000	")
+  (.session_id // ""),
+  (.transcript_path // "")
+] | @tsv' 2>/dev/null || echo "0	0	0		0	0		0	0	0	0	200000		")
 
 CONTEXT_PCT=$(echo "$parsed" | cut -f1)
 DURATION_MS=$(echo "$parsed" | cut -f2)
@@ -57,6 +107,7 @@ TOTAL_INPUT=$(echo "$parsed" | cut -f10)
 TOTAL_OUTPUT=$(echo "$parsed" | cut -f11)
 CONTEXT_SIZE=$(echo "$parsed" | cut -f12)
 SESSION_ID=$(echo "$parsed" | cut -f13)
+TRANSCRIPT_PATH=$(echo "$parsed" | cut -f14)
 
 # ========== Git 数据（单次采集） ==========
 IS_GIT=false
@@ -216,6 +267,100 @@ format_cost() {
 }
 COST=$(format_cost "$COST_USD")
 
+# Rate Limit (P0)
+get_rate_limit() {
+    [ "$CFG_SHOW_RATE_LIMIT" != "true" ] && return
+
+    local cache_file="$STATE_DIR/usage_cache.json"
+    local now=$(date +%s)
+    local need_refresh=true
+
+    # Check cache validity
+    if [ -f "$cache_file" ]; then
+        local cached
+        cached=$(jq -r '[(.timestamp // 0), (.success // false), (.five_hour // -1), (.seven_day // -1), (.resets_at // "")] | @tsv' "$cache_file" 2>/dev/null) || true
+        if [ -n "$cached" ]; then
+            local cache_ts=$(echo "$cached" | cut -f1)
+            local cache_ok=$(echo "$cached" | cut -f2)
+            local cache_5h=$(echo "$cached" | cut -f3)
+            local cache_7d=$(echo "$cached" | cut -f4)
+            local cache_reset=$(echo "$cached" | cut -f5)
+            local age=$(( now - cache_ts ))
+
+            local ttl="$CFG_RATE_LIMIT_TTL"
+            [ "$cache_ok" != "true" ] && ttl=15
+
+            if [ "$age" -lt "$ttl" ] && [ "$cache_ok" = "true" ]; then
+                need_refresh=false
+                # Format from cache
+                format_rate_limit "$cache_5h" "$cache_7d" "$cache_reset"
+                return
+            fi
+        fi
+    fi
+
+    # Refresh from API
+    local token
+    token=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null) || true
+    [ -z "$token" ] && return
+
+    local response
+    response=$(/usr/bin/curl -s --max-time 3 -H "Authorization: Bearer $token" "https://api.anthropic.com/api/oauth/usage" 2>/dev/null) || true
+    [ -z "$response" ] && { echo "{\"timestamp\":$now,\"success\":false}" > "$cache_file"; return; }
+
+    local api_parsed
+    api_parsed=$(echo "$response" | jq -r '[
+        (.five_hour.utilization // -1),
+        (.seven_day.utilization // -1),
+        (.five_hour.resets_at // "")
+    ] | @tsv' 2>/dev/null) || { echo "{\"timestamp\":$now,\"success\":false}" > "$cache_file"; return; }
+
+    local five_h=$(echo "$api_parsed" | cut -f1)
+    local seven_d=$(echo "$api_parsed" | cut -f2)
+    local resets_at=$(echo "$api_parsed" | cut -f3)
+    [ "$five_h" = "-1" ] && { echo "{\"timestamp\":$now,\"success\":false}" > "$cache_file"; return; }
+
+    # Convert utilization (0-1) to percentage
+    local five_pct seven_pct
+    five_pct=$(awk -v v="$five_h" 'BEGIN{printf "%.0f", v * 100}' 2>/dev/null) || five_pct=0
+    seven_pct=$(awk -v v="$seven_d" 'BEGIN{printf "%.0f", v * 100}' 2>/dev/null) || seven_pct=0
+
+    # Write cache
+    echo "{\"timestamp\":$now,\"success\":true,\"five_hour\":$five_pct,\"seven_day\":$seven_pct,\"resets_at\":\"$resets_at\"}" > "$cache_file"
+
+    format_rate_limit "$five_pct" "$seven_pct" "$resets_at"
+}
+
+format_rate_limit() {
+    local five_pct=$1 seven_pct=$2 resets_at=$3
+
+    [ "$five_pct" = "-1" ] && return
+
+    local c5="$GREEN" c7="$GREEN"
+    [ "$five_pct" -ge 50 ] 2>/dev/null && c5="$YELLOW"
+    [ "$five_pct" -ge 80 ] 2>/dev/null && c5="$RED"
+    [ "$seven_pct" -ge 50 ] 2>/dev/null && c7="$YELLOW"
+    [ "$seven_pct" -ge 80 ] 2>/dev/null && c7="$RED"
+
+    local result="${c5}5h:${five_pct}%${RESET} ${c7}7d:${seven_pct}%${RESET}"
+
+    # Show reset time if at 100%
+    if [ "$five_pct" -ge 100 ] 2>/dev/null && [ -n "$resets_at" ]; then
+        local reset_epoch
+        reset_epoch=$(date -jf "%Y-%m-%dT%H:%M:%S" "${resets_at%%.*}" +%s 2>/dev/null) || true
+        if [ -n "$reset_epoch" ]; then
+            local now_epoch=$(date +%s)
+            local mins_left=$(( (reset_epoch - now_epoch) / 60 ))
+            [ "$mins_left" -lt 0 ] && mins_left=0
+            result="${c5}5h:${five_pct}%${RESET} ${RED}↻${mins_left}m${RESET} ${c7}7d:${seven_pct}%${RESET}"
+        fi
+    fi
+
+    echo -e "$result"
+}
+
+RATE_LIMIT=$(get_rate_limit)
+
 # 组装第1行
 LINE1=""
 [ -n "$MODEL_BADGE" ] && LINE1="${MODEL_BADGE} "
@@ -224,6 +369,45 @@ LINE1="${LINE1}${CONTEXT_BAR} ${CONTEXT_PCT%.*}% ${GRAY}|${RESET} ${PHASE}"
 [ -n "$GIT_INFO" ] && LINE1="${LINE1} ${GRAY}|${RESET} ${GIT_INFO}"
 LINE1="${LINE1} ${GRAY}|${RESET} ${DURATION}"
 [ -n "$COST" ] && LINE1="${LINE1} ${GRAY}${COST}${RESET}"
+[ -n "$RATE_LIMIT" ] && LINE1="${LINE1} ${GRAY}|${RESET} ${RATE_LIMIT}"
+
+# Output Speed tok/s (P0)
+get_output_speed() {
+    [ "$CFG_SHOW_SPEED" != "true" ] && return
+    [ "$TOTAL_OUTPUT" = "0" ] && return
+
+    local cache_file="$STATE_DIR/speed_cache.json"
+    local now=$(date +%s)
+
+    if [ -f "$cache_file" ]; then
+        local prev
+        prev=$(jq -r '[(.timestamp // 0), (.output_tokens // 0)] | @tsv' "$cache_file" 2>/dev/null) || true
+        if [ -n "$prev" ]; then
+            local prev_ts=$(echo "$prev" | cut -f1)
+            local prev_tokens=$(echo "$prev" | cut -f2)
+            local elapsed=$(( now - prev_ts ))
+
+            if [ "$elapsed" -gt 0 ] && [ "$elapsed" -le "$CFG_SPEED_WINDOW" ]; then
+                local delta=$(( TOTAL_OUTPUT - prev_tokens ))
+                if [ "$delta" -gt 0 ]; then
+                    local speed=$(( delta / elapsed ))
+                    local color="$RED"
+                    [ "$speed" -gt 10 ] 2>/dev/null && color="$YELLOW"
+                    [ "$speed" -gt 30 ] 2>/dev/null && color="$GREEN"
+                    # Update cache
+                    echo "{\"timestamp\":$now,\"output_tokens\":$TOTAL_OUTPUT}" > "$cache_file"
+                    echo -e "${color}⚡${speed} tok/s${RESET}"
+                    return
+                fi
+            fi
+        fi
+    fi
+
+    # First run or stale — write cache, no display
+    echo "{\"timestamp\":$now,\"output_tokens\":$TOTAL_OUTPUT}" > "$cache_file"
+}
+
+OUTPUT_SPEED=$(get_output_speed)
 
 # ========== 第2行：Session 生产力 + 工具统计 ==========
 get_metrics_line() {
@@ -279,10 +463,53 @@ get_metrics_line() {
         fi
     fi
 
+    # Output speed
+    if [ -n "$OUTPUT_SPEED" ]; then
+        [ -n "$parts" ] && parts="${parts} ${GRAY}|${RESET} "
+        parts="${parts}${OUTPUT_SPEED}"
+    fi
+
     [ -n "$parts" ] && echo -e "\n${parts}"
 }
 
-METRICS_LINE=$(get_metrics_line)
+METRICS_LINE=""
+[ "$CFG_SHOW_METRICS" = "true" ] && METRICS_LINE=$(get_metrics_line)
+
+# ========== Running Tool Indicator (P1) ==========
+get_running_tool() {
+    [ "$CFG_SHOW_RUNNING_TOOL" != "true" ] && return
+    [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ] && return
+
+    # Get last 100 lines, find last tool_use and check for matching tool_result
+    local tail_data
+    tail_data=$(tail -n 100 "$TRANSCRIPT_PATH" 2>/dev/null) || return
+    [ -z "$tail_data" ] && return
+
+    # Find last tool_use entry
+    local last_tool_use
+    last_tool_use=$(echo "$tail_data" | jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") | "\(.id)\t\(.name)\t\(.input.file_path // .input.path // .input.command // .input.pattern // "")"' 2>/dev/null | tail -1) || return
+    [ -z "$last_tool_use" ] && return
+
+    local tool_id=$(echo "$last_tool_use" | cut -f1)
+    local tool_name=$(echo "$last_tool_use" | cut -f2)
+    local tool_arg=$(echo "$last_tool_use" | cut -f3)
+
+    # Check if there's a matching tool_result
+    local has_result
+    has_result=$(echo "$tail_data" | jq -r --arg tid "$tool_id" 'select(.type == "tool_result") | select(.tool_use_id == $tid) | .tool_use_id' 2>/dev/null | head -1) || true
+
+    # If result exists, tool is done — don't show
+    [ -n "$has_result" ] && return
+
+    # Truncate arg to 30 chars
+    [ ${#tool_arg} -gt 30 ] && tool_arg="${tool_arg:0:27}..."
+
+    local display="${YELLOW}◐${RESET} ${CYAN}${tool_name}${RESET}"
+    [ -n "$tool_arg" ] && display="${display} ${GRAY}${tool_arg}${RESET}"
+    echo -e "\n${display}"
+}
+
+RUNNING_TOOL=$(get_running_tool)
 
 # ========== 第3行：任务进度 ==========
 get_task_line() {
@@ -303,7 +530,8 @@ get_task_line() {
     echo -e "\n${GREEN}✓${RESET} ${completed}/${total} ${GRAY}(${pct}%)${RESET} ${YELLOW}→${in_progress}${RESET} ${GRAY}⏳${pending}${RESET}"
 }
 
-TASK_LINE=$(get_task_line)
+TASK_LINE=""
+[ "$CFG_SHOW_TASKS" = "true" ] && TASK_LINE=$(get_task_line)
 
 # ========== 第4行：Team 状态 ==========
 get_team_line() {
@@ -372,7 +600,8 @@ get_team_line() {
     [ -n "$output" ] && echo -e "$output"
 }
 
-TEAM_LINE=$(get_team_line)
+TEAM_LINE=""
+[ "$CFG_SHOW_TEAM" = "true" ] && TEAM_LINE=$(get_team_line)
 
 # ========== 第5行：Agent 状态 ==========
 get_agent_line() {
@@ -391,7 +620,8 @@ get_agent_line() {
     [ -n "$output" ] && echo -e "$output"
 }
 
-AGENT_LINE=$(get_agent_line)
+AGENT_LINE=""
+[ "$CFG_SHOW_AGENTS" = "true" ] && AGENT_LINE=$(get_agent_line)
 
 # ========== Session 轮数 ==========
 get_turn_count() {
@@ -467,7 +697,43 @@ get_session_line() {
     [ -n "$parts" ] && echo -e "\n${parts}"
 }
 
-SESSION_LINE=$(get_session_line)
+SESSION_LINE=""
+[ "$CFG_SHOW_SESSION" = "true" ] && SESSION_LINE=$(get_session_line)
+
+# ========== Extra Command (P1) ==========
+# SECURITY: $EXTRA_CMD is sourced from the user's own statusline config in
+# ~/.claude/settings.json. It is a static, trusted string set by the machine owner.
+# Do NOT accept this value from untrusted input (stdin, API, transcript, etc.).
+get_extra_cmd() {
+    [ -z "$EXTRA_CMD" ] && return
+
+    local output
+    if command -v gtimeout >/dev/null 2>&1; then
+        output=$(gtimeout 3 bash -c "$EXTRA_CMD" 2>/dev/null | head -c 10240) || return
+    else
+        # macOS fallback: no timeout binary, use perl alarm
+        output=$(perl -e '
+            eval {
+                local $SIG{ALRM} = sub { die "timeout" };
+                alarm(3);
+                my $r = `$ARGV[0] 2>/dev/null`;
+                alarm(0);
+                print $r;
+            };
+        ' "$EXTRA_CMD" 2>/dev/null | head -c 10240) || return
+    fi
+    [ -z "$output" ] && return
+
+    local label
+    label=$(echo "$output" | jq -r '.label // empty' 2>/dev/null) || return
+    [ -z "$label" ] && return
+
+    # Truncate to 50 chars
+    [ ${#label} -gt 50 ] && label="${label:0:47}..."
+    echo -e " ${GRAY}|${RESET} ${GRAY}${label}${RESET}"
+}
+
+EXTRA_OUTPUT=$(get_extra_cmd)
 
 # ========== 输出 ==========
-echo -e "${LINE1}${METRICS_LINE}${TASK_LINE}${SESSION_LINE}${TEAM_LINE}${AGENT_LINE}"
+echo -e "${LINE1}${EXTRA_OUTPUT}${METRICS_LINE}${RUNNING_TOOL}${TASK_LINE}${SESSION_LINE}${TEAM_LINE}${AGENT_LINE}"
