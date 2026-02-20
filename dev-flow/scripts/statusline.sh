@@ -91,8 +91,9 @@ parsed=$(echo "$input" | jq -r '[
   (.context_window.context_window_size // 200000),
   (.session_id // ""),
   (.transcript_path // ""),
-  (.context_window.remaining_percentage // -1)
-] | @tsv' 2>/dev/null || echo "0	0		0	0		0	0	0	0	200000			-1")
+  (.context_window.remaining_percentage // -1),
+  (.context_window.current_usage.cache_creation_input_tokens // 0)
+] | @tsv' 2>/dev/null || echo "0	0		0	0		0	0	0	0	200000			-1	0")
 
 CONTEXT_PCT=$(echo "$parsed" | cut -f1)
 DURATION_MS=$(echo "$parsed" | cut -f2)
@@ -108,10 +109,18 @@ CONTEXT_SIZE=$(echo "$parsed" | cut -f11)
 SESSION_ID=$(echo "$parsed" | cut -f12)
 TRANSCRIPT_PATH=$(echo "$parsed" | cut -f13)
 REMAINING_PCT=$(echo "$parsed" | cut -f14)
+CACHE_CREATION=$(echo "$parsed" | cut -f15)
 
-# Prefer remaining_percentage (accounts for system overhead) over used_percentage
-if [ "$REMAINING_PCT" != "-1" ] && [ "$REMAINING_PCT" != "" ]; then
-    CONTEXT_PCT=$(awk -v r="$REMAINING_PCT" 'BEGIN{v=100-r; if(v<0)v=0; if(v>100)v=100; printf "%.0f",v}') || true
+# Calculate total context usage from token counts (includes system prompt + tools)
+# cache_read + cache_creation = system overhead (cached system prompt/tools)
+# input_tokens = non-cached input (conversation turns)
+# Total in context window = all three combined
+CONV_PCT_ORIG=${CONTEXT_PCT%.*}
+if [ "$CONTEXT_SIZE" -gt 0 ] 2>/dev/null; then
+    TOTAL_CTX_TOKENS=$(( ${CACHE_READ:-0} + ${CACHE_CREATION:-0} + ${INPUT_TOKENS:-0} ))
+    if [ "$TOTAL_CTX_TOKENS" -gt 0 ]; then
+        CONTEXT_PCT=$(awk -v t="$TOTAL_CTX_TOKENS" -v s="$CONTEXT_SIZE" 'BEGIN{v=t/s*100; if(v<0)v=0; if(v>100)v=100; printf "%.0f",v}') || true
+    fi
 fi
 
 # ========== Git 数据（单次采集） ==========
@@ -171,14 +180,12 @@ generate_context_bar() {
     echo -e "${bar}${RESET}"
 }
 
-# Determine if we have dual-percentage data
-CONV_PCT=${CONTEXT_PCT%.*}
+# Determine if we have dual-percentage data (system vs conversation split)
+CONV_PCT=${CONV_PCT_ORIG:-${CONTEXT_PCT%.*}}
 HAS_SPLIT=false
-if [ "$REMAINING_PCT" != "-1" ] && [ "$REMAINING_PCT" != "" ]; then
-    # CONTEXT_PCT was overwritten to total; original used_percentage is conv-only
-    # Re-extract original used_percentage
-    CONV_PCT=$(echo "$parsed" | cut -f1)
-    CONV_PCT=${CONV_PCT%.*}
+TOTAL_PCT=${CONTEXT_PCT%.*}
+# Enable split bar when token-based total > used_percentage (system overhead exists)
+if [ "${TOTAL_PCT:-0}" -gt "${CONV_PCT:-0}" ] 2>/dev/null; then
     HAS_SPLIT=true
 fi
 
