@@ -187,14 +187,15 @@ Session → [auto-handoff] → [dev_memory consolidate] → Knowledge → [Sessi
 ```json
 {
   "memory": {
-    "tier": 0,
-    "sessionSummary": false,
-    "chromadb": false,
-    "periodicCapture": false,
-    "captureInterval": 10
+    "tier": 3
   }
 }
 ```
+
+Feature flags are auto-derived from tier (explicit overrides still supported):
+- tier >= 1: `sessionSummary`
+- tier >= 2: `chromadb`
+- tier >= 3: `periodicCapture`
 
 ### Hook Integration
 

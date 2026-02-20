@@ -723,11 +723,13 @@ function getMemoryConfig(): { tier: number; sessionSummary: boolean; chromadb: b
   try {
     if (existsSync(configPath)) {
       const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+      const tier = config?.memory?.tier ?? 0;
+      // Derive feature flags from tier when not explicitly set
       return {
-        tier: config?.memory?.tier ?? 0,
-        sessionSummary: config?.memory?.sessionSummary ?? false,
-        chromadb: config?.memory?.chromadb ?? false,
-        periodicCapture: config?.memory?.periodicCapture ?? false,
+        tier,
+        sessionSummary: config?.memory?.sessionSummary ?? (tier >= 1),
+        chromadb: config?.memory?.chromadb ?? (tier >= 2),
+        periodicCapture: config?.memory?.periodicCapture ?? (tier >= 3),
         captureInterval: config?.memory?.captureInterval ?? 10,
       };
     }

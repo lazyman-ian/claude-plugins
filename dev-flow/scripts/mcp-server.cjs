@@ -22447,11 +22447,12 @@ function getMemoryConfig() {
   try {
     if ((0, import_fs3.existsSync)(configPath)) {
       const config2 = JSON.parse((0, import_fs3.readFileSync)(configPath, "utf-8"));
+      const tier = config2?.memory?.tier ?? 0;
       return {
-        tier: config2?.memory?.tier ?? 0,
-        sessionSummary: config2?.memory?.sessionSummary ?? false,
-        chromadb: config2?.memory?.chromadb ?? false,
-        periodicCapture: config2?.memory?.periodicCapture ?? false,
+        tier,
+        sessionSummary: config2?.memory?.sessionSummary ?? tier >= 1,
+        chromadb: config2?.memory?.chromadb ?? tier >= 2,
+        periodicCapture: config2?.memory?.periodicCapture ?? tier >= 3,
         captureInterval: config2?.memory?.captureInterval ?? 10
       };
     }
