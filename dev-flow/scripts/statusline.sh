@@ -305,7 +305,11 @@ get_rate_limit() {
     [ -z "$token" ] && return
 
     local response
-    response=$(/usr/bin/curl -s --max-time 3 -H "Authorization: Bearer $token" "https://api.anthropic.com/api/oauth/usage" 2>/dev/null) || true
+    response=$(/usr/bin/curl -s --max-time 3 \
+        -H "Authorization: Bearer $token" \
+        -H "anthropic-beta: oauth-2025-04-20" \
+        -H "User-Agent: dev-flow-statusline/1.0" \
+        "https://api.anthropic.com/api/oauth/usage" 2>/dev/null) || true
     [ -z "$response" ] && { echo "{\"timestamp\":$now,\"success\":false}" > "$cache_file"; return; }
 
     local api_parsed
@@ -320,10 +324,10 @@ get_rate_limit() {
     local resets_at=$(echo "$api_parsed" | cut -f3)
     [ "$five_h" = "-1" ] && { echo "{\"timestamp\":$now,\"success\":false}" > "$cache_file"; return; }
 
-    # Convert utilization (0-1) to percentage
+    # API returns 0-100 percentage directly, round to integer
     local five_pct seven_pct
-    five_pct=$(awk -v v="$five_h" 'BEGIN{printf "%.0f", v * 100}' 2>/dev/null) || five_pct=0
-    seven_pct=$(awk -v v="$seven_d" 'BEGIN{printf "%.0f", v * 100}' 2>/dev/null) || seven_pct=0
+    five_pct=$(awk -v v="$five_h" 'BEGIN{printf "%.0f", v}' 2>/dev/null) || five_pct=0
+    seven_pct=$(awk -v v="$seven_d" 'BEGIN{printf "%.0f", v}' 2>/dev/null) || seven_pct=0
 
     # Write cache
     echo "{\"timestamp\":$now,\"success\":true,\"five_hour\":$five_pct,\"seven_day\":$seven_pct,\"resets_at\":\"$resets_at\"}" > "$cache_file"
