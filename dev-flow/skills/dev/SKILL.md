@@ -1,6 +1,6 @@
 ---
 name: dev
-description: Use for git workflow operations: commits, PRs, releases, branch management, and status checks. Triggers on "commit", "push", "create PR", "release", "提交代码", "创建PR", "发布版本".
+description: Provides unified development workflow hub for git operations including commits, PRs, releases, branch management, code review, and status checks powered by dev-flow MCP. This skill should be used when the user wants to commit code, create PRs, publish releases, switch branches, check dev status, or manage the development lifecycle. Triggers on "commit", "push", "create PR", "release", "dev status", "start task", "finish branch", "review code", "提交代码", "创建PR", "发布版本", "查看状态". Do NOT use for executing implementation plans — use "implement-plan" instead.
 model: sonnet
 memory: project
 allowed-tools: [Bash, Read, Glob, Grep, Edit, Write, mcp__plugin_dev-flow_dev-flow__*]

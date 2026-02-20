@@ -1,6 +1,6 @@
 ---
 name: deslop
-description: Removes AI-generated code slop (redundant comments, over-defensive code, type escapes) from current branch. This skill should be used when user says "clean up code", "remove slop", "deslop", "清理代码", "去除冗余", "AI 冗余".
+description: Removes AI-generated code slop (redundant comments, over-defensive code, type escapes, verbose logging) from the current branch. This skill should be used when the user wants to clean up AI-generated code patterns, remove unnecessary comments, strip over-defensive try/catch blocks, or eliminate type escape hatches. Key capabilities include diff-based detection, pattern matching across modified files, and targeted slop removal. Triggers on "clean up code", "remove slop", "deslop", "code cleanup", "redundant comments", "AI code", "清理代码", "去除冗余", "AI 冗余", "代码清理", "删除多余注释".
 model: haiku
 memory: project
 allowed-tools: [Bash, Read, Glob, Grep, Edit]

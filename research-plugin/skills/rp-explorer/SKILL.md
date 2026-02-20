@@ -1,6 +1,6 @@
 ---
 name: rp-explorer
-description: Provides token-efficient codebase exploration using RepoPrompt CLI. This skill should be used FIRST for brownfield projects before planning or debugging. Triggers on "explore codebase", "understand code", "how does X work", "where is X", "代码结构", "探索代码", "怎么实现的".
+description: Provides token-efficient codebase exploration using RepoPrompt CLI for structural understanding. This skill should be used FIRST for brownfield projects before planning or debugging, when the user needs to understand code architecture, trace data flow, or map module dependencies without reading every file. Key capabilities include tree views, dependency graphs, and targeted code extraction via rp-cli. Triggers on "explore codebase", "understand code", "how does X work", "where is X", "code structure", "codebase overview", "architecture", "代码结构", "探索代码", "怎么实现的", "代码架构", "模块关系". Do NOT use for targeted text or symbol search — use search-code instead.
 model: haiku
 context: fork
 allowed-tools: [Bash, Read, Glob, Grep]

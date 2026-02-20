@@ -1,6 +1,6 @@
 ---
 name: swiftui-liquid-glass
-description: Implements, reviews, and improves SwiftUI features using the iOS 26+ Liquid Glass API. This skill should be used when asked to adopt Liquid Glass in new SwiftUI UI, refactor an existing feature to Liquid Glass, or review Liquid Glass usage. Triggers on "Liquid Glass", "glassEffect", "GlassEffectContainer", "玻璃效果", "毛玻璃", "磨砂效果".
+description: Implements, reviews, and improves SwiftUI features using the iOS 26+ Liquid Glass API. This skill should be used when adopting Liquid Glass in new SwiftUI UI, refactoring an existing feature to use glass effects, or reviewing Liquid Glass modifier usage and container placement. Key capabilities include glass surface design, interactive glass patterns, morphing transitions, and iOS 26 availability handling. Triggers on "Liquid Glass", "glassEffect", "GlassEffectContainer", "glass button", "glass surface", "iOS 26", "玻璃效果", "毛玻璃", "磨砂效果", "液态玻璃".
 allowed-tools: [Read, Glob, Grep, Edit, Write, mcp__apple-docs__*]
 ---
 

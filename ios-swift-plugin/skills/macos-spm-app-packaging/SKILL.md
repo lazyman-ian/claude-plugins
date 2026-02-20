@@ -1,6 +1,6 @@
 ---
 name: macos-spm-app-packaging
-description: Scaffolds, builds, and packages SwiftPM-based macOS apps without an Xcode project. This skill should be used when you need a from-scratch macOS app layout, SwiftPM targets/resources, a custom .app bundle assembly script, or signing/notarization steps. Triggers on "SwiftPM app", "package macOS", "app bundle", "notarize", "打包应用", "macOS 应用", "签名公证".
+description: Scaffolds, builds, and packages SwiftPM-based macOS apps without an Xcode project. This skill should be used when creating a from-scratch macOS app layout, configuring SwiftPM targets and resources, assembling a custom .app bundle, or performing code signing and notarization. Key capabilities include project bootstrapping, Package.swift configuration, bundle assembly scripts, and sign-and-notarize workflows. Triggers on "SwiftPM app", "package macOS", "app bundle", "notarize", ".app", "swift build", "code signing", "打包应用", "macOS 应用", "签名公证", "Swift Package Manager".
 allowed-tools: [Read, Write, Edit, Bash, Glob, mcp__apple-docs__*]
 ---
 

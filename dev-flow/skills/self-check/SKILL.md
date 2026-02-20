@@ -1,6 +1,6 @@
 ---
 name: self-check
-description: Use before committing to check code quality, run linting, and verify standards. Triggers on "self check", "自检", "code check", "pre-commit check", "检查代码质量".
+description: Runs pre-commit code quality checks by auto-detecting project type and executing relevant linting, formatting, and standards verification. This skill should be used when the user wants to validate code quality before committing, run linting checks, or verify coding standards compliance. Triggers on "self check", "code check", "pre-commit check", "lint check", "quality check", "自检", "检查代码质量", "预提交检查", "代码质量", "代码检查". Do NOT use for investigating bugs or crashes — use "debugging" instead. Do NOT use for full build/test verification — use "verify" instead.
 model: sonnet
 memory: project
 allowed-tools: [Bash, Read, Glob, Grep]

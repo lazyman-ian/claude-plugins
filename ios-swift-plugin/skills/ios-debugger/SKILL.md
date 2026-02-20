@@ -1,6 +1,6 @@
 ---
 name: ios-debugger
-description: Builds, runs, launches, and debugs iOS projects on a booted simulator using XcodeBuildMCP. This skill should be used when asked to run an iOS app, interact with the simulator UI, inspect on-screen state, capture logs/console output, or diagnose runtime behavior. Triggers on "run app", "launch", "simulator", "debug", "运行应用", "模拟器", "启动应用", "调试".
+description: Builds, runs, launches, and debugs iOS projects on a booted simulator using XcodeBuildMCP. This skill should be used when asked to run an iOS app, interact with the simulator UI, inspect on-screen state, capture logs/console output, or diagnose runtime behavior. Key capabilities include simulator discovery, app launch, UI interaction, view hierarchy inspection, and console log capture. Triggers on "run app", "launch app", "simulator", "debug", "console log", "view hierarchy", "runtime", "tap button", "运行应用", "模拟器", "启动应用", "调试", "运行时". Do NOT use for compile-only or test-only workflows — use ios-build-test instead.
 memory: project
 allowed-tools: [Bash, Read, Glob, mcp__XcodeBuildMCP__*]
 ---

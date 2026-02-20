@@ -1,6 +1,6 @@
 ---
 name: config-optimize
-description: Use to check Claude Code updates and optimize configuration. Triggers on "/config-optimize", "check claude updates", "Claude配置优化", "Claude新功能". NOT for general "optimize" requests.
+description: Checks Claude Code release notes and optimizes plugin configuration, hooks, and settings to leverage new features. This skill should be used when the user wants to check for Claude Code updates, audit current configuration against latest capabilities, or apply recommended optimizations. Key capabilities include release diff analysis, hook migration, and settings alignment. Triggers on "config optimize", "check claude updates", "claude new features", "audit config", "optimize settings", "Claude配置优化", "Claude新功能", "检查更新", "配置审计". Do NOT use for general code optimization, performance tuning, or refactoring requests.
 model: sonnet
 memory: user
 allowed-tools: [Read, Glob, Grep, Write, Edit, Bash, WebFetch, WebSearch, Task, TaskCreate, TaskUpdate]

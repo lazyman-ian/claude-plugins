@@ -1,6 +1,6 @@
 ---
 name: research-agent
-description: Researches external documentation, best practices, and library APIs using Perplexity, Nia, and Firecrawl MCP tools. This skill should be used when user says "research", "find docs", "best practices", "how to implement", "查资料", "最佳实践".
+description: Researches external documentation, best practices, and library APIs using Perplexity, WebSearch, and WebFetch tools. This skill should be used when the user needs to look up external documentation, compare library options, find implementation examples, or gather best practices from the web. Key capabilities include multi-source research, documentation fetching, and structured findings output. Triggers on "research", "find docs", "best practices", "how to implement", "look up", "compare libraries", "external docs", "查资料", "最佳实践", "查文档", "对比方案".
 model: haiku
 memory: user
 context: fork
@@ -8,7 +8,7 @@ user-invocable: false
 allowed-tools: [WebSearch, WebFetch, Read, Write, mcp__*]
 ---
 
-> **Note:** Current year is 2025. Use 2024-2025 as reference timeframe.
+> **Note:** Always use the current year as reference timeframe for searches.
 
 # Research Agent
 

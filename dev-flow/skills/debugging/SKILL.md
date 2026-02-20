@@ -1,6 +1,6 @@
 ---
 name: debugging
-description: Use when debugging failures, investigating crashes, troubleshooting unexpected behavior, or fixing bugs. Triggers on "debug", "调试", "troubleshoot", "排查", "fix bug", "修复bug".
+description: Debugs failures and investigates crashes using a 4-phase systematic approach (observe, hypothesize, test, fix) with optional subagent-driven parallel exploration. This skill should be used when the user encounters crashes, unexpected behavior, test failures, or production bugs that need root cause analysis. Triggers on "debug", "troubleshoot", "investigate crash", "fix bug", "diagnose issue", "root cause", "调试", "排查", "修复bug", "排查问题", "崩溃分析", "定位原因". Do NOT use for pre-commit linting or code quality checks — use "self-check" instead.
 model: opus
 memory: project
 context: fork

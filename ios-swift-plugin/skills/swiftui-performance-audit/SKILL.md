@@ -1,6 +1,6 @@
 ---
 name: swiftui-performance-audit
-description: Audits and improves SwiftUI runtime performance from code review and architecture. This skill should be used when diagnosing slow rendering, janky scrolling, high CPU/memory usage, excessive view updates, or layout thrash in SwiftUI apps. Triggers on "performance", "slow", "janky", "lag", "性能优化", "卡顿", "掉帧", "内存占用".
+description: Audits and optimizes SwiftUI runtime performance through code review and architecture analysis. This skill should be used when diagnosing slow rendering, janky scrolling, high CPU/memory usage, excessive view updates, or layout thrash in SwiftUI apps. Key capabilities include view invalidation analysis, identity stability checks, body computation profiling, and Instruments trace guidance. Triggers on "performance", "slow", "janky", "lag", "CPU", "memory", "view updates", "layout thrash", "Instruments", "性能优化", "卡顿", "掉帧", "内存占用". Do NOT use for general SwiftUI code writing or review — use swiftui-expert instead.
 allowed-tools: [Read, Glob, Grep, mcp__apple-docs__*]
 ---
 

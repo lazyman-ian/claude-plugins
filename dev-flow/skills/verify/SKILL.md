@@ -1,9 +1,12 @@
 ---
 name: verify
 description: >-
-  Use before claiming any work is complete. Enforces fresh verification
-  evidence before completion claims. Internal skill referenced by
-  implement-plan and agent-team. Triggers automatically, not user-invoked.
+  Enforces the verification-driven development (VDD) iron law: no completion claims without fresh
+  verification evidence. This skill should be used when any task, phase, or feature needs final
+  verification before being marked complete. Runs platform-specific build, lint, and test commands
+  and requires exit code 0 as the only acceptable completion signal. Invoked internally by
+  implement-plan, agent-team, and debugging — not directly by users.
+  Do NOT use for pre-commit linting only — use "self-check" instead.
 user-invocable: false
 allowed-tools: [Bash, Read, Glob, Grep]
 ---

@@ -1,6 +1,6 @@
 ---
 name: ios-ui-docs
-description: Provides iOS UIKit best practices and official documentation. This skill should be used when asking about UIButton, UILabel, UITableView, UICollectionView, Auto Layout, or any iOS UI component. Triggers on "iOS UI", "UIKit", "UIButton", "UITableView", "UICollectionView", "Auto Layout", "按钮", "布局", "列表", "UI 最佳实践", "iOS 组件".
+description: Provides iOS UIKit best practices, official documentation, and implementation patterns for UIKit components. This skill should be used when working with UIButton, UILabel, UITableView, UICollectionView, UIStackView, Auto Layout, or any UIKit-based UI component. Key capabilities include component reference lookup, diffable data source patterns, and compositional layout guidance. Triggers on "UIKit", "UIButton", "UILabel", "UITableView", "UICollectionView", "UIStackView", "Auto Layout", "UIViewController", "UINavigationController", "按钮", "布局", "列表", "UI 最佳实践", "iOS 组件". Do NOT use for SwiftUI views or patterns — use swiftui-expert instead. Do NOT use for general API search — use ios-api-helper instead.
 allowed-tools: [mcp__apple-docs__choose_technology, mcp__apple-docs__search_symbols, mcp__apple-docs__get_documentation, Read, Write, Edit]
 ---
 
