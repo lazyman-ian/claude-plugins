@@ -80,7 +80,6 @@ WHITE_BOLD="\033[1;37m"
 parsed=$(echo "$input" | jq -r '[
   (.context_window.used_percentage // 0),
   (.cost.total_duration_ms // 0),
-  (.cost.total_cost_usd // 0),
   (.model.display_name // ""),
   (.cost.total_lines_added // 0),
   (.cost.total_lines_removed // 0),
@@ -91,23 +90,29 @@ parsed=$(echo "$input" | jq -r '[
   (.context_window.total_output_tokens // 0),
   (.context_window.context_window_size // 200000),
   (.session_id // ""),
-  (.transcript_path // "")
-] | @tsv' 2>/dev/null || echo "0	0	0		0	0		0	0	0	0	200000		")
+  (.transcript_path // ""),
+  (.context_window.remaining_percentage // -1)
+] | @tsv' 2>/dev/null || echo "0	0		0	0		0	0	0	0	200000			-1")
 
 CONTEXT_PCT=$(echo "$parsed" | cut -f1)
 DURATION_MS=$(echo "$parsed" | cut -f2)
-COST_USD=$(echo "$parsed" | cut -f3)
-MODEL_NAME=$(echo "$parsed" | cut -f4)
-LINES_ADDED=$(echo "$parsed" | cut -f5)
-LINES_REMOVED=$(echo "$parsed" | cut -f6)
-AGENT_NAME=$(echo "$parsed" | cut -f7)
-CACHE_READ=$(echo "$parsed" | cut -f8)
-INPUT_TOKENS=$(echo "$parsed" | cut -f9)
-TOTAL_INPUT=$(echo "$parsed" | cut -f10)
-TOTAL_OUTPUT=$(echo "$parsed" | cut -f11)
-CONTEXT_SIZE=$(echo "$parsed" | cut -f12)
-SESSION_ID=$(echo "$parsed" | cut -f13)
-TRANSCRIPT_PATH=$(echo "$parsed" | cut -f14)
+MODEL_NAME=$(echo "$parsed" | cut -f3)
+LINES_ADDED=$(echo "$parsed" | cut -f4)
+LINES_REMOVED=$(echo "$parsed" | cut -f5)
+AGENT_NAME=$(echo "$parsed" | cut -f6)
+CACHE_READ=$(echo "$parsed" | cut -f7)
+INPUT_TOKENS=$(echo "$parsed" | cut -f8)
+TOTAL_INPUT=$(echo "$parsed" | cut -f9)
+TOTAL_OUTPUT=$(echo "$parsed" | cut -f10)
+CONTEXT_SIZE=$(echo "$parsed" | cut -f11)
+SESSION_ID=$(echo "$parsed" | cut -f12)
+TRANSCRIPT_PATH=$(echo "$parsed" | cut -f13)
+REMAINING_PCT=$(echo "$parsed" | cut -f14)
+
+# Prefer remaining_percentage (accounts for system overhead) over used_percentage
+if [ "$REMAINING_PCT" != "-1" ] && [ "$REMAINING_PCT" != "" ]; then
+    CONTEXT_PCT=$(awk -v r="$REMAINING_PCT" 'BEGIN{v=100-r; if(v<0)v=0; if(v>100)v=100; printf "%.0f",v}') || true
+fi
 
 # ========== Git 数据（单次采集） ==========
 IS_GIT=false
@@ -130,25 +135,54 @@ fi
 
 # ========== 第1行：主状态行 ==========
 
-# Context bar
+# Context bar (dual-color: conversation vs system overhead)
 generate_context_bar() {
-    local pct=${1%.*}
-    local filled=$((pct / 10))
-    local empty=$((10 - filled))
-    local color=""
+    local total_pct=${1%.*}      # total used (from remaining_percentage)
+    local conv_pct=${2%.*}       # conversation only (from used_percentage)
+    local has_split=$3            # whether we have both values
 
-    if [ "$pct" -lt 50 ]; then color="$GREEN"
-    elif [ "$pct" -lt 80 ]; then color="$YELLOW"
+    local total_filled=$((total_pct / 10))
+    local empty=$((10 - total_filled))
+
+    # Color based on total usage
+    local color=""
+    if [ "$total_pct" -lt 50 ]; then color="$GREEN"
+    elif [ "$total_pct" -lt 80 ]; then color="$YELLOW"
     else color="$RED"; fi
 
     local bar=""
-    for ((i=0; i<filled; i++)); do bar="${bar}█"; done
-    for ((i=0; i<empty; i++)); do bar="${bar}░"; done
+    if [ "$has_split" = "true" ] && [ "$conv_pct" -ge 0 ] 2>/dev/null && [ "$conv_pct" -lt "$total_pct" ]; then
+        # Dual-color: conversation blocks + system overhead blocks
+        local conv_filled=$((conv_pct / 10))
+        local sys_filled=$((total_filled - conv_filled))
+        [ "$sys_filled" -lt 0 ] && sys_filled=0
 
-    echo -e "${color}${bar}${RESET}"
+        for ((i=0; i<conv_filled; i++)); do bar="${bar}${color}█"; done
+        for ((i=0; i<sys_filled; i++)); do bar="${bar}${GRAY}▓"; done
+        bar="${bar}${RESET}"
+        for ((i=0; i<empty; i++)); do bar="${bar}░"; done
+    else
+        # Single color (no remaining_percentage available)
+        for ((i=0; i<total_filled; i++)); do bar="${bar}█"; done
+        for ((i=0; i<empty; i++)); do bar="${bar}░"; done
+        bar="${color}${bar}"
+    fi
+
+    echo -e "${bar}${RESET}"
 }
 
-CONTEXT_BAR=$(generate_context_bar "$CONTEXT_PCT")
+# Determine if we have dual-percentage data
+CONV_PCT=${CONTEXT_PCT%.*}
+HAS_SPLIT=false
+if [ "$REMAINING_PCT" != "-1" ] && [ "$REMAINING_PCT" != "" ]; then
+    # CONTEXT_PCT was overwritten to total; original used_percentage is conv-only
+    # Re-extract original used_percentage
+    CONV_PCT=$(echo "$parsed" | cut -f1)
+    CONV_PCT=${CONV_PCT%.*}
+    HAS_SPLIT=true
+fi
+
+CONTEXT_BAR=$(generate_context_bar "$CONTEXT_PCT" "$CONV_PCT" "$HAS_SPLIT")
 
 # 模型标识 + extended context
 get_model_badge() {
@@ -259,14 +293,6 @@ format_duration() {
 }
 DURATION=$(format_duration "$DURATION_MS")
 
-# 费用
-format_cost() {
-    local usd=$1
-    [ "$usd" = "0" ] && return
-    printf "\$%.2f" "$usd"
-}
-COST=$(format_cost "$COST_USD")
-
 # Rate Limit (P0)
 get_rate_limit() {
     [ "$CFG_SHOW_RATE_LIMIT" != "true" ] && return
@@ -372,7 +398,6 @@ LINE1=""
 LINE1="${LINE1}${CONTEXT_BAR} ${CONTEXT_PCT%.*}% ${GRAY}|${RESET} ${PHASE}"
 [ -n "$GIT_INFO" ] && LINE1="${LINE1} ${GRAY}|${RESET} ${GIT_INFO}"
 LINE1="${LINE1} ${GRAY}|${RESET} ${DURATION}"
-[ -n "$COST" ] && LINE1="${LINE1} ${GRAY}${COST}${RESET}"
 [ -n "$RATE_LIMIT" ] && LINE1="${LINE1} ${GRAY}|${RESET} ${RATE_LIMIT}"
 
 # Output Speed tok/s (P0)
