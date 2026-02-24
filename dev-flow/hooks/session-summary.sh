@@ -54,6 +54,12 @@ NEXT_STEPS=""
 API_KEY="${DEV_FLOW_API_KEY:-$ANTHROPIC_API_KEY}"
 API_URL="${DEV_FLOW_API_URL:-https://api.anthropic.com/v1/messages}"
 API_MODEL="${DEV_FLOW_MODEL:-claude-haiku-4-5-20251001}"
+# Auth header: Bearer for third-party endpoints, x-api-key for Anthropic
+if echo "$API_URL" | grep -qv 'api\.anthropic\.com'; then
+  AUTH_HEADER="Authorization: Bearer $API_KEY"
+else
+  AUTH_HEADER="x-api-key: $API_KEY"
+fi
 
 if [ -n "$API_KEY" ]; then
   # --- LLM-powered summary (high quality) ---
@@ -69,8 +75,7 @@ ${EXCERPT}"
   ESCAPED_PROMPT=$(echo "$PROMPT" | jq -Rs '.')
 
   RESPONSE=$(/usr/bin/curl -s --max-time 10 "${API_URL}" \
-    -H "x-api-key: $API_KEY" \
-    -H "anthropic-version: 2023-06-01" \
+    -H "$AUTH_HEADER" \
     -H "content-type: application/json" \
     -d "{
       \"model\": \"${API_MODEL}\",
@@ -82,7 +87,7 @@ ${EXCERPT}"
     }" 2>/dev/null)
 
   if [ -n "$RESPONSE" ]; then
-    SUMMARY_TEXT=$(echo "$RESPONSE" | jq -r '.content[0].text // empty' 2>/dev/null)
+    SUMMARY_TEXT=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // .content[0].text // empty' 2>/dev/null)
     if [ -n "$SUMMARY_TEXT" ]; then
       REQUEST=$(echo "$SUMMARY_TEXT" | jq -r '.request // empty' 2>/dev/null)
       INVESTIGATED=$(echo "$SUMMARY_TEXT" | jq -r '.investigated // empty' 2>/dev/null)
