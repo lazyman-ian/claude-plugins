@@ -1,6 +1,6 @@
 ---
 name: swift-concurrency
-description: Provides expert guidance on Swift Concurrency patterns, implementation, and issue remediation. This skill should be used when working with async/await, actors, tasks, Sendable conformance, fixing concurrency compiler errors, or migrating to Swift 6. Key capabilities include isolation boundary analysis, structured concurrency design, and escape-hatch justification. Triggers on "Swift Concurrency", "async/await", "actor", "@MainActor", "Sendable", "data race", "concurrency", "Swift 6", "Task", "TaskGroup", "并发", "线程安全", "异步", "Swift 并发".
+description: Provides expert guidance on Swift Concurrency patterns, implementation, and issue remediation. This skill should be used when working with async/await, actors, tasks, Sendable conformance, fixing concurrency compiler errors, or migrating to Swift 6. Key capabilities include isolation boundary analysis, structured concurrency design, and escape-hatch justification. Triggers on "Swift Concurrency", "async/await", "actor", "@MainActor", "Sendable", "data race", "concurrency", "Swift 6", "Task", "TaskGroup", "并发", "线程安全", "异步", "Swift 并发". Do NOT use for app startup, binary size, or memory profiling — use ios-performance-guide instead.
 memory: project
 allowed-tools: [Read, Glob, Grep, Edit, mcp__apple-docs__*]
 ---
@@ -140,8 +140,8 @@ class ViewModel: ObservableObject {
 |----------|-------|
 | **Guard** | `concurrency-guard.md` (11 anti-pattern rules) |
 | **Basics** | `async-await-basics.md`, `tasks.md`, `threading.md` |
-| **Safety** | `actors.md`, `sendable.md`, `memory-management.md` |
+| **Safety** | `actors.md`, `sendable.md`, `concurrency-memory.md` |
 | **Swift 6** | `migration.md`, `swift-6-2-concurrency.md`, `approachable-concurrency.md` |
-| **Advanced** | `async-sequences.md`, `async-algorithms.md`, `performance.md` |
+| **Advanced** | `async-sequences.md`, `async-algorithms.md`, `async-toolkit.md`, `performance.md` |
 | **Integration** | `core-data.md`, `testing.md`, `linting.md`, `swiftui-concurrency-tour-wwdc.md` |
 | **Reference** | `glossary.md` |

@@ -1,6 +1,6 @@
 ---
 name: swiftui-performance-audit
-description: Audits and optimizes SwiftUI runtime performance through code review and architecture analysis. This skill should be used when diagnosing slow rendering, janky scrolling, high CPU/memory usage, excessive view updates, or layout thrash in SwiftUI apps. Key capabilities include view invalidation analysis, identity stability checks, body computation profiling, and Instruments trace guidance. Triggers on "performance", "slow", "janky", "lag", "CPU", "memory", "view updates", "layout thrash", "Instruments", "性能优化", "卡顿", "掉帧", "内存占用". Do NOT use for general SwiftUI code writing or review — use swiftui-expert instead.
+description: Audits and optimizes SwiftUI runtime performance through code review and architecture analysis. This skill should be used when diagnosing slow rendering, janky scrolling, high CPU/memory usage, excessive view updates, or layout thrash in SwiftUI apps. Key capabilities include view invalidation analysis, identity stability checks, body computation profiling, and Instruments trace guidance. Triggers on "performance", "slow", "janky", "lag", "CPU", "memory", "view updates", "layout thrash", "Instruments", "性能优化", "卡顿", "掉帧", "内存占用". Do NOT use for general SwiftUI code writing or review — use swiftui-expert instead. Do NOT use for memory leaks, OOM crashes, binary size, or app startup — use ios-performance-guide instead.
 allowed-tools: [Read, Glob, Grep, mcp__apple-docs__*]
 ---
 
@@ -181,7 +181,7 @@ Provide:
 
 ## References
 
-Add Apple documentation and WWDC resources under `references/` as they are supplied by the user.
+- View identity (structural vs explicit) and Equatable optimization: `references/view-identity.md`
 - Optimizing SwiftUI performance with Instruments: `references/optimizing-swiftui-performance-instruments.md`
 - Understanding and improving SwiftUI performance: `references/understanding-improving-swiftui-performance.md`
 - Understanding hangs in your app: `references/understanding-hangs-in-your-app.md`

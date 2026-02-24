@@ -151,6 +151,33 @@ final class TabRouter {
 - Inject the router into the environment so child views can navigate and present sheets without prop-drilling.
 - Keep sheet presentation state on the router if you want a single place to manage modals.
 
+## Typed Route Enum vs NavigationPath
+
+| Approach | Typed `[Route]` | `NavigationPath` |
+|----------|----------------|------------------|
+| Type safety | Full — compiler checks all cases | Erased — runtime checks only |
+| Mixed types | One enum covers all routes | Multiple types via `navigationDestination(for:)` |
+| Persistence | Codable if enum is Codable | Built-in Codable support |
+| Complexity | Simple for small route sets | Better for deep/dynamic navigation |
+| Debugging | Easy — print the array | Opaque — count only |
+
+**Recommendation:** Use typed `[Route]` enum (shown above) for most apps. Switch to `NavigationPath` only when you need heterogeneous route types across modules that can't share a common enum.
+
+```swift
+// NavigationPath example (type-erased, heterogeneous)
+@Observable class Router {
+    var path = NavigationPath()
+
+    func push(_ destination: any Hashable) {
+        path.append(destination)
+    }
+}
+
+// Must register separate destinations per type
+.navigationDestination(for: AccountRoute.self) { ... }
+.navigationDestination(for: SettingsRoute.self) { ... }
+```
+
 ## Pitfalls
 
 - Do not share one path across all tabs unless you want global history.

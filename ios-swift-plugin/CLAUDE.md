@@ -11,11 +11,12 @@ Claude Code iOS/Swift 开发插件。
 
 ## Structure
 
-- `skills/` - 10 个 skills (swiftui-expert, swift-concurrency, etc.)
+- `skills/` - 12 个 skills (swiftui-expert, swift-concurrency, ios-performance-guide, ios-migration-advisor, etc.)
 - `commands/` - 4 个命令
 - `agents/` - 2 个 agents
 - `hooks/` - 2 个 hooks
 - `docs/GUIDE.md` - 中文完整指南
+- `docs/ios-community-blogs.md` - iOS 社区博客索引 (研究用)
 
 ## Marketplace
 
@@ -37,6 +38,21 @@ Valid fields:
 Auto-discovered (don't declare in plugin.json):
 - `agents/` directory
 - `hooks/hooks.json`
+
+## iOS Community Blog Sources
+
+When reference files lack coverage, search these blogs for up-to-date content. Full index: `docs/ios-community-blogs.md`
+
+| Topic | Primary Blogs |
+|-------|---------------|
+| SwiftUI | avanderlee.com, swiftwithmajid.com, onevcat.com |
+| Swift Concurrency | massicotte.org, alexdremov.me, donnywals.com |
+| Performance (system) | blog.ibireme.com, ming1016.github.io, emergetools.com/blog |
+| SwiftData / Core Data | fatbobman.com, donnywals.com |
+| Swift Testing | steipete.me, fatbobman.com, avanderlee.com |
+| @Observable | avanderlee.com, jessesquires.com |
+| Architecture | nalexn.github.io, casatwy.com |
+| Weekly roundup | mjtsai.com/blog, iosdevweekly.com |
 
 ## Reference
 

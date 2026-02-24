@@ -436,6 +436,78 @@ struct ChildView: View {
 
 **Why**: SwiftUI can't track changes through nested `ObservableObject` properties. Manual workarounds break animations. With `@Observable`, this isn't an issue.
 
+## @Observable Migration Pitfalls
+
+`@Observable` is NOT a drop-in replacement for `ObservableObject`. Key breakage scenarios:
+
+### Pitfall 1: @Published projections break
+
+```swift
+// ObservableObject — $name is a Publisher
+class VM: ObservableObject {
+    @Published var name = ""
+}
+vm.$name.sink { ... }  // Combine publisher
+
+// @Observable — $name is a Binding, NOT a publisher
+@Observable class VM {
+    var name = ""
+}
+// vm.$name.sink { ... }  // COMPILE ERROR — no publisher
+```
+
+**Fix:** Replace `$property.sink` with Combine's `publisher(for:)` or use `withObservationTracking`.
+
+### Pitfall 2: Observation requires property access in body
+
+```swift
+// WRONG — accessing object via `let` without reading a property
+struct MyView: View {
+    let vm: ViewModel  // @Observable object
+
+    var body: some View {
+        Text("Static")  // Never reads vm.anything → no tracking → no updates
+    }
+}
+
+// CORRECT — must read a property for tracking to work
+var body: some View {
+    Text(vm.title)  // Reads vm.title → tracks changes
+}
+```
+
+### Pitfall 3: @State with @Observable re-creates on parent rebuild
+
+```swift
+// DANGEROUS — ViewModel() runs on EVERY parent rebuild
+struct ChildView: View {
+    @State var vm = ViewModel()  // init() called repeatedly!
+}
+
+// SAFE — hold @State at stable parent (App struct or tab root)
+@main
+struct MyApp: App {
+    @State private var vm = ViewModel()  // Created once
+    var body: some Scene {
+        WindowGroup { ContentView(vm: vm) }
+    }
+}
+```
+
+### Pitfall 4: @EnvironmentObject is incompatible
+
+```swift
+// ObservableObject
+.environmentObject(vm)
+@EnvironmentObject var vm: VM
+
+// @Observable — must change to type-based
+.environment(vm)
+@Environment(VM.self) var vm
+```
+
+Source: [Jesse Squires: @Observable is NOT a drop-in replacement](https://www.jessesquires.com/blog/2024/09/09/swift-observable-macro/)
+
 ## Key Principles
 
 1. **Always prefer `@Observable` over `ObservableObject`** for new code
