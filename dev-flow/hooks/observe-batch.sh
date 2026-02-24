@@ -77,8 +77,10 @@ API_MODEL="${DEV_FLOW_MODEL:-claude-haiku-4-5-20251001}"
 # Auth header: Bearer for third-party endpoints, x-api-key for Anthropic
 if echo "$API_URL" | grep -qv 'api\.anthropic\.com'; then
   AUTH_HEADER="Authorization: Bearer $API_KEY"
+  ANTHROPIC_VERSION_HEADER=""
 else
   AUTH_HEADER="x-api-key: $API_KEY"
+  ANTHROPIC_VERSION_HEADER="anthropic-version: 2023-06-01"
 fi
 
 if [ -n "$API_KEY" ]; then
@@ -103,6 +105,7 @@ ${TOOL_LOG}"
 
   RESPONSE=$(/usr/bin/curl -s --max-time 15 "${API_URL}" \
     -H "$AUTH_HEADER" \
+    ${ANTHROPIC_VERSION_HEADER:+-H "$ANTHROPIC_VERSION_HEADER"} \
     -H "content-type: application/json" \
     -d "{
       \"model\": \"${API_MODEL}\",
@@ -114,7 +117,7 @@ ${TOOL_LOG}"
     }" 2>/dev/null)
 
   if [ -n "$RESPONSE" ]; then
-    OBS_TEXT=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // .content[0].text // empty' 2>/dev/null)
+    OBS_TEXT=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // .content[0].text // empty' 2>/dev/null | /usr/bin/sed '/^ *```/d')
   fi
 fi
 
