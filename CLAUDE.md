@@ -4,12 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-lazyman-ian marketplace for Claude Code plugins. Contains 4 plugins in a single repository.
+lazyman-ian marketplace for Claude Code plugins. Contains 5 plugins in a single repository.
 
 | Plugin | Version | Purpose |
 |--------|---------|---------|
 | dev-flow | 5.0.0 | Development workflow: brainstorm → plan → implement (5-gate pipeline) → commit → PR → release + automated code review (P0-P3) + agent-team + cross-platform team + 4-tier memory system |
 | ios-swift-plugin | 1.2.0 | iOS/Swift toolkit: SwiftUI, Concurrency, WidgetKit, Performance, Migration |
+| android-kotlin-plugin | 1.0.0 | Android/Kotlin toolkit: Compose, Coroutines, Performance, Architecture, Build, Migration |
 | utils | 1.3.0 | Code quality: deslop, search-code, safety hooks |
 | research | 1.3.0 | Research: Perplexity AI, Braintrust, RepoPrompt |
 
@@ -68,6 +69,7 @@ plugin-name/
 |-----------|---------|
 | `dev-flow/` | Workflow automation with MCP server |
 | `ios-swift-plugin/` | iOS/Swift toolkit |
+| `android-kotlin-plugin/` | Android/Kotlin toolkit |
 | `utils-plugin/` | Built-in: code quality hooks |
 | `research-plugin/` | Built-in: research tools |
 | `thoughts/` | Config optimizations, cross-platform plans |

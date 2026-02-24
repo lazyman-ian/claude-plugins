@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Check if the file being edited is a Kotlin file (.kt). If it is, verify the edit does not introduce these coroutine anti-patterns: 1) GlobalScope.launch without justification comment, 2) runBlocking on main thread, 3) catching CancellationException, 4) using launchWhenStarted/launchWhenResumed (deprecated), 5) collectAsState() without WithLifecycle. If any pattern is found, warn but allow (exit 0). Only respond if a pattern is detected.",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  }
+}

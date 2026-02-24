@@ -1,0 +1,23 @@
+{
+  "name": "android-kotlin-plugin",
+  "version": "1.0.0",
+  "description": "Comprehensive Android/Kotlin development toolkit with Jetpack Compose, Kotlin Coroutines, performance optimization, architecture patterns, and migration guidance.",
+  "author": {
+    "name": "lazyman",
+    "url": "https://github.com/lazyman-ian"
+  },
+  "repository": "https://github.com/lazyman-ian/android-kotlin-plugin",
+  "license": "MIT",
+  "keywords": [
+    "android",
+    "kotlin",
+    "compose",
+    "coroutines",
+    "jetpack",
+    "gradle",
+    "performance",
+    "architecture"
+  ],
+  "skills": "./skills/",
+  "commands": "./commands/"
+}
