@@ -333,8 +333,12 @@ get_rate_limit() {
     fi
 
     # Refresh from API
-    local token
-    token=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null) || true
+    local token raw_cred
+    raw_cred=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null) || true
+    [ -z "$raw_cred" ] && return
+    # Try JSON first (legacy), then hex-encoded format (current)
+    token=$(echo "$raw_cred" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null) || true
+    [ -z "$token" ] && token=$(echo "$raw_cred" | xxd -r -p 2>/dev/null | perl -0777 -ne 'if (/accessToken":"([^"]+)/) { print $1 }' 2>/dev/null) || true
     [ -z "$token" ] && return
 
     local response
