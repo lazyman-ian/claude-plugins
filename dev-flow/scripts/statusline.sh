@@ -386,15 +386,23 @@ format_rate_limit() {
     local reset_str=""
     if [ -n "$resets_at" ]; then
         local reset_epoch
-        reset_epoch=$(date -jf "%Y-%m-%dT%H:%M:%S" "${resets_at%%.*}" +%s 2>/dev/null) || true
+        reset_epoch=$(date -ujf "%Y-%m-%dT%H:%M:%S" "${resets_at%%.*}" +%s 2>/dev/null) || true
         if [ -n "$reset_epoch" ]; then
             local now_epoch=$(date +%s)
-            local mins_left=$(( (reset_epoch - now_epoch) / 60 ))
-            [ "$mins_left" -lt 0 ] && mins_left=0
+            local secs_left=$(( reset_epoch - now_epoch ))
+            [ "$secs_left" -lt 0 ] && secs_left=0
             local rc="$GRAY"
             [ "$five_pct" -ge 80 ] 2>/dev/null && rc="$YELLOW"
             [ "$five_pct" -ge 100 ] 2>/dev/null && rc="$RED"
-            reset_str=" ${rc}↻${mins_left}m${RESET}"
+            local hrs=$(( secs_left / 3600 ))
+            local mins=$(( (secs_left % 3600) / 60 ))
+            local time_str
+            if [ "$hrs" -gt 0 ]; then
+                time_str="${hrs}h${mins}m"
+            else
+                time_str="${mins}m"
+            fi
+            reset_str=" ${rc}↻${time_str}${RESET}"
         fi
     fi
 
