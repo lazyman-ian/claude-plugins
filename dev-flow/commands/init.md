@@ -98,7 +98,17 @@ Write config using detected platform + selected tier:
 📚 See CLAUDE.md for full workflow guide
 ```
 
-### 5. Memory Tier Setup (auto, based on Step 3 selection)
+### 5. Install Rules
+
+After platform detection and writing `.dev-flow.json`, auto-install matching rule templates:
+
+Run `/dev rules install` with detected platform. This creates `.claude/rules/dev-flow/` with:
+- Always: `coding-style`, `testing`, `git-workflow`, `security`, `performance`, `agent-rules`
+- Platform-specific: `coding-style-swift` (iOS), `coding-style-kotlin` (Android), `coding-style-typescript` (Web), `ios-pitfalls` (iOS), `android-pitfalls` (Android)
+
+Rules are namespaced under `.claude/rules/dev-flow/` to avoid conflicts with existing project rules.
+
+### 6. Memory Tier Setup (auto, based on Step 3 selection)
 
 Immediately after writing `.dev-flow.json`:
 
