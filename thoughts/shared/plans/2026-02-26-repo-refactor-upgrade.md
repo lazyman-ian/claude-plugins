@@ -835,7 +835,7 @@ echo '{"tool_input":{"file_path":"test.ts"}}' | hooks/scripts/post-edit-format.s
 
 **目标**: 从 4-tier memory → 4-tier + instinct evolution
 
-### 4.1 Instinct System (灵感: ECC continuous-learning-v2)
+### ~~4.1 Instinct System (灵感: ECC continuous-learning-v2)~~ ✅
 
 **核心概念**: 从 session 观察中提取原子化 "直觉"，积累后进化为 skill/command/agent
 
@@ -869,7 +869,7 @@ Use guard-let over if-let for early returns
 3. 添加 `dev_memory(action="instinct-list")` — 列出当前 instincts
 4. 添加 `/dev evolve` 命令 — 将高置信度 instincts 聚类为 skills
 
-### 4.2 Iterative Retrieval Pattern (灵感: ECC)
+### ~~4.2 Iterative Retrieval Pattern (灵感: ECC)~~ ✅
 
 **问题**: 子代理不知道需要什么上下文，当前是静态分配
 
@@ -884,7 +884,7 @@ Phase 4: LOOP (最多 3 轮)
 
 **实现**: 创建 `references/iterative-retrieval.md`，在 implement-agent、debug-agent 等复杂 agent 中引用
 
-### 4.3 Memory Tier 4: Instinct Store
+### ~~4.3 Memory Tier 4: Instinct Store~~ ✅
 
 扩展现有 tier 架构：
 

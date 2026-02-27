@@ -20,6 +20,7 @@ import * as android from './platforms/android';
 import * as continuity from './continuity';
 import * as coordination from './coordination';
 import { commitTool } from './git/commit';
+import { instinctExtract, instinctList } from './continuity/instincts';
 
 const server = new Server(
   { name: 'dev-flow-mcp', version: '2.1.0' },
@@ -310,6 +311,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         },
       },
     },
+    {
+      name: 'dev_instinct',
+      description: '[~30 tokens] Extract and list behavioral instincts from session observations',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', enum: ['extract', 'list'], description: 'Action to perform' },
+          domain: { type: 'string', description: 'Filter by domain (list only)' },
+        },
+        required: ['action'],
+      },
+    },
   ],
 }));
 
@@ -468,6 +481,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return aggregateTool(args?.action as string, args?.handoffIds as string, args?.taskId as string);
       case 'dev_commit':
         return commitTool(args?.action as string, args?.token as string, args?.message as string, args?.skip_review as boolean);
+      case 'dev_instinct': {
+        const action = args?.action as string;
+        const cwd = process.cwd();
+        if (action === 'extract') {
+          const result = instinctExtract(cwd);
+          return { content: [{ type: 'text', text: result.message }] };
+        } else if (action === 'list') {
+          const instincts = instinctList(cwd, args?.domain as string);
+          const text = instincts.length === 0
+            ? 'No instincts found. Run extract first.'
+            : instincts.map(i => `[${i.confidence.toFixed(1)}] ${i.trigger} → ${i.action} (${i.domain}, ${i.evidenceCount} evidence)`).join('\n');
+          return { content: [{ type: 'text', text }] };
+        }
+        return { content: [{ type: 'text', text: '❌ Action required: extract|list' }] };
+      }
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
