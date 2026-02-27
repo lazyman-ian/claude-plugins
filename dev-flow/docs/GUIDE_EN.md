@@ -8,6 +8,15 @@
 - [Quick Start](#quick-start)
 - [Core Workflow](#core-workflow)
 - [Advanced Features](#advanced-features)
+  - [Ledger State Management](#ledger-state-management)
+  - [Knowledge Base](#knowledge-base)
+  - [Memory System](#memory-system)
+  - [Instinct System](#instinct-system) *(v6.0.0)*
+  - [Notion Pipeline](#notion-pipeline) *(v6.0.0)*
+  - [Product Brain](#product-brain) *(v6.0.0)*
+  - [Rules Distribution](#rules-distribution) *(v6.0.0)*
+  - [Multi-Agent Coordination](#multi-agent-coordination)
+  - [Meta-Iterate Self-Improvement](#meta-iterate-self-improvement)
 - [Best Practices](#best-practices)
 - [FAQ](#faq)
 - [Claude Code Integration](#claude-code-integration)
@@ -596,6 +605,239 @@ All data in `.claude/cache/artifact-index/context.db`:
 | synonyms | Synonym expansion (FTS5 query enhancement) | 0 |
 | session_summaries + _fts | Session summaries | 1 |
 | observations + _fts | Observation records | 3 |
+
+### Instinct System
+
+Automatically extract reusable patterns from work observations. Once confidence reaches threshold, instincts can evolve into skills/rules/commands.
+
+#### Prerequisites
+
+Requires Tier 3 memory (`"memory": { "tier": 3 }` in `.dev-flow.json`), as instincts are extracted from the `observations` table.
+
+#### How It Works
+
+```
+Sessions (Tier 3 observations) → observations table
+    → dev_instinct(extract) → cluster into instincts
+    → dev_instinct(list) → review high-confidence instincts
+    → /dev evolve → evolve into skill/rule/command
+```
+
+#### Usage
+
+```bash
+# Extract instincts from observations (DBSCAN-style clustering)
+dev_instinct(action='extract')
+
+# List all instincts (by confidence, descending)
+dev_instinct(action='list')
+
+# Filter by domain
+dev_instinct(action='list', domain='swift-style')
+```
+
+#### Confidence Mechanism
+
+| Confidence | Meaning | Evolvable? |
+|-----------|---------|------------|
+| 0.3 | Initial (first cluster from 3+ observations) | No |
+| 0.5-0.7 | Medium (reinforced by repeated extraction) | No |
+| 0.8-0.89 | High (requires confirmation to evolve) | Confirm first |
+| >= 0.9 | Very high (well validated) | Yes, directly |
+
+Each `extract` call increments confidence by +0.1 for existing clusters (capped at 1.0).
+
+#### Auto Domain Classification
+
+| Domain | Keywords |
+|--------|----------|
+| swift-style | swift, guard, optional, closure, protocol |
+| android-kotlin | kotlin, android, compose, coroutine, flow |
+| typescript | typescript, type, interface, generic, async |
+| git-workflow | commit, branch, merge, rebase, push |
+| testing | test, mock, assert, spec, unit |
+| performance | performance, memory, optimize, cache, slow |
+
+#### Evolution (/dev evolve)
+
+Convert high-confidence instincts into persistent assets:
+
+| Instinct Type | Evolution Target | Registration |
+|---------------|-----------------|-------------|
+| Pattern/Rule | `.claude/rules/pattern-*.md` | Auto-discovered |
+| Action | `skills/new-skill/SKILL.md` | Via plugin.json |
+| Workflow | `commands/new-command.md` | Auto-discovered |
+| Prevention | `.claude/rules/anti-pattern-*.md` | Auto-discovered |
+
+### Notion Pipeline
+
+Pull tasks from Notion databases, generate specs, and automate the requirements-to-implementation pipeline.
+
+#### Configuration
+
+Add Notion config in `.dev-flow.json`:
+
+```json
+{
+  "notion": {
+    "database_id": "your-database-id",
+    "status_field": "Status",
+    "priority_field": "Priority",
+    "type_field": "Type",
+    "platform_field": "Platform"
+  }
+}
+```
+
+> Requires Notion MCP server installed and authorized.
+
+#### Full Pipeline
+
+```
+Notion DB → /dev inbox → select task → /dev spec → generate spec
+    → human confirm → /dev create-plan → /dev implement-plan
+```
+
+#### /dev inbox — Task Triage
+
+```bash
+# View all tasks
+/dev inbox
+
+# Filter by priority
+/dev inbox --priority High
+
+# Filter by platform
+/dev inbox --platform iOS
+```
+
+Example output:
+```
+| # | Title              | Priority | Platform | Status      |
+|---|--------------------|----------|----------|-------------|
+| 1 | Optimize user login | High     | iOS      | In Progress |
+| 2 | Dark mode support   | Medium   | Android  | To Do       |
+```
+
+Select a task to automatically chain to `/dev spec`.
+
+#### /dev spec — Spec Generation
+
+```bash
+# Generate spec from selected task
+/dev spec {page_id}
+```
+
+**Auto-executes**:
+1. Fetch page details via Notion MCP
+2. Classify task type (Feature / Bug / Improvement / Tech-Debt)
+3. Load corresponding template and fill content
+4. Save to `thoughts/shared/specs/SPEC-{id}.md`
+5. Human confirmation, then chain to `/dev create-plan`
+
+### Product Brain
+
+Extract, store, and query product architecture knowledge. Automatically captures domain knowledge after each implementation for future context.
+
+#### Usage
+
+```bash
+# Auto-extract from recent commits
+dev_product(action='extract')
+
+# Extract with spec file for richer context
+dev_product(action='extract', specPath='thoughts/shared/specs/SPEC-001.md')
+
+# Query by domain
+dev_product(action='query', domain='ios')
+
+# Query by topic
+dev_product(action='query', topic='authentication')
+
+# Keyword search
+dev_product(action='query', query='JWT token')
+
+# Manually save a knowledge entry
+dev_product(action='save', title='Auth architecture', content='Using JWT + refresh token...', domain='backend', topic='authentication')
+
+# Write to Auto Memory topic files
+dev_product(action='write_topics')
+```
+
+#### Auto Classification
+
+File paths auto-infer domain and topic:
+
+| Domain | Path Signals |
+|--------|-------------|
+| ios | `/ios/`, `.swift`, `xcodeproj` |
+| android | `/android/`, `.kt`, `gradle` |
+| web | `/web/`, `.tsx`, `.jsx` |
+| backend | `/backend/`, `/api/`, `.go`, `.py` |
+
+| Topic | Path Signals |
+|-------|-------------|
+| authentication | `auth`, `login`, `session` |
+| navigation | `nav`, `router`, `route` |
+| data-layer | `data`, `model`, `schema`, `db` |
+| ui | `ui`, `view`, `component`, `screen` |
+| networking | `network`, `api`, `request`, `http` |
+
+#### Recommended Workflow
+
+```
+Spec → implement → commit
+    → dev_product(extract, specPath: "specs/SPEC-X.md")  # capture knowledge
+    → before next related work: dev_product(query, domain: "ios")  # retrieve context
+```
+
+### Rules Distribution
+
+Platform-aware rule templates auto-installed to `.claude/rules/`.
+
+#### Usage
+
+```bash
+# List all available templates
+/dev rules list
+
+# Auto-detect platform and install matching rules
+/dev rules install
+
+# Install all templates regardless of platform
+/dev rules install --all
+
+# Show diff between installed rules and templates
+/dev rules diff
+
+# Update installed rules to latest template versions
+/dev rules sync
+```
+
+#### Available Templates (11)
+
+| Template | Scope | Description |
+|----------|-------|-------------|
+| `coding-style.md` | Global | General coding style |
+| `coding-style-swift.md` | `**/*.swift` | Swift coding conventions |
+| `coding-style-kotlin.md` | `**/*.kt` | Kotlin coding conventions |
+| `coding-style-typescript.md` | `**/*.ts` | TypeScript coding conventions |
+| `ios-pitfalls.md` | `**/*.swift` | iOS common pitfalls |
+| `android-pitfalls.md` | `**/*.kt` | Android common pitfalls |
+| `testing.md` | Global | Testing standards |
+| `git-workflow.md` | Global | Git workflow |
+| `security.md` | Global | Security rules |
+| `performance.md` | Global | Performance optimization |
+| `agent-rules.md` | Global | Agent behavior rules |
+
+#### Install Logic
+
+1. Detect platform via `dev_config`
+2. **Always install**: coding-style, testing, git-workflow, security, performance, agent-rules
+3. **Platform-specific**: iOS → coding-style-swift + ios-pitfalls; Android → coding-style-kotlin + android-pitfalls; TypeScript → coding-style-typescript
+4. Install to `.claude/rules/dev-flow/` (namespaced)
+
+> `/dev init` automatically calls `/dev rules install` — no manual setup needed.
 
 ### Multi-Agent Coordination
 

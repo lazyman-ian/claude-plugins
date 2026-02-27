@@ -8,6 +8,15 @@
 - [快速开始](#快速开始)
 - [核心工作流](#核心工作流)
 - [高级功能](#高级功能)
+  - [Ledger 状态管理](#ledger-状态管理)
+  - [Knowledge Base 知识库](#knowledge-base-知识库)
+  - [Memory System 记忆系统](#memory-system-记忆系统)
+  - [Instinct 系统](#instinct-系统) *(v6.0.0)*
+  - [Notion Pipeline](#notion-pipeline) *(v6.0.0)*
+  - [Product Brain](#product-brain) *(v6.0.0)*
+  - [Rules 分发系统](#rules-分发系统) *(v6.0.0)*
+  - [Multi-Agent 协调](#multi-agent-协调)
+  - [Meta-Iterate 自我迭代](#meta-iterate-自我迭代)
 - [最佳实践](#最佳实践)
 - [常见问题](#常见问题)
 - [Claude Code 配合使用](#claude-code-配合使用)
@@ -595,6 +604,239 @@ dev_memory(action='status')
 | synonyms | 同义词扩展 (FTS5 查询增强) | 0 |
 | session_summaries + _fts | Session 总结 | 1 |
 | observations + _fts | 观察记录 | 3 |
+
+### Instinct 系统
+
+从工作观察中自动提取可复用模式，积累到一定置信度后可进化为 skill/rule/command。
+
+#### 前提
+
+需要 Tier 3 记忆（`.dev-flow.json` 中 `"memory": { "tier": 3 }`），因为 instinct 从 `observations` 表中提取。
+
+#### 工作原理
+
+```
+Sessions (Tier 3 观察) → observations 表
+    → dev_instinct(extract) → 聚类为 instinct
+    → dev_instinct(list) → 查看高置信度 instinct
+    → /dev evolve → 进化为 skill/rule/command
+```
+
+#### 使用方式
+
+```bash
+# 从观察数据中提取 instinct（DBSCAN 风格聚类）
+dev_instinct(action='extract')
+
+# 查看所有 instinct（按置信度降序）
+dev_instinct(action='list')
+
+# 按领域过滤
+dev_instinct(action='list', domain='swift-style')
+```
+
+#### 置信度机制
+
+| 置信度 | 含义 | 可进化？ |
+|--------|------|---------|
+| 0.3 | 初始（首次从 3+ 观察聚类） | ❌ |
+| 0.5-0.7 | 中等（多次提取增强） | ❌ |
+| 0.8-0.89 | 较高（需确认后进化） | ⚠️ 需确认 |
+| >= 0.9 | 高（充分验证） | ✅ 直接进化 |
+
+每次 `extract` 遇到已有聚类时置信度 +0.1（上限 1.0）。
+
+#### 自动领域分类
+
+| 领域 | 关键词 |
+|------|--------|
+| swift-style | swift, guard, optional, closure, protocol |
+| android-kotlin | kotlin, android, compose, coroutine, flow |
+| typescript | typescript, type, interface, generic, async |
+| git-workflow | commit, branch, merge, rebase, push |
+| testing | test, mock, assert, spec, unit |
+| performance | performance, memory, optimize, cache, slow |
+
+#### 进化（/dev evolve）
+
+将高置信度 instinct 转化为持久化资产：
+
+| Instinct 类型 | 进化目标 | 注册方式 |
+|---------------|---------|---------|
+| 模式/规则 | `.claude/rules/pattern-*.md` | 自动发现 |
+| 操作/动作 | `skills/new-skill/SKILL.md` | plugin.json |
+| 工作流 | `commands/new-command.md` | 自动发现 |
+| 防御/预防 | `.claude/rules/anti-pattern-*.md` | 自动发现 |
+
+### Notion Pipeline
+
+从 Notion 数据库拉取任务、生成规格说明，实现需求到实现的自动化流水线。
+
+#### 配置
+
+在 `.dev-flow.json` 中添加 Notion 配置：
+
+```json
+{
+  "notion": {
+    "database_id": "your-database-id",
+    "status_field": "Status",
+    "priority_field": "Priority",
+    "type_field": "Type",
+    "platform_field": "Platform"
+  }
+}
+```
+
+> 需要安装 Notion MCP server 并完成授权。
+
+#### 完整流水线
+
+```
+Notion DB → /dev inbox → 选择任务 → /dev spec → 生成规格
+    → 人工确认 → /dev create-plan → /dev implement-plan
+```
+
+#### /dev inbox — 任务分拣
+
+```bash
+# 查看所有任务
+/dev inbox
+
+# 按优先级过滤
+/dev inbox --priority High
+
+# 按平台过滤
+/dev inbox --platform iOS
+```
+
+输出示例：
+```
+| # | Title              | Priority | Platform | Status      |
+|---|--------------------|----------|----------|-------------|
+| 1 | 用户登录优化        | High     | iOS      | In Progress |
+| 2 | 暗黑模式支持        | Medium   | Android  | To Do       |
+```
+
+选择任务后自动链接到 `/dev spec`。
+
+#### /dev spec — 规格生成
+
+```bash
+# 从选择的任务生成规格
+/dev spec {page_id}
+```
+
+**自动执行**：
+1. 通过 Notion MCP 获取页面详情
+2. 分类任务类型（Feature / Bug / Improvement / Tech-Debt）
+3. 加载对应模板填充内容
+4. 保存到 `thoughts/shared/specs/SPEC-{id}.md`
+5. 人工确认后链接到 `/dev create-plan`
+
+### Product Brain
+
+产品架构知识的抽取、存储和查询。每次实现后自动提取领域知识，为后续相关工作提供上下文。
+
+#### 使用方式
+
+```bash
+# 从最近 commit 自动提取知识
+dev_product(action='extract')
+
+# 指定 spec 文件提取更丰富的上下文
+dev_product(action='extract', specPath='thoughts/shared/specs/SPEC-001.md')
+
+# 按领域查询
+dev_product(action='query', domain='ios')
+
+# 按主题查询
+dev_product(action='query', topic='authentication')
+
+# 关键词搜索
+dev_product(action='query', query='JWT token')
+
+# 手动保存知识条目
+dev_product(action='save', title='认证架构', content='使用 JWT + refresh token...', domain='backend', topic='authentication')
+
+# 输出到 Auto Memory topic 文件
+dev_product(action='write_topics')
+```
+
+#### 自动分类
+
+文件路径自动推断领域和主题：
+
+| 领域 | 路径信号 |
+|------|---------|
+| ios | `/ios/`, `.swift`, `xcodeproj` |
+| android | `/android/`, `.kt`, `gradle` |
+| web | `/web/`, `.tsx`, `.jsx` |
+| backend | `/backend/`, `/api/`, `.go`, `.py` |
+
+| 主题 | 路径信号 |
+|------|---------|
+| authentication | `auth`, `login`, `session` |
+| navigation | `nav`, `router`, `route` |
+| data-layer | `data`, `model`, `schema`, `db` |
+| ui | `ui`, `view`, `component`, `screen` |
+| networking | `network`, `api`, `request`, `http` |
+
+#### 推荐工作流
+
+```
+Spec → 实现 → commit
+    → dev_product(extract, specPath: "specs/SPEC-X.md")  # 提取知识
+    → 下次相关工作前: dev_product(query, domain: "ios")  # 查询上下文
+```
+
+### Rules 分发系统
+
+平台感知的规则模板，自动安装到 `.claude/rules/` 目录。
+
+#### 使用方式
+
+```bash
+# 查看所有可用模板
+/dev rules list
+
+# 自动检测平台并安装匹配的规则
+/dev rules install
+
+# 安装所有模板（不论平台）
+/dev rules install --all
+
+# 查看已安装规则与模板的差异
+/dev rules diff
+
+# 更新已安装规则到最新版本
+/dev rules sync
+```
+
+#### 可用模板（11 个）
+
+| 模板 | 作用域 | 说明 |
+|------|--------|------|
+| `coding-style.md` | 全局 | 通用编码风格 |
+| `coding-style-swift.md` | `**/*.swift` | Swift 编码规范 |
+| `coding-style-kotlin.md` | `**/*.kt` | Kotlin 编码规范 |
+| `coding-style-typescript.md` | `**/*.ts` | TypeScript 编码规范 |
+| `ios-pitfalls.md` | `**/*.swift` | iOS 常见陷阱 |
+| `android-pitfalls.md` | `**/*.kt` | Android 常见陷阱 |
+| `testing.md` | 全局 | 测试规范 |
+| `git-workflow.md` | 全局 | Git 工作流 |
+| `security.md` | 全局 | 安全规则 |
+| `performance.md` | 全局 | 性能优化规则 |
+| `agent-rules.md` | 全局 | Agent 行为规则 |
+
+#### 安装逻辑
+
+1. 通过 `dev_config` 检测平台
+2. **始终安装**：coding-style、testing、git-workflow、security、performance、agent-rules
+3. **平台特定**：iOS → coding-style-swift + ios-pitfalls；Android → coding-style-kotlin + android-pitfalls；TypeScript → coding-style-typescript
+4. 安装到 `.claude/rules/dev-flow/`（命名空间隔离）
+
+> `/dev init` 会自动调用 `/dev rules install`，无需手动安装。
 
 ### Multi-Agent 协调
 
