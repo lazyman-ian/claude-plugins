@@ -162,6 +162,17 @@
             "async": true
           }
         ]
+      },
+      {
+        "matcher": "Bash(*DEV_FLOW_COMMIT*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/post-impl-extract.sh",
+            "timeout": 5,
+            "async": true
+          }
+        ]
       }
     ]
   }

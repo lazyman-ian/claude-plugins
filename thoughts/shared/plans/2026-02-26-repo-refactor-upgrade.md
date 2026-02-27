@@ -1514,10 +1514,10 @@ Phase 9 的 SPEC 模板需引用 Product Brain：
 ### Success Criteria (Phase 10)
 
 #### Automated Verification:
-- [ ] MCP server builds: `npm run --prefix dev-flow/mcp-server build`
-- [ ] Product Brain module exists: `test -f dev-flow/mcp-server/src/continuity/product-brain.ts`
-- [ ] Product directory exists: `test -d thoughts/shared/product`
-- [ ] Hook exists: `test -f dev-flow/hooks/scripts/post-impl-extract.sh`
+- [x] MCP server builds: `npm run --prefix dev-flow/mcp-server build`
+- [x] Product Brain module exists: `test -f dev-flow/mcp-server/src/continuity/product-brain.ts`
+- [x] Product directory exists: `test -d thoughts/shared/product`
+- [x] Hook exists: `test -f dev-flow/hooks/scripts/post-impl-extract.sh`
 
 #### Manual Verification:
 - [ ] `dev_memory(action="product-save", ...)` 写入成功
@@ -1970,10 +1970,10 @@ paths:
 ### Success Criteria (Phase 12)
 
 #### Automated Verification:
-- [ ] 模板文件完整: `ls dev-flow/templates/rules/*.md | wc -l` ≥ 8
-- [ ] Path-scoped 变体有 frontmatter: `grep -l 'paths:' dev-flow/templates/rules/*-swift.md`
-- [ ] /dev rules 命令存在: `test -f dev-flow/commands/rules.md`
-- [ ] MCP server builds: `npm run --prefix dev-flow/mcp-server build`
+- [x] 模板文件完整: `ls dev-flow/templates/rules/*.md | wc -l` ≥ 8 (actual: 11)
+- [x] Path-scoped 变体有 frontmatter: `grep -l 'paths:' dev-flow/templates/rules/*-swift.md`
+- [x] /dev rules 命令存在: `test -f dev-flow/commands/rules.md`
+- [x] MCP server builds: `npm run --prefix dev-flow/mcp-server build`
 
 #### Manual Verification:
 - [ ] `/dev init` 在 iOS 项目中安装 coding-style-swift.md + ios-pitfalls.md
