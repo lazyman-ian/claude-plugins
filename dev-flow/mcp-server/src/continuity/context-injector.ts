@@ -11,7 +11,7 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
 import { join, basename } from 'path';
 import { homedir } from 'os';
 import { detectPlatformSimple } from '../detector';
@@ -197,7 +197,130 @@ function loadLastSessionSummary(project: string, maxChars: number): string {
 
 // --- Public API ---
 
+const MEMORY_MARKER_START = '<!-- DEV-MEMORY-START -->';
+const MEMORY_MARKER_END = '<!-- DEV-MEMORY-END -->';
+// ~80 lines budget: roughly 4000 chars at ~50 chars/line
+const MEMORY_MD_BUDGET = 4000;
+
+/**
+ * Sync dev memory context into MEMORY.md between marker comments.
+ * Preserves all human-written content outside the markers.
+ * If markers don't exist, appends a new Dev Memory section.
+ */
+export function syncToMemoryMd(memoryMdPath: string): void {
+  const platform = detectPlatform();
+  const branchKeywords = extractBranchKeywords();
+  const fileKeywords = getRecentFileKeywords();
+  const allKeywords = [...new Set([...branchKeywords, ...fileKeywords])];
+
+  const lines: string[] = [];
+
+  // 1. Platform pitfalls (always)
+  const pitfalls = loadPlatformPitfalls(platform, BUDGET_PITFALLS);
+  if (pitfalls) {
+    // Convert to concise bullet points
+    const bulletPitfalls = pitfallsToBullets(pitfalls, platform);
+    if (bulletPitfalls) lines.push(bulletPitfalls);
+  }
+
+  // 2. Task-related knowledge (FTS match)
+  if (allKeywords.length > 0) {
+    const taskKnowledge = queryKnowledgeFts(allKeywords, BUDGET_TASK);
+    if (taskKnowledge) {
+      lines.push(`**Related** (${allKeywords.join(', ')}):\n${taskKnowledge.trimEnd()}`);
+    }
+  }
+
+  // 3. Recent discoveries (7 days)
+  const recent = loadRecentDiscoveries(BUDGET_RECENT);
+  if (recent) {
+    lines.push(`**Recent discoveries:**\n${recent.trimEnd()}`);
+  }
+
+  // 4. Last session summary
+  const project = getProjectName();
+  const lastSession = loadLastSessionSummary(project, BUDGET_LAST_SESSION);
+  if (lastSession) {
+    lines.push(`**Last session:**\n${lastSession.trimEnd()}`);
+  }
+
+  // Build replacement block
+  let devMemorySection = `## Dev Memory\n\n`;
+  if (lines.length === 0) {
+    devMemorySection += '_No dev memory entries yet. Run `dev_memory consolidate` to populate._\n';
+  } else {
+    let body = lines.join('\n\n');
+    if (body.length > MEMORY_MD_BUDGET) {
+      body = body.slice(0, MEMORY_MD_BUDGET);
+      const lastNl = body.lastIndexOf('\n');
+      if (lastNl > MEMORY_MD_BUDGET * 0.8) body = body.slice(0, lastNl);
+    }
+    devMemorySection += body + '\n';
+  }
+
+  const newBlock = `${MEMORY_MARKER_START}\n${devMemorySection}\n${MEMORY_MARKER_END}`;
+
+  // Read existing MEMORY.md or create empty baseline
+  let existing = '';
+  if (existsSync(memoryMdPath)) {
+    existing = readFileSync(memoryMdPath, 'utf-8');
+  }
+
+  let updated: string;
+  if (existing.includes(MEMORY_MARKER_START) && existing.includes(MEMORY_MARKER_END)) {
+    // Replace only the region between markers
+    const startIdx = existing.indexOf(MEMORY_MARKER_START);
+    const endIdx = existing.indexOf(MEMORY_MARKER_END) + MEMORY_MARKER_END.length;
+    updated = existing.slice(0, startIdx) + newBlock + existing.slice(endIdx);
+  } else {
+    // Append at end with blank line separator
+    const separator = existing.length > 0 && !existing.endsWith('\n\n') ? '\n\n' : '';
+    updated = existing + separator + newBlock + '\n';
+  }
+
+  writeFileSync(memoryMdPath, updated, 'utf-8');
+}
+
+/**
+ * Convert the pitfalls.md content (### headers) into concise bullet points.
+ */
+function pitfallsToBullets(content: string, platform: string): string {
+  const entries: string[] = [];
+  // Match ### Title blocks
+  const headerRe = /^### (.+)$/gm;
+  let match: RegExpExecArray | null;
+  while ((match = headerRe.exec(content)) !== null) {
+    const title = match[1].trim();
+    // Find the next line after the header that is non-empty for a brief snippet
+    const afterHeader = content.slice(match.index + match[0].length);
+    const firstLine = afterHeader.split('\n').find(l => l.trim().length > 0) || '';
+    const snippet = firstLine.replace(/^\*\*(Problem|Solution|Source)\*\*:\s*/i, '').slice(0, 80);
+    entries.push(`- [pitfall] ${title}${snippet ? ': ' + snippet : ''}`);
+  }
+  if (entries.length === 0) return '';
+  return `**${platform.toUpperCase()} Pitfalls:**\n${entries.join('\n')}`;
+}
+
 export function injectKnowledgeContext(): InjectionResult {
+  // Attempt to sync to MEMORY.md for Auto Memory integration
+  const projectDir = getCwd();
+  // Derive the project hash path used by Claude's Auto Memory system
+  // Format: ~/.claude/projects/<escaped-path>/memory/MEMORY.md
+  const escapedPath = projectDir.replace(/\//g, '-').replace(/^-/, '');
+  const memoryMdPath = join(homedir(), '.claude', 'projects', escapedPath, 'memory', 'MEMORY.md');
+
+  try {
+    if (existsSync(join(homedir(), '.claude', 'projects', escapedPath, 'memory'))) {
+      syncToMemoryMd(memoryMdPath);
+      // Continue to legacy injection — syncToMemoryMd writes to MEMORY.md for
+      // built-in Auto Memory, but callers may still need the injection text
+      // for hook-based SessionStart context injection.
+    }
+  } catch {
+    // Sync failed — continue to legacy injection
+  }
+
+  // Return injection text (used by SessionStart hook and as fallback)
   const platform = detectPlatform();
   const branchKeywords = extractBranchKeywords();
   const fileKeywords = getRecentFileKeywords();

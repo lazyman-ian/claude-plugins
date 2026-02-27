@@ -36,6 +36,18 @@
             "once": true
           }
         ]
+      },
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/memory-sync.sh",
+            "timeout": 5,
+            "statusMessage": "Syncing memory...",
+            "once": true
+          }
+        ]
       }
     ],
     "PreCompact": [

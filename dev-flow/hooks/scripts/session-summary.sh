@@ -181,5 +181,52 @@ esc() { echo "$1" | /usr/bin/sed "s/'/''/g"; }
 sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO session_summaries (id, session_id, project, request, investigated, learned, completed, next_steps, files_modified, created_at, created_at_epoch)
 VALUES ('$(esc "$SUMMARY_ID")', '$(esc "$SESSION_ID")', '$(esc "$PROJECT")', '$(esc "$REQUEST")', '$(esc "$INVESTIGATED")', '$(esc "$LEARNED")', '$(esc "$COMPLETED")', '$(esc "$NEXT_STEPS")', '$(esc "$GIT_CHANGES")', '${NOW}', ${EPOCH});" 2>/dev/null
 
+
+# --- Update MEMORY.md Last Session section ---
+# Only update if we have meaningful content
+if [ -n "$NEXT_STEPS" ] || [ -n "$LEARNED" ] || [ -n "$COMPLETED" ]; then
+  # Encode project dir path for Auto Memory directory (replace / with -)
+  ENCODED_PATH=$(echo "$CWD" | /usr/bin/sed 's|/|-|g')
+  MEMORY_DIR="$HOME/.claude/projects/$ENCODED_PATH/memory"
+  MEMORY_MD="$MEMORY_DIR/MEMORY.md"
+
+  if [ -f "$MEMORY_MD" ]; then
+    # Build replacement block
+    DISPLAY_NEXT="${NEXT_STEPS:-${COMPLETED:-No next steps recorded}}"
+    DISPLAY_LEARNED="${LEARNED:-No new learnings recorded}"
+
+    NEW_BLOCK="## Last Session
+- Next: ${DISPLAY_NEXT}
+- Learned: ${DISPLAY_LEARNED}
+<!-- AUTO-UPDATED by session-summary.sh -->"
+
+    # Check if markers exist
+    if grep -q '<!-- LAST-SESSION-START -->' "$MEMORY_MD" 2>/dev/null; then
+      # Replace between markers using awk
+      awk -v block="$NEW_BLOCK" '
+        /<!-- LAST-SESSION-START -->/ { print "<!-- LAST-SESSION-START -->"; print block; skip=1; next }
+        /<!-- LAST-SESSION-END -->/ { skip=0; print; next }
+        !skip { print }
+      ' "$MEMORY_MD" > "${MEMORY_MD}.tmp" 2>/dev/null && mv "${MEMORY_MD}.tmp" "$MEMORY_MD" 2>/dev/null
+    else
+      # Append markers + block at end of file
+      printf '\n<!-- LAST-SESSION-START -->\n%s\n<!-- LAST-SESSION-END -->\n' "$NEW_BLOCK" >> "$MEMORY_MD" 2>/dev/null
+    fi
+
+    # Enforce 200-line limit: if over, truncate LAST-SESSION section to fit
+    # Never trim from top — that destroys MEMORY.md structure (headers, metadata)
+    LINE_COUNT=$(wc -l < "$MEMORY_MD" 2>/dev/null | tr -d ' ')
+    if [ "$LINE_COUNT" -gt 200 ]; then
+      # Truncate the Last Session block to just the essentials (3 lines)
+      MINIMAL_BLOCK="## Last Session\n- Next: $(echo "$NEXT_STEPS" | head -1)"
+      awk -v block="$MINIMAL_BLOCK" '
+        /<!-- LAST-SESSION-START -->/{found=1; print; print block; next}
+        /<!-- LAST-SESSION-END -->/{found=0}
+        !found
+      ' "$MEMORY_MD" > "${MEMORY_MD}.tmp" 2>/dev/null && mv "${MEMORY_MD}.tmp" "$MEMORY_MD" 2>/dev/null
+    fi
+  fi
+fi
+
 echo '{"continue":true}'
 exit 0

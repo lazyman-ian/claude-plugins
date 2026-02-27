@@ -1695,9 +1695,9 @@ Phase 11 在 Phase 4 完成后执行，重构注入层使 Phase 10 的 Product B
 ### Success Criteria (Phase 11)
 
 #### Automated Verification:
-- [ ] MCP server builds: `npm run --prefix dev-flow/mcp-server build`
-- [ ] Memory sync hook exists: `test -f dev-flow/hooks/scripts/memory-sync.sh`
-- [ ] Path-scoped templates exist: `test -f dev-flow/templates/rules/ios-pitfalls.md`
+- [x] MCP server builds: `npm run --prefix dev-flow/mcp-server build`
+- [x] Memory sync hook exists: `test -f dev-flow/hooks/scripts/memory-sync.sh`
+- [x] Path-scoped templates exist: `test -f dev-flow/templates/rules/ios-pitfalls.md`
 - [ ] MEMORY.md 不超过 200 行: `wc -l < ~/.claude/projects/*/memory/MEMORY.md`
 
 #### Manual Verification:

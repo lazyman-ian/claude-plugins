@@ -610,6 +610,13 @@ export function memoryConsolidate(): ConsolidationResult {
   }
 
   const total = pitfalls + patterns + decisions;
+
+  // Write topic files to Auto Memory directory (graceful degradation if not present)
+  const autoMemDir = getAutoMemoryDir();
+  if (autoMemDir) {
+    writeTopicFiles(autoMemDir);
+  }
+
   return {
     success: true,
     message: `Consolidated:${total}|pitfalls:${pitfalls}|patterns:${patterns}|decisions:${decisions}|skipped:${skippedDuplicates}`,
@@ -1042,6 +1049,87 @@ export function extractFromProject(dryRun: boolean = false): ConsolidationResult
     message: `${mode}:${total}|pitfalls:${pitfalls}|patterns:${patterns}|decisions:${decisions}|skipped:${skippedDuplicates}`,
     data: { pitfalls, patterns, decisions, skippedDuplicates },
   };
+}
+
+// --- Auto Memory Topic File Writer ---
+
+/**
+ * Derive the ~/.claude/projects/<hash>/memory/ directory for the current project.
+ * Returns null if the directory does not exist (graceful degradation).
+ */
+function getAutoMemoryDir(): string | null {
+  const projectDir = getCwd();
+  // Claude's Auto Memory uses the path with slashes replaced by dashes
+  const escapedPath = projectDir.replace(/\//g, '-').replace(/^-/, '');
+  const memDir = join(homedir(), '.claude', 'projects', escapedPath, 'memory');
+  return existsSync(memDir) ? memDir : null;
+}
+
+/**
+ * After consolidation, write pitfalls.md / patterns.md / decisions.md
+ * into the Auto Memory directory so Claude's built-in system can read them.
+ */
+function writeTopicFiles(memDir: string): void {
+  const dbPath = getDbPath();
+  if (!existsSync(dbPath)) return;
+
+  const now = new Date().toISOString();
+  const types: Array<'pitfall' | 'pattern' | 'decision'> = ['pitfall', 'pattern', 'decision'];
+  const fileNames: Record<string, string> = {
+    pitfall: 'pitfalls.md',
+    pattern: 'patterns.md',
+    decision: 'decisions.md',
+  };
+  const headings: Record<string, string> = {
+    pitfall: 'Pitfalls',
+    pattern: 'Patterns',
+    decision: 'Decisions',
+  };
+
+  for (const type of types) {
+    const sql = `SELECT platform, title, problem, solution, source_project, created_at, file_path FROM knowledge WHERE type = '${esc(type)}' ORDER BY created_at DESC LIMIT 50;`;
+    let rows: Array<{ platform: string; title: string; problem: string; solution: string; sourceProject: string; createdAt: string; filePath: string }> = [];
+
+    try {
+      const result = execSync(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+        encoding: 'utf-8',
+        timeout: 3000,
+      }).trim();
+
+      if (result) {
+        rows = result.split('\n').map(line => {
+          const [platform, title, problem, solution, sourceProject, createdAt, filePath] = line.split('|||');
+          return { platform, title, problem, solution, sourceProject, createdAt, filePath };
+        });
+      }
+    } catch {
+      continue;
+    }
+
+    if (rows.length === 0) continue;
+
+    const header = `# ${headings[type]}\n\nLast updated: ${now}\n\n`;
+    const entries = rows.map(r => {
+      const lines = [
+        `## ${r.platform ? r.platform + ' — ' : ''}${r.title}`,
+      ];
+      if (r.problem) lines.push(r.problem.trim());
+      const meta: string[] = [];
+      if (r.sourceProject) meta.push(`Source: ${r.sourceProject}`);
+      if (r.solution) meta.push(`Tags: ${r.solution.slice(0, 80)}`);
+      if (meta.length > 0) lines.push(meta.join(' | '));
+      lines.push('---');
+      return lines.join('\n');
+    });
+
+    const content = header + entries.join('\n\n');
+    const outPath = join(memDir, fileNames[type]);
+    try {
+      writeFileSync(outPath, content, 'utf-8');
+    } catch {
+      // Ignore write errors — graceful degradation
+    }
+  }
 }
 
 // Exposed for reasoning module and other modules to use
