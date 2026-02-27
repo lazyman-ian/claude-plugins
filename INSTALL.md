@@ -1,5 +1,20 @@
 # Marketplace 安装指南
 
+## 前置要求
+
+在开始安装前，请确保环境满足要求：
+
+```bash
+# 检查 Claude Code 版本（需要 v2.1.0+）
+claude --version
+
+# 检查 Node.js 版本（某些插件需要）
+node --version   # v16+ 推荐
+
+# 检查 npm
+npm --version
+```
+
 ## 快速安装
 
 在 Claude Code 会话内执行：
@@ -32,7 +47,47 @@ git clone https://github.com/lazyman-ian/claude-plugins.git
 
 ## 常见问题
 
-### 问题 1: 本地路径变更
+### 问题 1: 插件未加载
+
+**症状**: 安装后 /dev, /ios-swift-plugin 等命令不可用
+
+**解决步骤**:
+```bash
+# 1. 检查已安装的插件列表
+/plugin list
+
+# 2. 检查 marketplace 状态
+/plugin marketplace list
+
+# 3. 重新安装插件
+/plugin install dev-flow@lazyman-ian
+
+# 4. 如果仍未加载，清除缓存重试
+/plugin uninstall dev-flow@lazyman-ian
+/plugin marketplace remove lazyman-ian
+/plugin marketplace add lazyman-ian/claude-plugins
+/plugin install dev-flow@lazyman-ian
+```
+
+### 问题 2: MCP 服务器错误
+
+**症状**: "MCP server connection failed" 或 "Tool unavailable"
+
+**解决步骤**:
+```bash
+# 1. 进入 dev-flow 目录
+cd /path/to/claude-plugins/dev-flow/mcp-server
+
+# 2. 重新安装依赖
+npm install
+
+# 3. 构建 MCP 服务器
+npm run bundle
+
+# 4. 在 Claude Code 中重启会话或重装插件
+```
+
+### 问题 3: 本地路径变更
 
 **症状**: 移动仓库后插件失效
 
@@ -43,15 +98,56 @@ git clone https://github.com/lazyman-ian/claude-plugins.git
 
 # 2. 使用新路径重新添加
 /plugin marketplace add /new/path/to/claude-plugins
+
+# 3. 重新安装插件
+/plugin install dev-flow@lazyman-ian
 ```
 
-### 问题 2: 版本不同步
+### 问题 4: Hook 未触发
+
+**症状**: 代码检查、格式化 hook 未执行
+
+**可能原因与解决**:
+```bash
+# 1. 检查 hooks.json 存在和语法
+ls -l /path/to/plugin/hooks/hooks.json
+jq . /path/to/plugin/hooks/hooks.json
+
+# 2. 检查 hook 脚本权限
+ls -l /path/to/plugin/hooks/scripts/
+chmod +x /path/to/plugin/hooks/scripts/*.sh
+
+# 3. 检查 hook 脚本依赖
+# 例如：ios-swift-plugin 的 concurrency-guard.sh 需要 swiftlint
+which swiftlint
+```
+
+### 问题 5: 版本不同步
 
 **症状**: marketplace.json 显示版本与插件实际版本不符
 
 **解决**:
 ```bash
 git pull
+```
+
+## 验证安装
+
+安装完成后验证一切正常：
+
+```bash
+# 1. 检查 marketplace 和插件列表（在 Claude Code 中）
+/plugin marketplace list
+/plugin list
+
+# 2. 测试 dev-flow 插件
+/dev status                  # 应显示开发状态表
+
+# 3. 测试 iOS 插件
+/ios-swift-plugin:swiftui-expert   # 应显示命令或触发技能
+
+# 4. 测试 Android 插件
+/android-kotlin-plugin:compose-expert  # 应显示命令或触发技能
 ```
 
 ## 本地开发
@@ -62,20 +158,6 @@ git pull
 # 使用本地路径启动 Claude Code（无需安装到 marketplace）
 claude --plugin-dir /path/to/dev-flow
 claude --plugin-dir /path/to/ios-swift-plugin
-```
-
-## 验证安装
-
-```
-# 查看已安装的 marketplace
-/plugin marketplace list
-
-# 查看已安装的插件
-/plugin list
-
-# 测试插件
-/dev-flow:dev       # 应显示 workflow 状态
-/ios-swift-plugin:ios-build-test  # 应显示构建选项
 ```
 
 ## 卸载
