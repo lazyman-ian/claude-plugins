@@ -383,33 +383,34 @@ format_rate_limit() {
     [ "$seven_pct" -ge 50 ] 2>/dev/null && c7="$YELLOW"
     [ "$seven_pct" -ge 80 ] 2>/dev/null && c7="$RED"
 
-    local result="${c5}5h:${five_pct}%${RESET} ${c7}7d:${seven_pct}%${RESET}"
-
-    # Show reset time if at 100%
-    if [ "$five_pct" -ge 100 ] 2>/dev/null && [ -n "$resets_at" ]; then
+    local reset_str=""
+    if [ -n "$resets_at" ]; then
         local reset_epoch
         reset_epoch=$(date -jf "%Y-%m-%dT%H:%M:%S" "${resets_at%%.*}" +%s 2>/dev/null) || true
         if [ -n "$reset_epoch" ]; then
             local now_epoch=$(date +%s)
             local mins_left=$(( (reset_epoch - now_epoch) / 60 ))
             [ "$mins_left" -lt 0 ] && mins_left=0
-            result="${c5}5h:${five_pct}%${RESET} ${RED}↻${mins_left}m${RESET} ${c7}7d:${seven_pct}%${RESET}"
+            local rc="$GRAY"
+            [ "$five_pct" -ge 80 ] 2>/dev/null && rc="$YELLOW"
+            [ "$five_pct" -ge 100 ] 2>/dev/null && rc="$RED"
+            reset_str=" ${rc}↻${mins_left}m${RESET}"
         fi
     fi
+
+    local result="${c5}5h:${five_pct}%${RESET}${reset_str} ${c7}7d:${seven_pct}%${RESET}"
 
     echo -e "$result"
 }
 
 RATE_LIMIT=$(get_rate_limit)
 
-# 组装第1行
+# 组装第1行: model + context + phase + git
 LINE1=""
 [ -n "$MODEL_BADGE" ] && LINE1="${MODEL_BADGE} "
 [ -n "$AGENT_BADGE" ] && LINE1="${LINE1}${AGENT_BADGE} "
 LINE1="${LINE1}${CONTEXT_BAR} ${CONTEXT_PCT%.*}% ${GRAY}|${RESET} ${PHASE}"
 [ -n "$GIT_INFO" ] && LINE1="${LINE1} ${GRAY}|${RESET} ${GIT_INFO}"
-LINE1="${LINE1} ${GRAY}|${RESET} ${DURATION}"
-[ -n "$RATE_LIMIT" ] && LINE1="${LINE1} ${GRAY}|${RESET} ${RATE_LIMIT}"
 
 # Output Speed tok/s (P0)
 get_output_speed() {
@@ -501,12 +502,6 @@ get_metrics_line() {
                 parts="${parts}${tools% }"
             fi
         fi
-    fi
-
-    # Output speed
-    if [ -n "$OUTPUT_SPEED" ]; then
-        [ -n "$parts" ] && parts="${parts} ${GRAY}|${RESET} "
-        parts="${parts}${OUTPUT_SPEED}"
     fi
 
     [ -n "$parts" ] && echo -e "\n${parts}"
@@ -665,10 +660,17 @@ AGENT_LINE=""
 
 # ========== Session 轮数 ==========
 get_turn_count() {
+    # 方法1: 直接从 transcript 计算（快速、可靠）
+    if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
+        local turns
+        turns=$(grep -c '^{"type":"user"' "$TRANSCRIPT_PATH" 2>/dev/null) || turns=0
+        [ "$turns" -gt 0 ] 2>/dev/null && { echo "$turns"; return; }
+    fi
+
+    # 方法2: braintrust session 文件（fallback）
     local sessions_dir="${HOME}/.claude/state/braintrust_sessions"
     [ ! -d "$sessions_dir" ] && return
 
-    # 优先用 session_id 精确匹配，否则取最新文件
     local session_file=""
     if [ -n "$SESSION_ID" ] && [ -f "$sessions_dir/${SESSION_ID}.json" ]; then
         session_file="$sessions_dir/${SESSION_ID}.json"
@@ -716,29 +718,39 @@ get_ledger_info() {
 
 LEDGER_INFO=$(get_ledger_info)
 
-# ========== 组装 Session 信息行 ==========
-get_session_line() {
+# ========== 组装第3行: turn + duration + rate_limit + ledger ==========
+get_line3() {
     local parts=""
 
     # Session 轮数
-    if [ -n "$TURN_COUNT" ]; then
+    local turn_str=""
+    if [ -n "$TURN_COUNT" ] && [ "$TURN_COUNT" != "0" ]; then
         local color="$GRAY"
         [ "$TURN_COUNT" -gt 20 ] 2>/dev/null && color="$YELLOW"
         [ "$TURN_COUNT" -gt 40 ] 2>/dev/null && color="$RED"
-        parts="${color}turn:${TURN_COUNT}${RESET}"
+        turn_str="${color}turn:${TURN_COUNT}${RESET}"
     fi
+    [ -n "$turn_str" ] && parts="${turn_str}"
+
+    # Duration
+    [ -n "$DURATION" ] && parts="${parts:+${parts} ${GRAY}|${RESET} }${DURATION}"
+
+    # Rate limit
+    [ -n "$RATE_LIMIT" ] && parts="${parts} ${GRAY}|${RESET} ${RATE_LIMIT}"
+
+    # Output speed
+    [ -n "$OUTPUT_SPEED" ] && parts="${parts} ${GRAY}|${RESET} ${OUTPUT_SPEED}"
 
     # 活跃 Ledger
     if [ -n "$LEDGER_INFO" ]; then
-        [ -n "$parts" ] && parts="${parts} ${GRAY}|${RESET} "
-        parts="${parts}${CYAN}▶${RESET} ${LEDGER_INFO}"
+        parts="${parts} ${GRAY}|${RESET} ${CYAN}▶${RESET} ${LEDGER_INFO}"
     fi
 
-    [ -n "$parts" ] && echo -e "\n${parts}"
-}
+    # Extra command
+    [ -n "$EXTRA_OUTPUT" ] && parts="${parts}${EXTRA_OUTPUT}"
 
-SESSION_LINE=""
-[ "$CFG_SHOW_SESSION" = "true" ] && SESSION_LINE=$(get_session_line)
+    echo -e "\n${parts}"
+}
 
 # ========== Extra Command (P1) ==========
 # SECURITY: $EXTRA_CMD is sourced from the user's own statusline config in
@@ -775,5 +787,12 @@ get_extra_cmd() {
 
 EXTRA_OUTPUT=$(get_extra_cmd)
 
-# ========== 输出 ==========
-echo -e "${LINE1}${EXTRA_OUTPUT}${METRICS_LINE}${RUNNING_TOOL}${TASK_LINE}${SESSION_LINE}${TEAM_LINE}${AGENT_LINE}"
+# 组装第3行
+LINE3=$(get_line3)
+
+# ========== 输出: 3行固定 + 动态行 ==========
+# Line 1: model + context + phase + git
+# Line 2: tokens + code + cache + tools
+# Line 3: turn + duration + rate_limit + speed + ledger
+# Dynamic: running tool, tasks, team, agents
+echo -e "${LINE1}${METRICS_LINE}${LINE3}${RUNNING_TOOL}${TASK_LINE}${TEAM_LINE}${AGENT_LINE}"
