@@ -2,7 +2,7 @@
 name: ios-debugger
 description: Builds, runs, launches, and debugs iOS projects on a booted simulator using XcodeBuildMCP. This skill should be used when asked to run an iOS app, interact with the simulator UI, inspect on-screen state, capture logs/console output, or diagnose runtime behavior. Key capabilities include simulator discovery, app launch, UI interaction, view hierarchy inspection, and console log capture. Triggers on "run app", "launch app", "simulator", "debug", "console log", "view hierarchy", "runtime", "tap button", "运行应用", "模拟器", "启动应用", "调试", "运行时". Do NOT use for compile-only or test-only workflows — use ios-build-test instead.
 memory: project
-allowed-tools: [Bash, Read, Glob, mcp__XcodeBuildMCP__*]
+allowed-tools: [Bash, Read, Glob, mcp__xcode__*, mcp__XcodeBuildMCP__*]
 ---
 
 # iOS Debugger Agent
@@ -13,8 +13,17 @@ allowed-tools: [Bash, Read, Glob, mcp__XcodeBuildMCP__*]
 |-------|------|
 | Complete workflow guide | `references/simulator-workflow.md` |
 
+## MCP Tool Split
+
+| 工具集 | 需要 | 用途 |
+|--------|------|------|
+| `mcp__xcode__*` | Xcode 26.3+ | 构建、诊断（BuildProject, XcodeListNavigatorIssues） |
+| `mcp__XcodeBuildMCP__*` | XcodeBuildMCP | Simulator 控制、UI 自动化、截图、日志 |
+
+`mcp__xcode__*` 可选；如不可用，跳过 BuildProject / XcodeListNavigatorIssues，直接使用 `mcp__XcodeBuildMCP__build_run_sim`。
+
 ## Overview
-Use XcodeBuildMCP to build and run the current project scheme on a booted iOS simulator, interact with the UI, and capture logs. Prefer the MCP tools for simulator control, logs, and view inspection.
+Use Xcode native MCP for build/diagnostics (when available) and XcodeBuildMCP for simulator control, UI interaction, and log capture.
 
 ## Core Workflow
 Follow this sequence unless the user asks for a narrower action.

@@ -1,7 +1,7 @@
 ---
 name: ios-api-helper
 description: Searches Apple documentation and suggests iOS/SwiftUI/UIKit best practices during implementation. This skill should be used when the user asks "how to implement X in iOS", "what's the API for X", or needs general iOS implementation guidance across any framework. Key capabilities include symbol lookup, API discovery, and best-practice recommendations via apple-docs and sosumi MCP tools. Triggers on "iOS API", "how to implement", "SwiftUI pattern", "Apple docs", "what API", "find API", "which framework", "iOS最佳实践", "如何实现", "什么API", "怎么做". Do NOT use for deep UIKit component patterns requiring code examples — use ios-ui-docs instead.
-allowed-tools: [mcp__apple-docs__*, mcp__sosumi__*, Read, Glob, Grep]
+allowed-tools: [mcp__xcode__*, mcp__apple-docs__*, mcp__sosumi__*, Read, Glob, Grep]
 ---
 
 # iOS API Helper
@@ -17,12 +17,15 @@ Guided iOS API lookup and best practice suggestions using Apple documentation.
 
 ## MCP Tools
 
-Two documentation sources available:
+Three documentation sources available:
 
 | Source | Best For | Tools |
 |--------|----------|-------|
+| **xcode** (Xcode 26.3+) | 项目上下文内搜索、WWDC | `DocumentationSearch` |
 | **apple-docs** | Symbol/API 精准查询 | `choose_technology`, `search_symbols`, `get_documentation` |
 | **sosumi** | 完整页面、HIG 指南 | `searchAppleDocumentation`, `fetchAppleDocumentation` |
+
+Prefer `mcp__xcode__DocumentationSearch` when Xcode 26.3+ is open — it searches Apple docs and WWDC in project context. Fall back to apple-docs/sosumi if xcode MCP unavailable.
 
 ## Workflow
 
