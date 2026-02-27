@@ -2,6 +2,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
+
 export type ProjectType = 'ios' | 'android' | 'custom' | 'makefile' | 'unknown';
 
 export interface ProjectInfo {

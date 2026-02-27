@@ -21,6 +21,7 @@ import * as continuity from './continuity';
 import * as coordination from './coordination';
 import { commitTool } from './git/commit';
 import { instinctExtract, instinctList } from './continuity/instincts';
+import { getNotionConfig, buildInboxFilter, formatTaskSummary, extractSpecFields } from './notion';
 
 const server = new Server(
   { name: 'dev-flow-mcp', version: '2.1.0' },
@@ -323,6 +324,30 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ['action'],
       },
     },
+    // Notion tools
+    {
+      name: 'dev_inbox',
+      description: '[~50 tokens] List Notion tasks from the configured project database',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          priority: { type: 'string', description: 'Filter by priority (e.g. High, Medium, Low)' },
+          platform: { type: 'string', description: 'Filter by platform tag (e.g. iOS, Android)' },
+          status: { type: 'string', description: 'Filter by status (e.g. In Progress, Todo)' },
+        },
+      },
+    },
+    {
+      name: 'dev_spec',
+      description: '[~40 tokens] Extract spec fields from a Notion page for planning and implementation',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          page_id: { type: 'string', description: 'Notion page ID to extract spec fields from' },
+          pages_json: { type: 'string', description: 'JSON array of Notion pages (alternative to page_id)' },
+        },
+      },
+    },
   ],
 }));
 
@@ -495,6 +520,49 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           return { content: [{ type: 'text', text }] };
         }
         return { content: [{ type: 'text', text: '❌ Action required: extract|list' }] };
+      }
+      // Notion tools
+      case 'dev_inbox': {
+        const notionCfg = getNotionConfig(process.cwd());
+        if (!notionCfg) {
+          return { content: [{ type: 'text', text: 'Notion not configured. Add a "notion" section with "database_id" to .dev-flow.json.' }] };
+        }
+        const filter = buildInboxFilter({
+          priority: args?.priority as string | undefined,
+          platform: args?.platform as string | undefined,
+          status: args?.status as string | undefined,
+        });
+        const filterJson = Object.keys(filter).length > 0 ? JSON.stringify(filter, null, 2) : '(no filter)';
+        const text = `Database: ${notionCfg.database_id}\nFilter: ${filterJson}\n\nUse the Notion MCP tool notion-query-data-sources with this database_id and filter to retrieve tasks, then pass the pages to dev_spec for spec extraction.`;
+        return { content: [{ type: 'text', text }] };
+      }
+      case 'dev_spec': {
+        const notionCfg = getNotionConfig(process.cwd());
+        if (!notionCfg) {
+          return { content: [{ type: 'text', text: 'Notion not configured. Add a "notion" section with "database_id" to .dev-flow.json.' }] };
+        }
+        const pagesJson = args?.pages_json as string | undefined;
+        if (!pagesJson && !args?.page_id) {
+          return { content: [{ type: 'text', text: 'Provide page_id or pages_json. Use the Notion MCP tool notion-fetch with the page_id, then pass the result as pages_json.' }] };
+        }
+        try {
+          const pages: any[] = pagesJson ? JSON.parse(pagesJson) : [];
+          if (pages.length === 0) {
+            return { content: [{ type: 'text', text: `Fetch page ${args?.page_id} using notion-fetch, then call dev_spec with pages_json containing the result.` }] };
+          }
+          const specs = pages.map(extractSpecFields);
+          const formatted = specs.map((s) => [
+            `## ${s.title}`,
+            `- **Type**: ${s.type}`,
+            `- **Priority**: ${s.priority}`,
+            `- **Platform**: ${s.platform.join(', ') || 'all'}`,
+            `- **Description**: ${s.description || '(none)'}`,
+            `- **URL**: ${s.notion_url}`,
+          ].join('\n')).join('\n\n');
+          return { content: [{ type: 'text', text: formatted }] };
+        } catch (e: any) {
+          return { content: [{ type: 'text', text: `Failed to parse pages_json: ${e.message}` }] };
+        }
       }
       default:
         throw new Error(`Unknown tool: ${name}`);

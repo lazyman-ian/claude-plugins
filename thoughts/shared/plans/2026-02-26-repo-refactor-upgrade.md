@@ -1333,11 +1333,11 @@ export function notionUpdateStatus(pageId: string, status: string): void
 ### Success Criteria (Phase 9)
 
 #### Automated Verification:
-- [ ] MCP server builds: `npm run --prefix dev-flow/mcp-server build`
-- [ ] Commands exist: `test -f dev-flow/commands/inbox.md && test -f dev-flow/commands/spec.md`
-- [ ] Skill exists: `test -f dev-flow/skills/spec-generator/SKILL.md`
-- [ ] References exist: `ls dev-flow/skills/spec-generator/references/*.md | wc -l` (≥ 3)
-- [ ] Hook exists: `test -f dev-flow/hooks/scripts/post-merge-notion.sh`
+- [x] MCP server builds: `npm run --prefix dev-flow/mcp-server build`
+- [x] Commands exist: `test -f dev-flow/commands/inbox.md && test -f dev-flow/commands/spec.md`
+- [x] Skill exists: `test -f dev-flow/skills/spec-generator/SKILL.md`
+- [x] References exist: `ls dev-flow/skills/spec-generator/references/*.md | wc -l` (≥ 3)
+- [x] Hook exists: `test -f dev-flow/hooks/scripts/post-merge-notion.sh`
 
 #### Manual Verification:
 - [ ] `/dev inbox` 返回用户的 Notion 待办工作项
