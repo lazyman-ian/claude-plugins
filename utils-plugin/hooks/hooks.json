@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/tool-enforcer.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/tool-enforcer.sh",
             "timeout": 3,
             "statusMessage": "Validating tool usage..."
           }
@@ -19,12 +19,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/alias-conflict-detector.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/alias-conflict-detector.sh",
             "statusMessage": "Checking aliases..."
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/loop-detection.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/loop-detection.sh",
             "statusMessage": "Checking for loops..."
           }
         ]
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/context-warning.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/context-warning.sh",
             "timeout": 3,
             "statusMessage": "Checking context..."
           }

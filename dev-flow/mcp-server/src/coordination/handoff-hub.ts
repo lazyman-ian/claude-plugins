@@ -18,7 +18,9 @@ export class HandoffHub {
   }
 
   write(handoff: Handoff): string {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 15);
+    const now = new Date();
+    const pad = (n: number, len = 2) => String(n).padStart(len, '0');
+    const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}-${pad(now.getMilliseconds(), 3)}`;
     const handoffId = `handoff-${timestamp}.md`;
     const filePath = path.join(this.baseDir, handoffId);
 

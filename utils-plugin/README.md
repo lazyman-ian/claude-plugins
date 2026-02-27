@@ -105,8 +105,8 @@ Hooks are configured in `hooks/hooks.json`:
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/alias-conflict-detector.sh" },
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/loop-detection.sh" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/alias-conflict-detector.sh" },
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/loop-detection.sh" }
         ]
       }
     ]

@@ -38,6 +38,10 @@ if (( _NOW - _LAST > 86400 )); then
 fi
 
 # Run main continuity handler (self-contained)
+if [[ ! -f "$SCRIPT_DIR/dist/session-start-continuity.mjs" ]]; then
+    echo '{"result": "continue"}'
+    exit 0
+fi
 OUTPUT=$(echo "$INPUT" | node "$SCRIPT_DIR/dist/session-start-continuity.mjs")
 
 # Clear tool stats on new session start
@@ -219,7 +223,7 @@ if [[ "$SESSION_TYPE" == "clear" || "$SESSION_TYPE" == "compact" ]]; then
         # Extract keywords from branch name
         BRANCH_KEYWORDS=$(echo "$CURRENT_BRANCH" | /usr/bin/sed 's/^feature\///' | /usr/bin/sed 's/^bugfix\///' | /usr/bin/sed 's/TASK-[0-9]*-*//' | tr '[-_/]' ' ' | tr -s ' ')
         if [[ -n "$BRANCH_KEYWORDS" ]]; then
-            FTS_QUERY=$(echo "$BRANCH_KEYWORDS" | /usr/bin/sed 's/ / OR /g')
+            FTS_QUERY=$(echo "$BRANCH_KEYWORDS" | /usr/bin/sed "s/'/''/g" | /usr/bin/sed 's/ / OR /g')
             FTS_RESULTS=$(sqlite3 -separator '|||' "$DB_PATH" \
                 "SELECT k.type, k.title, substr(k.problem, 1, 80) FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${FTS_QUERY}' ORDER BY rank LIMIT 3;" 2>/dev/null || true)
             if [[ -n "$FTS_RESULTS" ]]; then

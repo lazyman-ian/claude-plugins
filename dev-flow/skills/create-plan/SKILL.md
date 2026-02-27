@@ -92,6 +92,9 @@ Phases without `tasks` → implement-plan uses standard phase-level execution.
 | `references/process-steps.md` | Detailed step-by-step process |
 | `references/plan-template.md` | Full plan template + success criteria |
 | `references/guidelines.md` | Planning principles + sub-task patterns |
+| `references/api-template.md` | API endpoint plans (NestJS) |
+| `references/migration-checklist.md` | Migration/upgrade plans (framework, SDK, platform) |
+| `references/tech-debt-checklist.md` | Tech debt reduction / refactoring plans |
 
 ## Quick Reference
 

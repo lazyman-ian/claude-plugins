@@ -7,9 +7,10 @@ import { Handoff, HandoffStatus } from './types';
 
 describe('HandoffHub', () => {
   let hub: HandoffHub;
-  const baseDir = '/tmp/test-handoffs';
+  let baseDir: string;
 
   beforeEach(() => {
+    baseDir = `/tmp/test-handoffs-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     hub = new HandoffHub(baseDir);
   });
 
@@ -31,7 +32,7 @@ describe('HandoffHub', () => {
 
       const handoffId = hub.write(handoff);
 
-      expect(handoffId).toMatch(/^handoff-\d{8}-\d{6}\.md$/);
+      expect(handoffId).toMatch(/^handoff-\d{8}-\d{6}-\d{3}\.md$/);
     });
   });
 
@@ -61,7 +62,7 @@ describe('HandoffHub', () => {
   });
 
   describe('readChain', () => {
-    test('should read all handoffs for a task', () => {
+    test('should read all handoffs for a task', async () => {
       const handoff1: Handoff = {
         version: '2.0',
         agent_id: 'agent-001',
@@ -76,11 +77,16 @@ describe('HandoffHub', () => {
         open_questions: []
       };
 
+      const parentId = hub.write(handoff1);
+
+      // Ensure unique timestamp (ms granularity)
+      await new Promise(resolve => setTimeout(resolve, 5));
+
       const handoff2: Handoff = {
         version: '2.0',
         agent_id: 'agent-002',
         task_id: 'TASK-123',
-        parent_handoff: hub.write(handoff1),
+        parent_handoff: parentId,
         timestamp: '2026-01-27T11:00:00Z',
         status: 'success',
         summary: 'Phase 2',
@@ -101,7 +107,7 @@ describe('HandoffHub', () => {
   });
 
   describe('aggregate', () => {
-    test('should aggregate multiple handoffs', () => {
+    test('should aggregate multiple handoffs', async () => {
       const handoff1: Handoff = {
         version: '2.0',
         agent_id: 'agent-001',
@@ -131,6 +137,7 @@ describe('HandoffHub', () => {
       };
 
       const id1 = hub.write(handoff1);
+      await new Promise(resolve => setTimeout(resolve, 5));
       const id2 = hub.write(handoff2);
 
       const result = hub.aggregate([id1, id2]);
