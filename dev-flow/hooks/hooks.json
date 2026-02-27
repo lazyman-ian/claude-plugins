@@ -63,7 +63,31 @@
         ]
       }
     ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-end.sh",
+            "timeout": 10,
+            "statusMessage": "Saving session state..."
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/post-edit-format.sh",
+            "timeout": 10,
+            "async": true,
+            "statusMessage": "Auto-formatting..."
+          }
+        ]
+      },
       {
         "matcher": "Read|Edit|Write|Bash|Grep|Glob",
         "hooks": [

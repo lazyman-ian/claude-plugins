@@ -1,5 +1,6 @@
 .claude/settings.local.json
 .claude/cache/
+.claude/sessions/
 .claude/tsc-cache/
 /thoughts/reasoning
 /thoughts/evaluations
