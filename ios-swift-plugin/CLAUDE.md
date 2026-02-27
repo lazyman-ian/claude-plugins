@@ -11,9 +11,9 @@ Claude Code iOS/Swift 开发插件。
 
 ## Structure
 
-- `skills/` - 12 个 skills (swiftui-expert, swift-concurrency, ios-performance-guide, ios-migration-advisor, etc.)
+- `skills/` - 16 个 skills (swiftui-expert, swift-concurrency, swift-testing, swift-6-guide, ios-modern-apis, xcode-build-config, etc.)
 - `commands/` - 4 个命令
-- `agents/` - 2 个 agents
+- `agents/` - 3 个 agents (concurrency-reviewer, migration-scanner, swift-testing-reviewer)
 - `hooks/` - 2 个 hooks
 - `docs/GUIDE.md` - 中文完整指南
 - `docs/ios-community-blogs.md` - iOS 社区博客索引 (研究用)

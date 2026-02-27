@@ -28,6 +28,12 @@ Use Xcode native MCP for build/diagnostics (when available) and XcodeBuildMCP fo
 ## Core Workflow
 Follow this sequence unless the user asks for a narrower action.
 
+### 0) Quick Logic Verify (optional)
+If user wants to test a code snippet before full build:
+- Call `mcp__xcode__ExecuteSnippet(code: "...")` for Swift REPL-like execution (Xcode 26.3+)
+- Faster than full build cycle, useful for algorithm verification or API exploration
+- Falls back to normal build if Xcode MCP unavailable
+
 ### 1) Discover the booted simulator
 - Call `mcp__XcodeBuildMCP__list_sims` and select the simulator with state `Booted`.
 - If none are booted, ask the user to boot one (do not boot automatically unless asked).

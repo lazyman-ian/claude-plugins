@@ -188,9 +188,10 @@ When compacting, always preserve:
 claude mcp list              # List active MCP servers
 ```
 
-| MCP | Purpose | Plugin |
-|-----|---------|--------|
-| apple-docs | Symbol/API lookup | ios-swift-plugin |
-| sosumi | Full docs, HIG | ios-swift-plugin |
-| XcodeBuildMCP | Simulator control | ios-swift-plugin |
-| dev-flow | Workflow tools | dev-flow |
+| MCP | Purpose | Plugin | Transport |
+|-----|---------|--------|-----------|
+| xcode | Xcode native tools (26.3+) | ios-swift-plugin | stdio (xcrun) |
+| apple-docs | Symbol/API lookup | ios-swift-plugin | stdio (npx, pinned) |
+| sosumi | Full docs, HIG | ios-swift-plugin | HTTP (sosumi.ai, read-only docs) |
+| XcodeBuildMCP | Simulator control | ios-swift-plugin | stdio (external) |
+| dev-flow | Workflow tools | dev-flow | stdio |

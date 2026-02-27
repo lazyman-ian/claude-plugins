@@ -4,6 +4,15 @@
       "type": "stdio",
       "command": "xcrun",
       "args": ["mcpbridge"]
+    },
+    "apple-docs": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@kimsungwhee/apple-docs-mcp@1.0.26"]
+    },
+    "sosumi": {
+      "type": "http",
+      "url": "https://sosumi.ai/mcp"
     }
   }
 }

@@ -23,6 +23,7 @@ Expert guidance on Swift Concurrency: async/await, actors, Sendable, and Swift 6
 | Need | Reference |
 |------|-----------|
 | **Anti-pattern detection** | `references/concurrency-guard.md` |
+| **Swift 6 language mode issues** | → Use `swift-6-guide` skill (typed throws, Sendable, Mutex) |
 | Starting with async code | `references/async-await-basics.md` |
 | Parallel operations | `references/tasks.md` |
 | Protecting shared state | `references/actors.md` |
@@ -141,7 +142,7 @@ class ViewModel: ObservableObject {
 | **Guard** | `concurrency-guard.md` (11 anti-pattern rules) |
 | **Basics** | `async-await-basics.md`, `tasks.md`, `threading.md` |
 | **Safety** | `actors.md`, `sendable.md`, `concurrency-memory.md` |
-| **Swift 6** | `migration.md`, `swift-6-2-concurrency.md`, `approachable-concurrency.md` |
+| **Swift 6** | `migration.md`, `swift-6-2-concurrency.md`, `approachable-concurrency.md` (language features → `swift-6-guide` skill) |
 | **Advanced** | `async-sequences.md`, `async-algorithms.md`, `async-toolkit.md`, `performance.md` |
 | **Integration** | `core-data.md`, `testing.md`, `linting.md`, `swiftui-concurrency-tour-wwdc.md` |
 | **Reference** | `glossary.md` |
