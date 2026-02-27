@@ -21,11 +21,11 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.0.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-6.0.0-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/Claude_Code-2.1.19+-purple.svg" alt="Claude Code">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
   <img src="https://img.shields.io/badge/platforms-iOS%20%7C%20Android%20%7C%20Custom-orange.svg" alt="Platforms">
-  <img src="https://img.shields.io/badge/MCP_Tools-19-brightgreen.svg" alt="MCP Tools">
+  <img src="https://img.shields.io/badge/MCP_Tools-27-brightgreen.svg" alt="MCP Tools">
 </p>
 
 <p align="center">
@@ -48,7 +48,9 @@
 | **Multi-Agent** | TaskCoordinator + HandoffHub for complex tasks |
 | **Cross-Platform Team** | Parallel multi-repo development (iOS/Android/Web) with Agent Teams |
 | **Quality Assurance** | Auto-run platform lint/format/test/verify |
-| **Knowledge Base** | Cross-project knowledge at `~/.claude/knowledge/` |
+| **Knowledge Base** | 4-tier memory with instinct system and product brain |
+| **Notion Pipeline** | Task triage, spec generation, and status sync with Notion |
+| **Rules Distribution** | Platform-aware rule templates for `.claude/rules/` |
 | **Multi-Platform** | iOS, Android built-in; extensible to Python, Go, Rust, Node |
 | **Self-Improvement** | Analyze sessions and iterate prompts automatically |
 
@@ -120,9 +122,15 @@ See [INSTALL.md](../INSTALL.md) for detailed installation guide.
 | `/dev-flow:recall` | Search decision history |
 | `/dev-flow:extract-knowledge` | Extract cross-project knowledge |
 | `/dev-flow:meta-iterate` | Self-improvement cycle |
+| `/dev-flow:inbox` | Notion task triage |
+| `/dev-flow:spec` | Generate spec from Notion task |
+| `/dev-flow:evolve` | Convert instincts to skills/rules |
+| `/dev-flow:rules` | Install rule templates |
+| `/dev-flow:checkpoint` | Manual checkpoint creation |
+| `/dev-flow:finish` | Branch completion workflow |
 
 <details>
-<summary><strong>All 21 Commands</strong></summary>
+<summary><strong>All 29 Commands</strong></summary>
 
 | Command | Description |
 |---------|-------------|
@@ -147,6 +155,14 @@ See [INSTALL.md](../INSTALL.md) for detailed installation guide.
 | `config-optimize` | Optimize Claude config |
 | `meta-iterate` | Self-improvement |
 | `init` | Initialize project |
+| `inbox` | Notion task triage |
+| `spec` | Generate spec from task |
+| `evolve` | Convert instincts to skills |
+| `rules` | Install rule templates |
+| `checkpoint` | Manual checkpoint |
+| `finish` | Branch completion |
+| `brainstorm` | Exploration session |
+| `review` | Code review |
 
 </details>
 
@@ -308,7 +324,7 @@ Create `.dev-flow.json` in project root:
 
 ## MCP Tools
 
-19 tools for workflow automation:
+27 tools for workflow automation:
 
 <details>
 <summary><strong>Core Tools (15)</strong></summary>
@@ -345,11 +361,24 @@ Create `.dev-flow.json` in project root:
 </details>
 
 <details>
-<summary><strong>Knowledge Tools (1)</strong></summary>
+<summary><strong>Knowledge & Memory Tools (4)</strong></summary>
 
 | Tool | Tokens | Purpose |
 |------|--------|---------|
 | `dev_memory` | ~60 | Knowledge consolidation & cross-session learning |
+| `dev_instinct` | ~40 | Pattern extraction & instinct management |
+| `dev_product` | ~50 | Product brain: architecture knowledge |
+| `dev_commit` | ~30 | Server-enforced commit pipeline |
+
+</details>
+
+<details>
+<summary><strong>Notion Pipeline Tools (2)</strong></summary>
+
+| Tool | Tokens | Purpose |
+|------|--------|---------|
+| `dev_inbox` | ~40 | Notion task triage & priority |
+| `dev_spec` | ~50 | Spec generation from Notion tasks |
 
 </details>
 
@@ -378,17 +407,20 @@ Create `.dev-flow.json` in project root:
 dev-flow-plugin/
 ├── .claude-plugin/plugin.json   # Plugin manifest
 ├── .mcp.json                    # MCP server config
-├── mcp-server/                  # MCP server (19 tools)
+├── mcp-server/                  # MCP server (27 tools)
 │   └── src/
 │       ├── index.ts             # Entry point
 │       ├── detector.ts          # Platform detection
+│       ├── notion.ts            # Notion integration
 │       ├── git/                 # Git operations
 │       ├── platforms/           # iOS, Android
+│       ├── continuity/          # Memory, instincts, product brain
 │       └── coordination/        # Multi-Agent
-├── skills/                      # 9 skills
-├── commands/                    # 21 commands
-├── agents/                      # 12 agents
-├── hooks/                       # 5 hook types
+├── skills/                      # 22 skills
+├── commands/                    # 29 commands
+├── agents/                      # 14 agents
+├── hooks/                       # 15 hooks (6 types)
+├── templates/rules/             # 11 rule templates
 └── docs/                        # Documentation
 ```
 

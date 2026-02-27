@@ -78,8 +78,8 @@ grep '"version"' .claude-plugin/marketplace.json
 ### Mismatch Detection
 
 ```bash
-# For a specific plugin (e.g., dev-flow at version 5.0.0)
-VER="5.0.0"
+# For a specific plugin (e.g., dev-flow at version 6.0.0)
+VER="6.0.0"
 PLUGIN="dev-flow"
 
 echo "=== Checking $PLUGIN for version $VER ==="

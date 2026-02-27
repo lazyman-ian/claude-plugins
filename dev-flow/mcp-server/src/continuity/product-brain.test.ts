@@ -12,6 +12,7 @@ vi.mock('fs');
 const mockExecSync = vi.mocked(childProcess.execSync);
 const mockExistsSync = vi.mocked(fs.existsSync);
 const mockMkdirSync = vi.mocked(fs.mkdirSync);
+const mockReadFileSync = vi.mocked(fs.readFileSync);
 const mockWriteFileSync = vi.mocked(fs.writeFileSync);
 
 const TEST_DIR = '/test/project';
@@ -259,12 +260,13 @@ describe('productExtract', () => {
     const gitLog = 'abc1234 feat: implement feature\nSources/Feature.swift';
     mockExecSync.mockReturnValueOnce(gitLog as any);
 
+    const specPath = `${TEST_DIR}/spec.md`;
     // spec file exists
-    mockExistsSync.mockImplementation((p) => p.toString() === '/test/spec.md');
-    // head -50 spec file
-    mockExecSync.mockReturnValueOnce('# Spec\nThis is the spec context.' as any);
+    mockExistsSync.mockImplementation((p) => p.toString() === specPath);
+    // readFileSync for spec file
+    mockReadFileSync.mockReturnValueOnce('# Spec\nThis is the spec context.' as any);
 
-    const result = productExtract(TEST_DIR, '/test/spec.md');
+    const result = productExtract(TEST_DIR, specPath);
 
     expect(result.length).toBeGreaterThan(0);
     expect(result[0].content).toContain('Spec context');

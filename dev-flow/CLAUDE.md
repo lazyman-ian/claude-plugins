@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-dev-flow-plugin (v5.0.0) is a Claude Code plugin providing unified development workflow automation: brainstorm → plan → implement (5-gate pipeline) → review → commit → PR → release. Features VDD (Verification-Driven Development), 5-gate execution pipeline (fresh subagent → self-review → spec review → quality review), multi-layer automated code review (P0-P3 severity), multi-agent collaboration, generic agent-team orchestration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
+dev-flow-plugin (v6.0.0) is a Claude Code plugin providing unified development workflow automation: brainstorm → plan → implement (5-gate pipeline) → review → commit → PR → release. Features VDD (Verification-Driven Development), 5-gate execution pipeline, multi-layer automated code review (P0-P3), instinct system (pattern extraction from observations), Notion pipeline (task triage → spec generation), product brain (architecture knowledge), 4-tier memory with Auto Memory sync, rules distribution system, multi-agent collaboration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
 
 ## Build & Development
 
@@ -15,7 +15,8 @@ npm run --prefix mcp-server bundle    # Bundle to scripts/mcp-server.cjs (requir
 npm run --prefix mcp-server build     # TypeScript compile to dist/ (for development)
 npm run --prefix mcp-server dev       # Run with ts-node
 
-# Tests exist (coordination/*.test.ts) but no test runner configured yet
+# Run tests (vitest)
+npm test --prefix mcp-server                  # All 98 tests
 ```
 
 ## Architecture
@@ -23,13 +24,14 @@ npm run --prefix mcp-server dev       # Run with ts-node
 ### Plugin Structure
 
 ```
-.claude-plugin/plugin.json  # Plugin manifest (v5.0.0)
+.claude-plugin/plugin.json  # Plugin manifest (v6.0.0)
 .mcp.json                   # MCP server config → scripts/mcp-server.cjs
-skills/                     # 11 skills (SKILL.md + references/) — brainstorm, create-plan, implement-plan, verify, debugging, self-check, agent-team, cross-platform-team, dev, config-optimize, meta-iterate
-commands/                   # 24 command definitions (includes /verify, /init, /brainstorm, /finish, /review)
-agents/                     # 13 agent prompts + references/ (security/quality checklists, includes spec-reviewer)
-hooks/hooks.json            # 6 hook types (PreToolUse x3, SessionStart, PreCompact, Stop, PostToolUse x4)
-scripts/track-team.sh       # Session→team mapping for StatusLine (PostToolUse: TeamCreate/TeamDelete)
+skills/                     # 22 skills (SKILL.md + references/)
+commands/                   # 29 command definitions
+agents/                     # 14 agent prompts + references/ (security/quality checklists)
+hooks/hooks.json            # 15 hooks across 6 types (PreToolUse, SessionStart, PreCompact, Stop, SessionEnd, PostToolUse)
+scripts/track-team.sh       # Session→team mapping for StatusLine
+templates/rules/            # 11 rule templates (platform-aware, path-scoped)
 templates/thoughts/schema/  # JSON schemas for meta-iterate and handoff outputs
 docs/                       # keybindings.md, hooks-setup.md
 ```
@@ -40,14 +42,15 @@ Single-file bundle architecture using `@modelcontextprotocol/sdk`:
 
 | Module | Purpose |
 |--------|---------|
-| `index.ts` | Server entry, 19 MCP tools |
-| `detector.ts` | Project type detection + unified `detectPlatformSimple()` |
+| `index.ts` | Server entry, 27 MCP tools |
+| `detector.ts` | Project type detection + unified `detectPlatformSimple()` + Notion config |
+| `notion.ts` | Notion integration: config, inbox filter, spec extraction |
 | `git/workflow.ts` | Git status, phase detection |
 | `git/build-control.ts` | PR draft/ready, change analysis |
 | `git/version.ts` | Version info, release notes |
 | `platforms/ios.ts` | SwiftLint, SwiftFormat, test/verify |
 | `platforms/android.ts` | ktlint, ktfmt, test/verify |
-| `continuity/` | Ledgers, reasoning, branch, task-sync, memory, context-injector, embeddings |
+| `continuity/` | Ledgers, reasoning, branch, task-sync, memory, instincts, product-brain, context-injector, embeddings |
 | `coordination/` | Multi-agent coordination, handoffs, aggregation |
 
 ### Platform Extension
@@ -92,6 +95,10 @@ export function getPythonCommands(): PlatformCommands {
 | `dev_aggregate` | ~60 | Aggregate results for PR |
 | `dev_commit` | ~30 | Server-enforced commit: prepare → review → finalize |
 | `dev_memory` | ~60 | Knowledge: consolidate/status/query/list/extract/save/search/get |
+| `dev_instinct` | ~40 | Pattern extraction: extract/list/prune from observations |
+| `dev_product` | ~50 | Product brain: extract/query/save architecture knowledge |
+| `dev_inbox` | ~40 | Notion task triage with priority filtering |
+| `dev_spec` | ~50 | Spec generation from Notion tasks |
 
 ### Workflow Phases
 
@@ -296,40 +303,38 @@ dev_config → python|fix:black .|check:ruff .|scopes:api,models|src:custom
            → ios|fix:swiftlint --fix|check:swiftlint|scopes:...|src:auto
 ```
 
-## Recent Changes (v5.0.0)
+## Recent Changes (v6.0.0)
 
-### 5-Gate Execution Pipeline
+### Instinct System
+Pattern extraction from observations via DBSCAN-style clustering. Instincts accumulate confidence through repeated observation and can be evolved into skills/rules/commands via `/dev evolve`.
 
-Inspired by [obra/superpowers](https://github.com/obra/superpowers). Every plan task passes through 5 quality gates:
+### Notion Pipeline
+Task triage (`/dev inbox`), spec generation (`/dev spec`), and post-merge Notion status update hook. Configured via `notion` section in `.dev-flow.json`.
 
-1. **Fresh Subagent**: Context isolation per task (anti-corruption)
-2. **Self-Review**: 11-point checklist (completeness, quality, discipline, testing)
-3. **Spec Review**: New `spec-reviewer` agent verifies implementation matches plan exactly
-4. **Quality Review**: Existing `code-reviewer` for P0-P3 code quality
-5. **Batch Checkpoint**: Pause every N tasks for architect coherence check
+### Product Brain
+Architecture knowledge extraction and query (`dev_product` tool). Post-impl hook reminds to capture product-level decisions after commits.
 
-### New Skills & Commands
+### Memory Architecture Alignment
+- `syncToMemoryMd()`: Writes dev memory context to Auto Memory `MEMORY.md` between markers
+- Topic file output: `pitfalls.md`, `patterns.md`, `decisions.md` during consolidate
+- `memory-sync.sh`: SessionStart hook for bidirectional MEMORY.md↔SQLite sync
+- Path-scoped pitfall templates: `ios-pitfalls.md` (`**/*.swift`), `android-pitfalls.md` (`**/*.kt`)
 
-- **brainstorm** skill: Extracted from create-plan. Independent pre-creative-work exploration via Socratic questioning
-- **verify** skill: Internal skill enforcing "no completion claims without fresh verification evidence"
-- `/dev-flow:finish` command: Branch completion with 4 options (merge/PR/keep/discard)
-- `/dev-flow:brainstorm` command: Trigger brainstorm skill
+### Rules Distribution
+9 platform-aware rule templates installed to `.claude/rules/` via `/dev rules` or `/dev init`. Templates use `paths:` frontmatter for platform-specific activation.
 
-### Adaptive Plan Granularity
+### New Skills (5)
+- **security-scan**: 10-category deny-rules detection
+- **eval-harness**: Session performance evaluation
+- **search-first**: Search-before-create thinking
+- **skill-stocktake**: Plugin skill audit
+- **spec-generator**: Notion task to spec
 
-Plans now support two task formats:
-- **logic-task** (2-5min): Backend/data — complete code, no screenshots
-- **ui-task** (5-15min): Frontend/mobile — Figma `design_ref`, visual acceptance criteria
+### New Commands (8)
+`/dev inbox`, `/dev spec`, `/dev evolve`, `/dev rules`, `/dev checkpoint`, `/dev finish`, `/dev brainstorm`, `/dev review`
 
-### Skill Changes
-
-- **create-plan**: Narrowed to single mode (brainstorm extracted), added task granularity
-- **implement-plan**: Restructured with 5-gate pipeline, batch checkpoint
-- **agent-team**: Self-review in teammate template, merged spec+quality reviewer
-- **cross-platform-team**: UI-task spec review, platform-specific verify
-- **debugging**: Verify skill reference in VERIFY phase
-- **api-implementer**: Absorbed into `create-plan/references/api-template.md`
-
-### CSO (Claude Search Optimization)
-
-All 9 modified skill descriptions rewritten: state ONLY triggering conditions, never summarize workflow.
+### Infrastructure
+- vitest + 98 tests across 6 files
+- `validate-plugins.sh` (229 structural checks)
+- CI workflow (`.github/workflows/ci.yml`)
+- Hook system: post-edit-format multi-formatter, context-warning strategic compaction, session-end cleanup

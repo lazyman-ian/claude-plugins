@@ -61,10 +61,10 @@ Display table of current vs new version per file:
 ```
 | File                              | Current | New   |
 |-----------------------------------|---------|-------|
-| dev-flow/.claude-plugin/plugin.json | 5.0.0   | 5.1.0 |
-| .claude-plugin/marketplace.json     | 5.0.0   | 5.1.0 |
-| dev-flow/.claude-plugin/marketplace.json | 5.0.0 | 5.1.0 |
-| dev-flow/README.md (badge)          | 5.0.0   | 5.1.0 |
+| dev-flow/.claude-plugin/plugin.json | 6.0.0   | 6.1.0 |
+| .claude-plugin/marketplace.json     | 6.0.0   | 6.1.0 |
+| dev-flow/.claude-plugin/marketplace.json | 6.0.0 | 6.1.0 |
+| dev-flow/README.md (badge)          | 6.0.0   | 6.1.0 |
 ```
 
 ### Step 4: Apply Version
@@ -98,7 +98,7 @@ Run without changing versions to detect stale files:
 
 - **Stale marketplace.json**: Root and local marketplace.json files frequently go stale during manual version bumps (documented bug from v3.11.1). This skill exists to prevent that.
 - **utils/research lack local marketplace.json**: Only `dev-flow` and `ios-swift-plugin` have `<plugin>/.claude-plugin/marketplace.json`. Do not create one for utils/research.
-- **Badge format**: shields.io badges use `-` as separator: `version-5.0.0-blue.svg`. Dots in version are literal, not encoded.
+- **Badge format**: shields.io badges use `-` as separator: `version-6.0.0-blue.svg`. Dots in version are literal, not encoded.
 - **Description drift**: Root marketplace.json `description` field may also need updating alongside version bumps if the plugin's scope changed.
 
 ## Reference

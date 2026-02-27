@@ -5,6 +5,47 @@ All notable changes to dev-flow plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.0] - 2026-02-27
+
+### Added
+
+- **Instinct System** (`instincts.ts`, 328 lines): Auto-extract patterns from observations via DBSCAN-style clustering, with confidence decay and evolution to skills/rules via `/dev evolve`
+- **Notion Pipeline**: Task triage (`dev_inbox`), spec generation (`dev_spec`), `post-merge-notion.sh` hook for status updates
+- **Product Brain** (`product-brain.ts`, 275 lines): Product knowledge extraction, query, and save with `dev_product` MCP tool (4 actions) and `post-impl-extract.sh` hook
+- **Memory Architecture Alignment**: `syncToMemoryMd()` for Auto Memory bidirectional sync, topic file output (`pitfalls.md`, `patterns.md`, `decisions.md`), `memory-sync.sh` SessionStart hook
+- **Rules Distribution System**: 9 platform-aware rule templates (coding-style ×4, testing, git-workflow, security, agent-rules, performance) + `/dev rules` command + `/dev init` auto-install
+- **Test Infrastructure**: vitest config, 6 test files with 98 tests (`detector`, `notion`, `instincts`, `product-brain`, `coordinator`, `handoff-hub`), `validate-plugins.sh` (229 checks), CI workflow
+- **Hook System Upgrade**: `post-edit-format.sh` multi-formatter dispatch (prettier/swiftformat/ktlint), `context-warning.sh` strategic compaction triggers, `session-end.sh` cleanup
+- **Security Scan Skill**: 10-category deny-rules detection + security guardrails reference
+- **Eval Harness Skill**: Session performance evaluation framework with metrics guide
+- **Search-First Skill**: Encourage search-before-create thinking pattern
+- **Skill Stocktake Skill**: Plugin skill audit with quality criteria
+- **Checkpoint Command**: Manual checkpoint creation for session state preservation
+- **Migration & Tech-Debt Checklists**: Plan template references for systematic upgrades
+- **Path-Scoped Pitfall Templates**: `ios-pitfalls.md` (`**/*.swift`) and `android-pitfalls.md` (`**/*.kt`)
+- **Iterative Retrieval Reference**: 4-phase retrieval pattern for implement-plan
+- **Spec Generator Skill**: Generate specs from Notion tasks with feature/bug templates
+- **Contributing Guide** + PR template for standardized contribution workflow
+
+### Changed
+
+- **Plugin structure**: All 5 plugins unified to `hooks/scripts/` path convention
+- **session-summary.sh**: MEMORY.md integration with `## Last Session` section, 200-line-safe trim (minimize section, never cut from top)
+- **context-injector.ts**: Added `pitfallsToBullets()` for concise bullet-point pitfalls in Dev Memory section
+- **memory.ts**: Added `writeTopicFiles()` and `getAutoMemoryDir()` for consolidate output to markdown
+- **detector.ts**: Added `getNotionConfig()` for Notion integration
+- **index.ts**: Registered 8 new MCP tools (`dev_instinct`, `dev_inbox`, `dev_spec`, `dev_commit`, `dev_product` + actions)
+- **init command**: Added Step 5 for automatic rules template installation
+- **utils-plugin/context-warning.sh**: Enhanced with strategic compaction triggers and context zone detection
+- **research-plugin & utils-plugin**: Added CLAUDE.md and standardized hooks.json structure
+
+### Stats
+
+- 87 files changed, +10,233 lines
+- 22 skills (was 17), 29 commands (was 24), 14 agents, 27 MCP tools (was 19), 15 hooks
+- Bundle: 862.1kb
+- 6 test files, 98 tests, 229 validation checks
+
 ## [5.0.0] - 2026-02-12
 
 ### Added

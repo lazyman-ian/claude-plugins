@@ -1,7 +1,7 @@
 {
   "name": "dev-flow",
-  "version": "5.0.0",
-  "description": "Unified development workflow: planning → coding → commit → PR → release with VDD and multi-layer automated code review (P0-P3 severity). Features cross-platform team orchestration, 4-tier memory system, and agent-team collaboration.",
+  "version": "6.0.0",
+  "description": "Unified development workflow: planning → coding → commit → PR → release with VDD, 5-gate quality pipeline, multi-layer code review (P0-P3), 4-tier memory with instinct system, Notion pipeline, product brain, and cross-platform agent-team orchestration.",
   "author": {
     "name": "lazyman"
   },

@@ -1,6 +1,6 @@
 # dev-flow Plugin Complete Guide
 
-> Claude Code Development Workflow Automation | v5.0.0
+> Claude Code Development Workflow Automation | v6.0.0
 
 ## Table of Contents
 
@@ -881,6 +881,22 @@ The `platform` field in `.dev-flow.json` also affects:
 ---
 
 ## Version History
+
+### v6.0.0 (2026-02-27)
+
+- **Instinct System**: Auto-extract patterns from observations, cluster into evolvable instincts (`dev_instinct` tool)
+- **Notion Pipeline**: Task triage (`/dev inbox`), spec generation (`/dev spec`), post-merge status update hook
+- **Product Brain**: Product knowledge extraction & query (`dev_product` tool), post-commit architecture extraction
+- **Memory Architecture Alignment**: Auto Memory bidirectional sync (`syncToMemoryMd`), topic file output, path-scoped pitfalls
+- **Rules Distribution**: 9 platform-aware rule templates + `/dev rules` command, `/dev init` auto-install
+- **Structure Consistency**: All 5 plugins unified hooks/scripts/ path, added missing CLAUDE.md
+- **Test Infrastructure**: vitest config + 6 test files 98 tests + validate-plugins.sh + CI workflow
+- **Hook System Upgrade**: post-edit-format multi-formatter dispatch, context-warning strategic compaction, session-end cleanup
+- **Security Scan Skill**: 10-category deny-rules detection + guardrails reference
+- **Eval Harness Skill**: Session performance evaluation framework
+- **Search-First / Skill-Stocktake**: Search-first thinking + skill audit
+- **Checkpoint Command / Migration & Tech-Debt Checklists**: Manual checkpoints + plan template enhancement
+- **Contributing Guide + PR Template**: Standardized contribution workflow
 
 ### v5.0.0 (2026-02-12)
 

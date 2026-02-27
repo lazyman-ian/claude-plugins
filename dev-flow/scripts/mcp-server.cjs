@@ -3223,8 +3223,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path5) {
-      let input = path5;
+    function removeDotSegments(path6) {
+      let input = path6;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3298,8 +3298,8 @@ var require_utils = __commonJS({
       }
       return output.join("");
     }
-    function normalizeComponentEncoding(component, esc3) {
-      const func = esc3 !== true ? escape : unescape;
+    function normalizeComponentEncoding(component, esc5) {
+      const func = esc5 !== true ? escape : unescape;
       if (component.scheme !== void 0) {
         component.scheme = func(component.scheme);
       }
@@ -3423,8 +3423,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path5, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path5 && path5 !== "/" ? path5 : void 0;
+        const [path6, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path6 && path6 !== "/" ? path6 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6777,12 +6777,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs6, exportName) {
+    function addFormats(ajv, list, fs7, exportName) {
       var _a2;
       var _b;
       (_a2 = (_b = ajv.opts.code).formats) !== null && _a2 !== void 0 ? _a2 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs6[f]);
+        ajv.addFormat(f, fs7[f]);
     }
     module2.exports = exports2 = formatsPlugin;
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -7149,8 +7149,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path5, errorMaps, issueData } = params;
-  const fullPath = [...path5, ...issueData.path || []];
+  const { data, path: path6, errorMaps, issueData } = params;
+  const fullPath = [...path6, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -7265,11 +7265,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path5, key) {
+  constructor(parent, value, path6, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path5;
+    this._path = path6;
     this._key = key;
   }
   get path() {
@@ -10913,10 +10913,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path5) {
-  if (!path5)
+function getElementAtPath(obj, path6) {
+  if (!path6)
     return obj;
-  return path5.reduce((acc, key) => acc?.[key], obj);
+  return path6.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -11299,11 +11299,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path5, issues) {
+function prefixIssues(path6, issues) {
   return issues.map((iss) => {
     var _a2;
     (_a2 = iss).path ?? (_a2.path = []);
-    iss.path.unshift(path5);
+    iss.path.unshift(path6);
     return iss;
   });
 }
@@ -21482,9 +21482,9 @@ function findActiveLedger() {
   const ledgerPath = (0, import_path.join)(ledgersPath, files[0]);
   return parseLedger(ledgerPath);
 }
-function parseLedger(path5) {
-  const content = (0, import_fs.readFileSync)(path5, "utf-8");
-  const name = (0, import_path.basename)(path5, ".md");
+function parseLedger(path6) {
+  const content = (0, import_fs.readFileSync)(path6, "utf-8");
+  const name = (0, import_path.basename)(path6, ".md");
   const taskMatch = name.match(/TASK-\d+/);
   const taskId = taskMatch ? taskMatch[0] : "";
   const updatedMatch = content.match(/^Updated:\s*(.+)$/m);
@@ -21498,7 +21498,7 @@ function parseLedger(path5) {
   const prUrl = prMatch ? prMatch[0] : void 0;
   return {
     name,
-    path: path5,
+    path: path6,
     taskId,
     updated,
     goal,
@@ -22351,6 +22351,10 @@ function memoryConsolidate() {
     decisions++;
   }
   const total = pitfalls + patterns + decisions;
+  const autoMemDir = getAutoMemoryDir();
+  if (autoMemDir) {
+    writeTopicFiles(autoMemDir);
+  }
   return {
     success: true,
     message: `Consolidated:${total}|pitfalls:${pitfalls}|patterns:${patterns}|decisions:${decisions}|skipped:${skippedDuplicates}`,
@@ -22683,6 +22687,70 @@ function extractFromProject(dryRun = false) {
     message: `${mode}:${total}|pitfalls:${pitfalls}|patterns:${patterns}|decisions:${decisions}|skipped:${skippedDuplicates}`,
     data: { pitfalls, patterns, decisions, skippedDuplicates }
   };
+}
+function getAutoMemoryDir() {
+  const projectDir = getCwd2();
+  const escapedPath = projectDir.replace(/\//g, "-").replace(/^-/, "");
+  const memDir = (0, import_path3.join)((0, import_os2.homedir)(), ".claude", "projects", escapedPath, "memory");
+  return (0, import_fs3.existsSync)(memDir) ? memDir : null;
+}
+function writeTopicFiles(memDir) {
+  const dbPath = getDbPath();
+  if (!(0, import_fs3.existsSync)(dbPath)) return;
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const types = ["pitfall", "pattern", "decision"];
+  const fileNames = {
+    pitfall: "pitfalls.md",
+    pattern: "patterns.md",
+    decision: "decisions.md"
+  };
+  const headings = {
+    pitfall: "Pitfalls",
+    pattern: "Patterns",
+    decision: "Decisions"
+  };
+  for (const type of types) {
+    const sql = `SELECT platform, title, problem, solution, source_project, created_at, file_path FROM knowledge WHERE type = '${esc2(type)}' ORDER BY created_at DESC LIMIT 50;`;
+    let rows = [];
+    try {
+      const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+        encoding: "utf-8",
+        timeout: 3e3
+      }).trim();
+      if (result) {
+        rows = result.split("\n").map((line) => {
+          const [platform, title, problem, solution, sourceProject, createdAt, filePath] = line.split("|||");
+          return { platform, title, problem, solution, sourceProject, createdAt, filePath };
+        });
+      }
+    } catch {
+      continue;
+    }
+    if (rows.length === 0) continue;
+    const header = `# ${headings[type]}
+
+Last updated: ${now}
+
+`;
+    const entries = rows.map((r) => {
+      const lines = [
+        `## ${r.platform ? r.platform + " \u2014 " : ""}${r.title}`
+      ];
+      if (r.problem) lines.push(r.problem.trim());
+      const meta3 = [];
+      if (r.sourceProject) meta3.push(`Source: ${r.sourceProject}`);
+      if (r.solution) meta3.push(`Tags: ${r.solution.slice(0, 80)}`);
+      if (meta3.length > 0) lines.push(meta3.join(" | "));
+      lines.push("---");
+      return lines.join("\n");
+    });
+    const content = header + entries.join("\n\n");
+    const outPath = (0, import_path3.join)(memDir, fileNames[type]);
+    try {
+      (0, import_fs3.writeFileSync)(outPath, content, "utf-8");
+    } catch {
+    }
+  }
 }
 
 // src/continuity/reasoning.ts
@@ -23489,7 +23557,9 @@ var HandoffHub = class {
     }
   }
   write(handoff) {
-    const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-").substring(0, 15);
+    const now = /* @__PURE__ */ new Date();
+    const pad = (n, len = 2) => String(n).padStart(len, "0");
+    const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}-${pad(now.getMilliseconds(), 3)}`;
     const handoffId = `handoff-${timestamp}.md`;
     const filePath = path4.join(this.baseDir, handoffId);
     const content = this.serializeHandoff(handoff);
@@ -23760,6 +23830,532 @@ ${result.diff_stat}`
     default:
       return { content: [{ type: "text", text: "\u274C Action required: prepare|finalize" }] };
   }
+}
+
+// src/continuity/instincts.ts
+var import_child_process14 = require("child_process");
+var import_fs8 = require("fs");
+var import_path7 = require("path");
+function getDbPath2(projectDir) {
+  return (0, import_path7.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
+}
+function esc3(s) {
+  return (s || "").replace(/'/g, "''");
+}
+function dbQuery(dbPath, sql) {
+  try {
+    return (0, import_child_process14.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 5e3
+    }).trim();
+  } catch {
+    return "";
+  }
+}
+function dbExec(dbPath, sql) {
+  try {
+    (0, import_child_process14.execSync)(`sqlite3 "${dbPath}" "${sql.replace(/"/g, '\\"')}"`, {
+      encoding: "utf-8",
+      timeout: 5e3
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+function ensureInstinctsTable(dbPath) {
+  const schema = `CREATE TABLE IF NOT EXISTS instincts (id TEXT PRIMARY KEY, trigger TEXT, action TEXT, confidence REAL, domain TEXT, source TEXT, evidence_count INTEGER, last_seen TEXT, examples TEXT);`;
+  dbExec(dbPath, schema);
+}
+function hasObservationsTable(dbPath) {
+  const result = dbQuery(
+    dbPath,
+    `SELECT name FROM sqlite_master WHERE type='table' AND name='observations';`
+  );
+  return result.trim() === "observations";
+}
+function loadObservations(dbPath) {
+  const result = dbQuery(
+    dbPath,
+    `SELECT title, narrative, concepts FROM observations ORDER BY created_at_epoch DESC LIMIT 200;`
+  );
+  if (!result) return [];
+  return result.split("\n").map((line) => {
+    const [title, narrative, concepts] = line.split("|||");
+    return { title: title || "", narrative: narrative || "", concepts: concepts || "" };
+  }).filter((o) => o.title || o.narrative);
+}
+function tokenize(text) {
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 3);
+}
+function sharedKeywords(a, b) {
+  const setB = new Set(b);
+  return a.filter((w) => setB.has(w));
+}
+function clusterObservations(observations) {
+  const tokenized = observations.map((o) => ({
+    obs: o,
+    tokens: tokenize(`${o.title} ${o.narrative} ${o.concepts}`)
+  }));
+  const clusters = [];
+  const assigned = /* @__PURE__ */ new Set();
+  for (let i = 0; i < tokenized.length; i++) {
+    if (assigned.has(i)) continue;
+    const cluster = {
+      keywords: tokenized[i].tokens,
+      observations: [tokenized[i].obs]
+    };
+    assigned.add(i);
+    for (let j = i + 1; j < tokenized.length; j++) {
+      if (assigned.has(j)) continue;
+      const shared = sharedKeywords(tokenized[i].tokens, tokenized[j].tokens);
+      if (shared.length >= 2) {
+        cluster.observations.push(tokenized[j].obs);
+        assigned.add(j);
+      }
+    }
+    if (cluster.observations.length >= 3) {
+      clusters.push(cluster);
+    }
+  }
+  return clusters;
+}
+function deriveInstinct(cluster) {
+  const allText = cluster.observations.map((o) => `${o.title} ${o.narrative}`).join(" ");
+  const tokens = tokenize(allText);
+  const freq = {};
+  for (const t of tokens) {
+    freq[t] = (freq[t] || 0) + 1;
+  }
+  const topKeywords = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k]) => k);
+  const domain2 = deriveDomain(topKeywords);
+  const titleFreq = {};
+  for (const o of cluster.observations) {
+    titleFreq[o.title] = (titleFreq[o.title] || 0) + 1;
+  }
+  const topTitle = Object.entries(titleFreq).sort((a, b) => b[1] - a[1])[0]?.[0] || topKeywords.join(" ");
+  const idBase = topKeywords.slice(0, 3).join("-").replace(/[^a-z0-9-]/g, "");
+  const contentSig = cluster.observations.map((o) => o.title).join("|");
+  const hashSuffix = contentSig.split("").reduce((h, c) => (h << 5) - h + c.charCodeAt(0) | 0, 0).toString(36).replace("-", "n");
+  const id = idBase ? `${idBase}-${hashSuffix}` : `instinct-${Date.now().toString(36)}`;
+  const trigger = `when working with ${topKeywords.slice(0, 3).join(", ")}`;
+  const action = topTitle.slice(0, 120);
+  const examples = cluster.observations.slice(0, 5).map((o) => o.title.slice(0, 80)).filter(Boolean);
+  return {
+    id,
+    trigger,
+    action,
+    confidence: Math.min(0.3 + cluster.observations.length * 0.1, 0.9),
+    domain: domain2,
+    source: "session-observation",
+    evidenceCount: cluster.observations.length,
+    lastSeen: (/* @__PURE__ */ new Date()).toISOString(),
+    examples
+  };
+}
+function deriveDomain(keywords) {
+  const domainMap = {
+    "swift-style": ["swift", "guard", "optional", "closure", "protocol"],
+    "git-workflow": ["commit", "branch", "merge", "rebase", "push"],
+    "testing": ["test", "mock", "assert", "spec", "unit"],
+    "performance": ["performance", "memory", "optimize", "cache", "slow"],
+    "android-kotlin": ["kotlin", "android", "compose", "coroutine", "flow"],
+    "typescript": ["typescript", "type", "interface", "generic", "async"]
+  };
+  for (const [domain2, markers] of Object.entries(domainMap)) {
+    if (keywords.some((k) => markers.includes(k))) {
+      return domain2;
+    }
+  }
+  return "general";
+}
+function loadExistingInstinct(dbPath, id) {
+  const result = dbQuery(
+    dbPath,
+    `SELECT id, trigger, action, confidence, domain, source, evidence_count, last_seen, examples FROM instincts WHERE id = '${esc3(id)}';`
+  );
+  if (!result) return null;
+  const [rid, trigger, action, confidence, domain2, source, evidenceCount, lastSeen, examples] = result.split("|||");
+  if (!rid) return null;
+  return {
+    id: rid,
+    trigger,
+    action,
+    confidence: parseFloat(confidence) || 0,
+    domain: domain2,
+    source,
+    evidenceCount: parseInt(evidenceCount, 10) || 0,
+    lastSeen,
+    examples: (() => {
+      try {
+        return JSON.parse(examples || "[]");
+      } catch {
+        return [];
+      }
+    })()
+  };
+}
+function upsertInstinct(dbPath, instinct) {
+  const existing = loadExistingInstinct(dbPath, instinct.id);
+  let toWrite = instinct;
+  if (existing) {
+    toWrite = {
+      ...existing,
+      confidence: Math.min(existing.confidence + 0.1, 1),
+      evidenceCount: existing.evidenceCount + instinct.evidenceCount,
+      lastSeen: (/* @__PURE__ */ new Date()).toISOString(),
+      examples: [.../* @__PURE__ */ new Set([...existing.examples, ...instinct.examples])].slice(0, 5)
+    };
+  }
+  const sql = `INSERT OR REPLACE INTO instincts (id, trigger, action, confidence, domain, source, evidence_count, last_seen, examples) VALUES ('${esc3(toWrite.id)}', '${esc3(toWrite.trigger)}', '${esc3(toWrite.action)}', ${toWrite.confidence}, '${esc3(toWrite.domain)}', '${esc3(toWrite.source)}', ${toWrite.evidenceCount}, '${esc3(toWrite.lastSeen)}', '${esc3(JSON.stringify(toWrite.examples))}');`;
+  return dbExec(dbPath, sql);
+}
+function instinctExtract(projectDir) {
+  const dbPath = getDbPath2(projectDir);
+  if (!(0, import_fs8.existsSync)(dbPath)) {
+    return { success: false, extracted: 0, message: "No observations found. Enable Tier 3 in .dev-flow.json" };
+  }
+  if (!hasObservationsTable(dbPath)) {
+    return { success: false, extracted: 0, message: "No observations found. Enable Tier 3 in .dev-flow.json" };
+  }
+  const observations = loadObservations(dbPath);
+  if (observations.length === 0) {
+    return { success: true, extracted: 0, message: "No observations to process yet. Run more sessions with Tier 3 enabled." };
+  }
+  ensureInstinctsTable(dbPath);
+  const clusters = clusterObservations(observations);
+  if (clusters.length === 0) {
+    return { success: true, extracted: 0, message: `Processed ${observations.length} observations. Not enough clustering to extract instincts (need 3+ similar observations).` };
+  }
+  let extracted = 0;
+  for (const cluster of clusters) {
+    const instinct = deriveInstinct(cluster);
+    if (upsertInstinct(dbPath, instinct)) {
+      extracted++;
+    }
+  }
+  return { success: true, extracted, message: `Extracted ${extracted} instincts from ${observations.length} observations (${clusters.length} clusters).` };
+}
+function instinctList(projectDir, domain2) {
+  const dbPath = getDbPath2(projectDir);
+  if (!(0, import_fs8.existsSync)(dbPath)) return [];
+  ensureInstinctsTable(dbPath);
+  const whereClause = domain2 ? `WHERE domain = '${esc3(domain2)}'` : "";
+  const result = dbQuery(
+    dbPath,
+    `SELECT id, trigger, action, confidence, domain, source, evidence_count, last_seen, examples FROM instincts ${whereClause} ORDER BY confidence DESC;`
+  );
+  if (!result) return [];
+  return result.split("\n").map((line) => {
+    const [id, trigger, action, confidence, dom, source, evidenceCount, lastSeen, examples] = line.split("|||");
+    if (!id) return null;
+    return {
+      id,
+      trigger,
+      action,
+      confidence: parseFloat(confidence) || 0,
+      domain: dom,
+      source,
+      evidenceCount: parseInt(evidenceCount, 10) || 0,
+      lastSeen,
+      examples: (() => {
+        try {
+          return JSON.parse(examples || "[]");
+        } catch {
+          return [];
+        }
+      })()
+    };
+  }).filter((i) => i !== null);
+}
+
+// src/continuity/product-brain.ts
+var import_child_process15 = require("child_process");
+var import_fs9 = require("fs");
+var import_path8 = require("path");
+var import_os4 = require("os");
+function esc4(s) {
+  return (s || "").replace(/'/g, "''");
+}
+function getDbPath3(projectDir) {
+  return (0, import_path8.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
+}
+function generateId2() {
+  return `pb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+function dbExec2(dbPath, sql) {
+  try {
+    (0, import_child_process15.execSync)(`sqlite3 "${dbPath}" "${sql.replace(/"/g, '\\"')}"`, {
+      encoding: "utf-8",
+      timeout: 5e3
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+function dbQuery2(dbPath, sql) {
+  try {
+    return (0, import_child_process15.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql.replace(/"/g, '\\"')}"`, {
+      encoding: "utf-8",
+      timeout: 5e3
+    }).trim();
+  } catch {
+    return "";
+  }
+}
+function ensureProductBrainTable(dbPath) {
+  (0, import_fs9.mkdirSync)((0, import_path8.dirname)(dbPath), { recursive: true });
+  const schema = `CREATE TABLE IF NOT EXISTS product_brain (id TEXT PRIMARY KEY, domain TEXT NOT NULL, topic TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, source TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`;
+  dbExec2(dbPath, schema);
+}
+function ensureDbDir(projectDir) {
+  const dbDir = (0, import_path8.join)(projectDir, ".claude", "cache", "artifact-index");
+  (0, import_fs9.mkdirSync)(dbDir, { recursive: true });
+}
+function inferDomainFromPath(filePath) {
+  const lower = filePath.toLowerCase();
+  if (lower.includes("/ios/") || lower.includes(".swift") || lower.includes("xcodeproj") || lower.includes("appdelegate")) return "ios";
+  if (lower.includes("/android/") || lower.includes(".kt") || lower.includes("gradle") || lower.includes("androidmanifest")) return "android";
+  if (lower.includes("/web/") || lower.includes(".tsx") || lower.includes(".jsx") || lower.includes("react")) return "web";
+  if (lower.includes("/backend/") || lower.includes("/api/") || lower.includes("/server/") || lower.includes(".go") || lower.includes(".py")) return "backend";
+  return "shared";
+}
+function inferTopicFromPath(filePath) {
+  const lower = filePath.toLowerCase();
+  if (lower.includes("auth") || lower.includes("login") || lower.includes("session")) return "authentication";
+  if (lower.includes("nav") || lower.includes("router") || lower.includes("route")) return "navigation";
+  if (lower.includes("data") || lower.includes("model") || lower.includes("schema") || lower.includes("db") || lower.includes("repository")) return "data-layer";
+  if (lower.includes("ui") || lower.includes("view") || lower.includes("component") || lower.includes("screen")) return "ui";
+  if (lower.includes("network") || lower.includes("api") || lower.includes("request") || lower.includes("http")) return "networking";
+  if (lower.includes("test") || lower.includes("spec")) return "testing";
+  if (lower.includes("config") || lower.includes("setting") || lower.includes("env")) return "configuration";
+  return "general";
+}
+function productExtract(projectDir, specPath) {
+  const dbPath = getDbPath3(projectDir);
+  ensureDbDir(projectDir);
+  ensureProductBrainTable(dbPath);
+  const entries = [];
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  let recentCommits = "";
+  try {
+    recentCommits = (0, import_child_process15.execSync)("git log --oneline -5 --name-only", {
+      cwd: projectDir,
+      encoding: "utf-8",
+      timeout: 5e3
+    }).trim();
+  } catch {
+    return entries;
+  }
+  if (!recentCommits) return entries;
+  const commitBlocks = recentCommits.split("\n\n").filter(Boolean);
+  const filesByDomain = /* @__PURE__ */ new Map();
+  for (const block of commitBlocks) {
+    const lines = block.split("\n").filter(Boolean);
+    if (lines.length === 0) continue;
+    const commitMsg = lines[0].replace(/^[a-f0-9]+ /, "");
+    const changedFiles = lines.slice(1);
+    for (const file2 of changedFiles) {
+      const domain2 = inferDomainFromPath(file2);
+      const topic = inferTopicFromPath(file2);
+      const key = `${domain2}:${topic}`;
+      if (!filesByDomain.has(key)) {
+        filesByDomain.set(key, { files: [], commitMsg });
+      }
+      filesByDomain.get(key).files.push(file2);
+    }
+  }
+  let specContext = "";
+  if (specPath && (0, import_fs9.existsSync)(specPath) && specPath.startsWith(projectDir)) {
+    try {
+      specContext = (0, import_fs9.readFileSync)(specPath, "utf-8").split("\n").slice(0, 50).join("\n").trim();
+    } catch {
+    }
+  }
+  for (const [key, { files, commitMsg }] of filesByDomain) {
+    const [domain2, topic] = key.split(":");
+    const fileList = files.slice(0, 5).join(", ");
+    const content = specContext ? `Files: ${fileList}
+Commit: ${commitMsg}
+Spec context: ${specContext.slice(0, 200)}` : `Files: ${fileList}
+Commit: ${commitMsg}`;
+    entries.push({
+      id: generateId2(),
+      domain: domain2,
+      topic,
+      title: `${commitMsg.slice(0, 60)}`,
+      content,
+      source: commitMsg.slice(0, 80),
+      created_at: now,
+      updated_at: now
+    });
+  }
+  return entries;
+}
+function productQuery(projectDir, options) {
+  const dbPath = getDbPath3(projectDir);
+  if (!(0, import_fs9.existsSync)(dbPath)) return [];
+  ensureProductBrainTable(dbPath);
+  const conditions = [];
+  if (options.domain) conditions.push(`domain = '${esc4(options.domain)}'`);
+  if (options.topic) conditions.push(`topic = '${esc4(options.topic)}'`);
+  if (options.query) {
+    const q = esc4(options.query);
+    conditions.push(`(title LIKE '%${q}%' OR content LIKE '%${q}%' OR topic LIKE '%${q}%')`);
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const sql = `SELECT id, domain, topic, title, content, source, created_at, updated_at FROM product_brain ${where} ORDER BY updated_at DESC LIMIT 20;`;
+  const result = dbQuery2(dbPath, sql);
+  if (!result) return [];
+  return result.split("\n").map((line) => {
+    const [id, domain2, topic, title, content, source, created_at, updated_at] = line.split("|||");
+    if (!id) return null;
+    return { id, domain: domain2, topic, title, content, source, created_at, updated_at };
+  }).filter((e) => e !== null);
+}
+function productSave(projectDir, entry) {
+  const dbPath = getDbPath3(projectDir);
+  ensureDbDir(projectDir);
+  ensureProductBrainTable(dbPath);
+  const id = generateId2();
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const sql = `INSERT INTO product_brain (id, domain, topic, title, content, source, created_at, updated_at) VALUES ('${esc4(id)}', '${esc4(entry.domain)}', '${esc4(entry.topic)}', '${esc4(entry.title)}', '${esc4(entry.content)}', '${esc4(entry.source)}', '${esc4(now)}', '${esc4(now)}');`;
+  dbExec2(dbPath, sql);
+  return id;
+}
+function productWriteTopicFiles(projectDir) {
+  const dbPath = getDbPath3(projectDir);
+  if (!(0, import_fs9.existsSync)(dbPath)) return;
+  const escapedPath = projectDir.replace(/\//g, "-").replace(/^-/, "");
+  const memDir = (0, import_path8.join)((0, import_os4.homedir)(), ".claude", "projects", escapedPath, "memory");
+  if (!(0, import_fs9.existsSync)(memDir)) return;
+  const sql = `SELECT DISTINCT domain FROM product_brain ORDER BY domain;`;
+  const domainsResult = dbQuery2(dbPath, sql);
+  if (!domainsResult) return;
+  const domains = domainsResult.split("\n").filter(Boolean);
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  for (const domain2 of domains) {
+    const entriesSql = `SELECT topic, title, content, source, updated_at FROM product_brain WHERE domain = '${esc4(domain2)}' ORDER BY updated_at DESC LIMIT 30;`;
+    const entriesResult = dbQuery2(dbPath, entriesSql);
+    if (!entriesResult) continue;
+    const rows = entriesResult.split("\n").filter(Boolean).map((line) => {
+      const [topic, title, content, source, updated_at] = line.split("|||");
+      return { topic, title, content, source, updated_at };
+    });
+    const header = `# Product Knowledge: ${domain2.charAt(0).toUpperCase() + domain2.slice(1)}
+Last updated: ${now}
+
+`;
+    const sections = rows.map((r) => [
+      `## ${r.topic} \u2014 ${r.title}`,
+      r.content.trim(),
+      `Source: ${r.source}`,
+      "---"
+    ].join("\n"));
+    const fileContent = header + sections.join("\n\n");
+    const outPath = (0, import_path8.join)(memDir, `product-${domain2}.md`);
+    try {
+      (0, import_fs9.writeFileSync)(outPath, fileContent, "utf-8");
+    } catch {
+    }
+  }
+}
+
+// src/notion.ts
+var fs6 = __toESM(require("fs"));
+var path5 = __toESM(require("path"));
+function getNotionConfig(projectDir) {
+  const configPath = path5.join(projectDir, ".dev-flow.json");
+  if (!fs6.existsSync(configPath)) {
+    return null;
+  }
+  try {
+    const content = fs6.readFileSync(configPath, "utf-8");
+    const config2 = JSON.parse(content);
+    const notion = config2.notion;
+    if (!notion?.database_id) {
+      return null;
+    }
+    return {
+      database_id: notion.database_id,
+      status_field: notion.status_field ?? "Status",
+      priority_field: notion.priority_field ?? "Priority",
+      type_field: notion.type_field ?? "Type",
+      platform_field: notion.platform_field ?? "Platform"
+    };
+  } catch {
+    return null;
+  }
+}
+function buildInboxFilter(options) {
+  const conditions = [];
+  if (options.status) {
+    conditions.push({
+      property: "Status",
+      status: { equals: options.status }
+    });
+  }
+  if (options.priority) {
+    conditions.push({
+      property: "Priority",
+      select: { equals: options.priority }
+    });
+  }
+  if (options.platform) {
+    conditions.push({
+      property: "Platform",
+      multi_select: { contains: options.platform }
+    });
+  }
+  if (conditions.length === 0) {
+    return {};
+  }
+  if (conditions.length === 1) {
+    return { filter: conditions[0] };
+  }
+  return { filter: { and: conditions } };
+}
+function extractSpecFields(page) {
+  const props = page.properties ?? {};
+  const title = extractTextProperty(props.Name ?? props.Title) ?? "Untitled";
+  const rawType = extractSelectProperty(props.Type) ?? "";
+  const type = normalizeType(rawType);
+  const priority = extractSelectProperty(props.Priority) ?? "Medium";
+  const platform = extractMultiSelectProperty(props.Platform);
+  const description = extractTextProperty(props.Description ?? props.Summary) ?? "";
+  const notion_url = page.url ?? "";
+  return { title, type, priority, platform, description, notion_url };
+}
+function extractTextProperty(prop) {
+  if (!prop) return void 0;
+  if (Array.isArray(prop.title)) {
+    return prop.title.map((t) => t.plain_text ?? "").join("") || void 0;
+  }
+  if (Array.isArray(prop.rich_text)) {
+    return prop.rich_text.map((t) => t.plain_text ?? "").join("") || void 0;
+  }
+  return void 0;
+}
+function extractSelectProperty(prop) {
+  if (!prop) return void 0;
+  if (prop.status?.name) return prop.status.name;
+  if (prop.select?.name) return prop.select.name;
+  return void 0;
+}
+function extractMultiSelectProperty(prop) {
+  if (!prop) return [];
+  if (Array.isArray(prop.multi_select)) {
+    return prop.multi_select.map((s) => s.name ?? "").filter(Boolean);
+  }
+  return [];
+}
+function normalizeType(raw) {
+  const lower = raw.toLowerCase();
+  if (lower.includes("bug") || lower.includes("fix")) return "bug";
+  if (lower.includes("improvement") || lower.includes("enhance")) return "improvement";
+  if (lower.includes("tech") || lower.includes("debt") || lower.includes("refactor")) return "tech-debt";
+  return "feature";
 }
 
 // src/index.ts
@@ -24049,6 +24645,64 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           skip_review: { type: "boolean", description: "Skip review verification (emergency only)" }
         }
       }
+    },
+    {
+      name: "dev_instinct",
+      description: "[~30 tokens] Extract and list behavioral instincts from session observations",
+      inputSchema: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["extract", "list"], description: "Action to perform" },
+          domain: { type: "string", description: "Filter by domain (list only)" }
+        },
+        required: ["action"]
+      }
+    },
+    {
+      name: "dev_product",
+      description: "[~50 tokens] Manage product domain knowledge (extract/query/save/write_topics)",
+      inputSchema: {
+        type: "object",
+        properties: {
+          action: {
+            type: "string",
+            enum: ["extract", "query", "save", "write_topics"],
+            description: "Action to perform"
+          },
+          specPath: { type: "string", description: "Path to spec file for context (extract only)" },
+          domain: { type: "string", description: "Domain filter: ios|android|web|backend|shared (query/save)" },
+          topic: { type: "string", description: "Topic filter e.g. authentication, navigation (query/save)" },
+          query: { type: "string", description: "Text search query (query only)" },
+          title: { type: "string", description: "Entry title (save only)" },
+          content: { type: "string", description: "Detailed knowledge content (save only)" },
+          source: { type: "string", description: "Source spec/commit that generated this (save only)" }
+        },
+        required: ["action"]
+      }
+    },
+    // Notion tools
+    {
+      name: "dev_inbox",
+      description: "[~50 tokens] List Notion tasks from the configured project database",
+      inputSchema: {
+        type: "object",
+        properties: {
+          priority: { type: "string", description: "Filter by priority (e.g. High, Medium, Low)" },
+          platform: { type: "string", description: "Filter by platform tag (e.g. iOS, Android)" },
+          status: { type: "string", description: "Filter by status (e.g. In Progress, Todo)" }
+        }
+      }
+    },
+    {
+      name: "dev_spec",
+      description: "[~40 tokens] Extract spec fields from a Notion page for planning and implementation",
+      inputSchema: {
+        type: "object",
+        properties: {
+          page_id: { type: "string", description: "Notion page ID to extract spec fields from" },
+          pages_json: { type: "string", description: "JSON array of Notion pages (alternative to page_id)" }
+        }
+      }
     }
   ]
 }));
@@ -24196,6 +24850,105 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return aggregateTool(args?.action, args?.handoffIds, args?.taskId);
       case "dev_commit":
         return commitTool(args?.action, args?.token, args?.message, args?.skip_review);
+      case "dev_instinct": {
+        const action = args?.action;
+        const cwd = process.cwd();
+        if (action === "extract") {
+          const result = instinctExtract(cwd);
+          return { content: [{ type: "text", text: result.message }] };
+        } else if (action === "list") {
+          const instincts = instinctList(cwd, args?.domain);
+          const text = instincts.length === 0 ? "No instincts found. Run extract first." : instincts.map((i) => `[${i.confidence.toFixed(1)}] ${i.trigger} \u2192 ${i.action} (${i.domain}, ${i.evidenceCount} evidence)`).join("\n");
+          return { content: [{ type: "text", text }] };
+        }
+        return { content: [{ type: "text", text: "\u274C Action required: extract|list" }] };
+      }
+      case "dev_product": {
+        const action = args?.action;
+        const cwd = process.cwd();
+        if (action === "extract") {
+          const entries = productExtract(cwd, args?.specPath);
+          if (entries.length === 0) {
+            return { content: [{ type: "text", text: "No product knowledge extracted (no recent commits or spec changes)." }] };
+          }
+          const summary = entries.map((e) => `[${e.domain}/${e.topic}] ${e.title}`).join("\n");
+          return { content: [{ type: "text", text: `Extracted ${entries.length} entries:
+${summary}` }] };
+        } else if (action === "query") {
+          const results = productQuery(cwd, {
+            domain: args?.domain,
+            topic: args?.topic,
+            query: args?.query
+          });
+          if (results.length === 0) {
+            return { content: [{ type: "text", text: "No product knowledge found." }] };
+          }
+          const text = results.map((e) => `[${e.domain}/${e.topic}] ${e.title}
+${e.content.slice(0, 200)}`).join("\n\n---\n\n");
+          return { content: [{ type: "text", text }] };
+        } else if (action === "save") {
+          const domain2 = args?.domain || "shared";
+          const topic = args?.topic || "general";
+          const title = args?.title;
+          const content = args?.content;
+          const source = args?.source || "manual";
+          if (!title || !content) {
+            return { content: [{ type: "text", text: "\u274C title and content required for save action" }] };
+          }
+          const id = productSave(cwd, { domain: domain2, topic, title, content, source });
+          return { content: [{ type: "text", text: `Saved: ${id}` }] };
+        } else if (action === "write_topics") {
+          productWriteTopicFiles(cwd);
+          return { content: [{ type: "text", text: "Product topic files written to Auto Memory directory." }] };
+        }
+        return { content: [{ type: "text", text: "\u274C Action required: extract|query|save|write_topics" }] };
+      }
+      // Notion tools
+      case "dev_inbox": {
+        const notionCfg = getNotionConfig(process.cwd());
+        if (!notionCfg) {
+          return { content: [{ type: "text", text: 'Notion not configured. Add a "notion" section with "database_id" to .dev-flow.json.' }] };
+        }
+        const filter = buildInboxFilter({
+          priority: args?.priority,
+          platform: args?.platform,
+          status: args?.status
+        });
+        const filterJson = Object.keys(filter).length > 0 ? JSON.stringify(filter, null, 2) : "(no filter)";
+        const text = `Database: ${notionCfg.database_id}
+Filter: ${filterJson}
+
+Use the Notion MCP tool notion-query-data-sources with this database_id and filter to retrieve tasks, then pass the pages to dev_spec for spec extraction.`;
+        return { content: [{ type: "text", text }] };
+      }
+      case "dev_spec": {
+        const notionCfg = getNotionConfig(process.cwd());
+        if (!notionCfg) {
+          return { content: [{ type: "text", text: 'Notion not configured. Add a "notion" section with "database_id" to .dev-flow.json.' }] };
+        }
+        const pagesJson = args?.pages_json;
+        if (!pagesJson && !args?.page_id) {
+          return { content: [{ type: "text", text: "Provide page_id or pages_json. Use the Notion MCP tool notion-fetch with the page_id, then pass the result as pages_json." }] };
+        }
+        try {
+          const pages = pagesJson ? JSON.parse(pagesJson) : [];
+          if (pages.length === 0) {
+            return { content: [{ type: "text", text: `Fetch page ${args?.page_id} using notion-fetch, then call dev_spec with pages_json containing the result.` }] };
+          }
+          const specs = pages.map(extractSpecFields);
+          const formatted = specs.map((s) => [
+            `## ${s.title}`,
+            `- **Type**: ${s.type}`,
+            `- **Priority**: ${s.priority}`,
+            `- **Platform**: ${s.platform.join(", ") || "all"}`,
+            `- **Description**: ${s.description || "(none)"}`,
+            `- **URL**: ${s.notion_url}`
+          ].join("\n")).join("\n\n");
+          return { content: [{ type: "text", text: formatted }] };
+        } catch (e) {
+          return { content: [{ type: "text", text: `Failed to parse pages_json: ${e.message}` }] };
+        }
+      }
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -24637,22 +25390,22 @@ function defaultsTool(action) {
   }
 }
 function tasksTool(action, ledgerPath) {
-  const path5 = ledgerPath || getActiveLedgerPath?.() || "";
-  if (!path5) {
+  const path6 = ledgerPath || getActiveLedgerPath?.() || "";
+  if (!path6) {
     return { content: [{ type: "text", text: 'NO_LEDGER|Create with dev_ledger(action:"create")' }] };
   }
   switch (action) {
     case "summary":
-      return { content: [{ type: "text", text: getTaskSyncSummary(path5) }] };
+      return { content: [{ type: "text", text: getTaskSyncSummary(path6) }] };
     case "export":
-      const exported = exportLedgerAsJson(path5);
+      const exported = exportLedgerAsJson(path6);
       if (!exported) {
         return { content: [{ type: "text", text: "\u274C Failed to export ledger" }] };
       }
       const commands = generateTaskCommands(exported.tasks);
       return { content: [{ type: "text", text: commands || "NO_TASKS|All completed or empty" }] };
     case "sync":
-      const tasks = parseLedgerState(path5);
+      const tasks = parseLedgerState(path6);
       return { content: [{ type: "text", text: formatTasksAsMarkdown(tasks) }] };
     default:
       return { content: [{ type: "text", text: "\u274C Action required: summary|export|sync" }] };

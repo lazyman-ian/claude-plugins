@@ -6,7 +6,7 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 
@@ -51,7 +51,7 @@ function dbExec(dbPath: string, sql: string): boolean {
 
 function dbQuery(dbPath: string, sql: string): string {
   try {
-    return execSync(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+    return execSync(`sqlite3 -separator '|||' "${dbPath}" "${sql.replace(/"/g, '\\"')}"`, {
       encoding: 'utf-8',
       timeout: 5000,
     }).trim();
@@ -143,11 +143,11 @@ export function productExtract(projectDir: string, specPath?: string): ProductEn
     }
   }
 
-  // Read spec file if provided
+  // Read spec file if provided (use fs.readFileSync to avoid shell injection)
   let specContext = '';
-  if (specPath && existsSync(specPath)) {
+  if (specPath && existsSync(specPath) && specPath.startsWith(projectDir)) {
     try {
-      specContext = execSync(`head -50 "${specPath}"`, { encoding: 'utf-8', timeout: 3000 }).trim();
+      specContext = readFileSync(specPath, 'utf-8').split('\n').slice(0, 50).join('\n').trim();
     } catch {
       // ignore
     }

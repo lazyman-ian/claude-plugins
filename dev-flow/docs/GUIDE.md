@@ -1,6 +1,6 @@
 # dev-flow Plugin 完整指南
 
-> Claude Code 开发工作流自动化插件 | v5.0.0
+> Claude Code 开发工作流自动化插件 | v6.0.0
 
 ## 目录
 
@@ -882,6 +882,22 @@ Tasks: 2/5 (40%) | → 1 active | 2 pending
 ---
 
 ## 版本历史
+
+### v6.0.0 (2026-02-27)
+
+- **Instinct 系统**: 从观察数据中自动提取模式，聚类为可进化的 instinct（`dev_instinct` 工具）
+- **Notion Pipeline**: 任务分拣（`/dev inbox`）、规格生成（`/dev spec`）、合并后状态更新 hook
+- **Product Brain**: 产品知识抽取与查询（`dev_product` 工具），commit 后自动提取架构知识
+- **Memory 架构对齐**: Auto Memory 双向同步（`syncToMemoryMd`）、topic 文件输出、path-scoped pitfalls
+- **Rules 分发系统**: 9 个平台感知规则模板 + `/dev rules` 命令，`/dev init` 自动安装
+- **结构一致性**: 全部 5 个插件统一 hooks/scripts/ 路径、补齐 CLAUDE.md
+- **测试基础设施**: vitest 配置 + 6 个测试文件 98 个测试 + validate-plugins.sh + CI workflow
+- **Hook 系统升级**: post-edit-format 多格式化器分发、context-warning 策略压缩、session-end 清理
+- **安全扫描 skill**: 10 类 deny-rules 检测 + guardrails 参考
+- **Eval Harness skill**: 会话性能评估框架
+- **Search-First / Skill-Stocktake**: 搜索优先思维 + 技能审计
+- **Checkpoint 命令 / 迁移 & 技术债 checklist**: 手动检查点 + plan 模板增强
+- **Contributing 指南 + PR 模板**: 标准化贡献流程
 
 ### v5.0.0 (2026-02-12)
 
