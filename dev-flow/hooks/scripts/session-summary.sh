@@ -147,7 +147,8 @@ DB_DIR="${CWD}/.claude/cache/artifact-index"
 DB_PATH="${DB_DIR}/context.db"
 EPOCH=$(date +%s)
 NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-SUMMARY_ID="summary-${SESSION_ID:-$(date +%s)}-$(date +%s | shasum | head -c 8)"
+# Use session_id as stable key to prevent duplicates (was generating unique hash each time → 10x duplication)
+SUMMARY_ID="summary-${SESSION_ID:-unknown-$(date +%s)}"
 
 # Ensure table exists
 sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS session_summaries (
@@ -178,7 +179,8 @@ END;" 2>/dev/null
 # Escape single quotes for SQL
 esc() { echo "$1" | /usr/bin/sed "s/'/''/g"; }
 
-sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO session_summaries (id, session_id, project, request, investigated, learned, completed, next_steps, files_modified, created_at, created_at_epoch)
+# REPLACE to keep latest summary per session (Stop hook fires multiple times per session)
+sqlite3 "$DB_PATH" "INSERT OR REPLACE INTO session_summaries (id, session_id, project, request, investigated, learned, completed, next_steps, files_modified, created_at, created_at_epoch)
 VALUES ('$(esc "$SUMMARY_ID")', '$(esc "$SESSION_ID")', '$(esc "$PROJECT")', '$(esc "$REQUEST")', '$(esc "$INVESTIGATED")', '$(esc "$LEARNED")', '$(esc "$COMPLETED")', '$(esc "$NEXT_STEPS")', '$(esc "$GIT_CHANGES")', '${NOW}', ${EPOCH});" 2>/dev/null
 
 

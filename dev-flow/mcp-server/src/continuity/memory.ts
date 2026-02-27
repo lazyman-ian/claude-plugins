@@ -356,42 +356,48 @@ function seedSynonyms(): void {
 
 function scanHandoffs(): Array<{ title: string; problem: string; solution: string; session: string; platform: string }> {
   const cwd = getCwd();
-  const handoffsBase = join(cwd, 'thoughts', 'shared', 'handoffs');
-  if (!existsSync(handoffsBase)) return [];
-
   const entries: Array<{ title: string; problem: string; solution: string; session: string; platform: string }> = [];
 
-  for (const sessionDir of readdirSync(handoffsBase)) {
-    const sessionPath = join(handoffsBase, sessionDir);
-    if (!statSync(sessionPath).isDirectory()) continue;
+  // Scan both thoughts/handoffs/ and thoughts/shared/handoffs/*/
+  const searchDirs: string[] = [];
+  const handoffsDir = join(cwd, 'thoughts', 'handoffs');
+  if (existsSync(handoffsDir)) searchDirs.push(handoffsDir);
+  const sharedBase = join(cwd, 'thoughts', 'shared', 'handoffs');
+  if (existsSync(sharedBase)) {
+    for (const sub of readdirSync(sharedBase)) {
+      const subPath = join(sharedBase, sub);
+      if (existsSync(subPath) && statSync(subPath).isDirectory()) searchDirs.push(subPath);
+    }
+  }
 
-    for (const file of readdirSync(sessionPath)) {
-      if (!file.startsWith('auto-handoff-') || !file.endsWith('.md')) continue;
+  for (const dir of searchDirs) {
+    for (const file of readdirSync(dir)) {
+      if (!file.endsWith('.md')) continue;
 
-      const content = readFileSync(join(sessionPath, file), 'utf-8');
-      const errorsMatch = content.match(/## Errors Encountered\n([\s\S]*?)(?=\n## |$)/);
-      if (!errorsMatch) continue;
+      const content = readFileSync(join(dir, file), 'utf-8');
 
-      const errorBlock = errorsMatch[1].trim();
-      if (!errorBlock || errorBlock === 'No errors.') continue;
+      // Extract "Decisions Made" — the most valuable section in real handoffs
+      const decisionsMatch = content.match(/## Decisions Made\n([\s\S]*?)(?=\n## |$)/);
+      if (!decisionsMatch) continue;
 
-      // Extract error lines from code blocks
-      const codeBlocks = errorBlock.match(/```[\s\S]*?```/g);
-      if (!codeBlocks) continue;
+      const decisionsBlock = decisionsMatch[1].trim();
+      if (!decisionsBlock || decisionsBlock.length < 30) continue;
 
-      for (const block of codeBlocks) {
-        const errorText = block.replace(/```/g, '').trim();
-        if (errorText.length < 10) continue;
+      // Extract title from H1
+      const titleMatch = content.match(/^# (.+)/m);
+      const title = titleMatch ? titleMatch[1].slice(0, 80) : file.replace('.md', '');
 
-        const firstLine = errorText.split('\n')[0].slice(0, 80);
-        entries.push({
-          title: `Error: ${firstLine}`,
-          problem: errorText.slice(0, 300),
-          solution: 'See auto-handoff for context',
-          session: sessionDir,
-          platform: detectPlatformFromContent(content),
-        });
-      }
+      // Extract "What Was Done" for context
+      const whatMatch = content.match(/## What Was Done\n([\s\S]*?)(?=\n## |$)/);
+      const context = whatMatch ? whatMatch[1].trim().slice(0, 300) : '';
+
+      entries.push({
+        title,
+        problem: context || title,
+        solution: decisionsBlock.slice(0, 500),
+        session: file.replace('.md', ''),
+        platform: detectPlatformFromContent(content),
+      });
     }
   }
 
@@ -413,32 +419,24 @@ function scanReasoning(): Array<{ title: string; problem: string; solution: stri
     const commitMatch = content.match(/## What was committed\n([\s\S]*?)(?=\n## |$)/);
     const commitMsg = commitMatch ? commitMatch[1].trim().split('\n')[0] : commitDir.slice(0, 8);
 
-    // Priority 1: Failed attempts (anti-patterns)
+    // Only extract failed attempts — these contain real problem/solution knowledge
     const failedMatch = content.match(/### Failed attempts\n([\s\S]*?)(?=### Summary|## |$)/);
-    if (failedMatch) {
-      const failedText = failedMatch[1].trim();
-      if (failedText) {
-        entries.push({
-          title: `Failed approach: ${commitMsg.slice(0, 60)}`,
-          problem: failedText.slice(0, 300),
-          solution: `Resolved in commit ${commitDir.slice(0, 8)}`,
-          session: commitDir.slice(0, 8),
-        });
-        continue;
-      }
-    }
+    if (!failedMatch) continue;
 
-    // Priority 2: Successful commits with file changes (decisions/patterns)
-    const filesMatch = content.match(/## Files changed\n([\s\S]*?)(?=\n## |$)/);
-    const files = filesMatch ? filesMatch[1].trim() : '';
-    if (commitMsg && files) {
-      entries.push({
-        title: `Decision: ${commitMsg.slice(0, 60)}`,
-        problem: `Files: ${files.slice(0, 200)}`,
-        solution: commitMsg,
-        session: commitDir.slice(0, 8),
-      });
-    }
+    const failedText = failedMatch[1].trim();
+    if (!failedText || failedText.length < 20) continue;
+
+    // Try to extract what actually worked from Summary or "Why this approach"
+    const summaryMatch = content.match(/### (?:Summary|Why this approach)\n([\s\S]*?)(?=### |## |$)/);
+    const solution = summaryMatch ? summaryMatch[1].trim().slice(0, 500) : '';
+    if (!solution) continue;
+
+    entries.push({
+      title: `Failed approach: ${commitMsg.slice(0, 60)}`,
+      problem: failedText.slice(0, 500),
+      solution,
+      session: commitDir.slice(0, 8),
+    });
   }
 
   return entries;
@@ -459,16 +457,33 @@ function scanLedgers(): Array<{ title: string; problem: string; solution: string
     if (!questionsMatch) continue;
 
     const lines = questionsMatch[1].trim().split('\n');
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       // Look for resolved questions: lines starting with - [x] or ~~
       const resolvedMatch = line.match(/^-\s*\[x\]\s*(.+)/i) || line.match(/^-\s*~~(.+)~~/);
       if (!resolvedMatch) continue;
 
       const questionText = resolvedMatch[1].replace(/~~/g, '').trim();
+
+      // Extract answer from indented lines following the resolved question
+      const answerLines: string[] = [];
+      for (let j = i + 1; j < lines.length; j++) {
+        const nextLine = lines[j];
+        if (nextLine.match(/^\s{2,}/) || nextLine.match(/^\s*→/)) {
+          answerLines.push(nextLine.trim());
+        } else {
+          break;
+        }
+      }
+      const answer = answerLines.join(' ').trim();
+
+      // Skip entries without a real answer
+      if (!answer) continue;
+
       entries.push({
         title: `Decision: ${questionText.slice(0, 60)}`,
         problem: questionText,
-        solution: 'Resolved during development',
+        solution: answer.slice(0, 500),
         session: file.replace('.md', ''),
       });
     }
@@ -496,32 +511,36 @@ function writeKnowledgeEntry(entry: KnowledgeEntry): void {
 
   let filePath: string;
   let content: string;
+  const date = entry.createdAt.slice(0, 10);
+  const platformLink = entry.platform === 'ios' ? '[[iOS 常见陷阱]]'
+    : entry.platform === 'android' ? '[[Android 常见陷阱]]'
+    : '';
 
   switch (entry.type) {
     case 'pitfall': {
       const platformDir = join(getKnowledgeDir(), 'platforms', entry.platform);
       mkdirSync(platformDir, { recursive: true });
       filePath = join(platformDir, 'pitfalls.md');
-      const newEntry = `\n### ${entry.title}\n**Source**: ${entry.sourceProject}, ${entry.createdAt.slice(0, 10)}\n**Problem**: ${entry.problem}\n**Solution**: ${entry.solution}\n`;
+      const newEntry = `\n### ${entry.title}\n**Source**: ${entry.sourceProject}, ${date}\n**Problem**: ${entry.problem}\n**Solution**: ${entry.solution}\n`;
       if (existsSync(filePath)) {
         const existing = readFileSync(filePath, 'utf-8');
         if (isDuplicate(existing, entry.title, entry.problem)) return;
         content = existing + newEntry;
       } else {
-        content = `# ${entry.platform.toUpperCase()} Pitfalls\n` + newEntry;
+        content = `---\ntype: pitfall\nplatform: ${entry.platform}\nupdated: ${date}\n---\n\n# ${entry.platform.toUpperCase()} Pitfalls\n` + newEntry;
       }
       break;
     }
     case 'pattern': {
-      filePath = join(getKnowledgeDir(), 'patterns', `${entry.id}.md`);
-      content = `# Pattern: ${entry.title}\n\n## Problem\n${entry.problem}\n\n## Solution\n${entry.solution}\n\n## Source\n${entry.sourceProject}, ${entry.createdAt.slice(0, 10)}\n`;
+      const slug = entry.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 50);
+      filePath = join(getKnowledgeDir(), 'patterns', `${slug}.md`);
+      content = `---\ntype: pattern\nplatform: ${entry.platform}\ntags: [${entry.type}]\nproject: ${entry.sourceProject}\ndate: ${date}\n---\n\n# ${entry.title}\n\n## Problem\n${entry.problem}\n\n## Solution\n${entry.solution}\n\n${platformLink ? `Related: ${platformLink}` : ''}\n`;
       break;
     }
     case 'decision': {
-      const date = entry.createdAt.slice(0, 10);
-      const slug = entry.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
+      const slug = entry.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 50);
       filePath = join(getKnowledgeDir(), 'discoveries', `${date}-${slug}.md`);
-      content = `# Discovery: ${entry.title}\nDate: ${date}\nProject: ${entry.sourceProject}\n\n## What\n${entry.problem}\n\n## Resolution\n${entry.solution}\n`;
+      content = `---\ntype: decision\nplatform: ${entry.platform}\ntags: [decision]\nproject: ${entry.sourceProject}\ndate: ${date}\n---\n\n# ${entry.title}\n\n## Question\n${entry.problem}\n\n## Answer\n${entry.solution}\n\n${platformLink ? `Related: ${platformLink}` : ''}\n`;
       break;
     }
     default:
