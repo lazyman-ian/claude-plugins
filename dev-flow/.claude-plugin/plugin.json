@@ -1,6 +1,6 @@
 {
   "name": "dev-flow",
-  "version": "6.1.0",
+  "version": "6.2.0",
   "description": "Unified development workflow: planning → coding → commit → PR → release with VDD, 5-gate quality pipeline, multi-layer code review (P0-P3), Markdown-first knowledge vault, Notion pipeline, product brain, and cross-platform agent-team orchestration.",
   "author": {
     "name": "lazyman"

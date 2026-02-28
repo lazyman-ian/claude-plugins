@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-dev-flow-plugin (v6.1.0) is a Claude Code plugin providing unified development workflow automation: brainstorm → plan → implement (5-gate pipeline) → review → commit → PR → release. Features VDD (Verification-Driven Development), 5-gate execution pipeline, multi-layer automated code review (P0-P3), Markdown-first knowledge vault with SQLite FTS5 search, Notion pipeline (task triage → spec generation), product brain (architecture knowledge), rules distribution system, multi-agent collaboration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
+dev-flow-plugin (v6.2.0) is a Claude Code plugin providing unified development workflow automation: brainstorm → plan → implement (5-gate pipeline) → review → commit → PR → release. Features VDD (Verification-Driven Development), 5-gate execution pipeline, multi-layer automated code review (P0-P3), Markdown-first knowledge vault with SQLite FTS5 search, Notion pipeline (task triage → spec generation), product brain (architecture knowledge), rules distribution system, multi-agent collaboration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
 
 ## Build & Development
 
@@ -24,7 +24,7 @@ npm test --prefix mcp-server                  # All 98 tests
 ### Plugin Structure
 
 ```
-.claude-plugin/plugin.json  # Plugin manifest (v6.1.0)
+.claude-plugin/plugin.json  # Plugin manifest (v6.2.0)
 .mcp.json                   # MCP server config → scripts/mcp-server.cjs
 skills/                     # 22 skills (SKILL.md + references/)
 commands/                   # 29 command definitions
