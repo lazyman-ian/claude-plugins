@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-dev-flow-plugin (v6.0.0) is a Claude Code plugin providing unified development workflow automation: brainstorm → plan → implement (5-gate pipeline) → review → commit → PR → release. Features VDD (Verification-Driven Development), 5-gate execution pipeline, multi-layer automated code review (P0-P3), instinct system (pattern extraction from observations), Notion pipeline (task triage → spec generation), product brain (architecture knowledge), 4-tier memory with Auto Memory sync, rules distribution system, multi-agent collaboration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
+dev-flow-plugin (v6.1.0) is a Claude Code plugin providing unified development workflow automation: brainstorm → plan → implement (5-gate pipeline) → review → commit → PR → release. Features VDD (Verification-Driven Development), 5-gate execution pipeline, multi-layer automated code review (P0-P3), instinct system (pattern extraction from observations), Notion pipeline (task triage → spec generation), product brain (architecture knowledge), 4-tier memory with Auto Memory sync, rules distribution system, multi-agent collaboration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
 
 ## Build & Development
 
@@ -24,7 +24,7 @@ npm test --prefix mcp-server                  # All 98 tests
 ### Plugin Structure
 
 ```
-.claude-plugin/plugin.json  # Plugin manifest (v6.0.0)
+.claude-plugin/plugin.json  # Plugin manifest (v6.1.0)
 .mcp.json                   # MCP server config → scripts/mcp-server.cjs
 skills/                     # 22 skills (SKILL.md + references/)
 commands/                   # 29 command definitions
@@ -162,15 +162,16 @@ ls -l hooks/dist/*.mjs
 - **Task Sync**: Bridge ledger state with Claude Code Task Management tools
 - Both stored in git for persistence
 
-### Knowledge System (v4.0.0+)
+### Knowledge System (v6.1.0)
 
-4-tier progressive memory with closed-loop knowledge consolidation. Tier selected interactively during `/dev-flow:init`, upgradeable via `--tier N`:
+4-tier progressive memory with per-project SQLite as single source of truth. Tier selected interactively during `/dev-flow:init`, upgradeable via `--tier N`:
 
 ```
-Session → [auto-handoff] → [dev_memory consolidate] → Knowledge → [SessionStart inject] → Next Session
-                                                         ↑
-                                    Stop hook → session summary (Tier 1)
-                                    PostToolUse → observations (Tier 3)
+Session → [auto-handoff] → [dev_memory consolidate] → SQLite DB → [SessionStart inject] → Next Session
+                                                          ↑
+                                     UserPromptSubmit → auto-retrieval (every 3rd prompt)
+                                     Stop hook → session summary (Tier 1)
+                                     PostToolUse → observations (Tier 3)
 ```
 
 **Tier Architecture**:
@@ -183,8 +184,11 @@ Session → [auto-handoff] → [dev_memory consolidate] → Knowledge → [Sessi
 | 3 | + Periodic observation capture | ~$0.005/sess | Same as Tier 1 |
 
 **Components**:
-- **Knowledge Store**: `~/.claude/knowledge/{platforms,patterns,discoveries}/`
-- **FTS5 Index**: `.claude/cache/artifact-index/context.db` (knowledge, reasoning, synonyms, session_summaries, observations)
+- **Per-project SQLite DB**: `.claude/cache/artifact-index/context.db` (knowledge, reasoning, synonyms, session_summaries, observations) — no cross-project pollution
+- **Auto-Retrieval**: UserPromptSubmit hook queries relevant knowledge every 3rd prompt
+- **Temporal Decay**: `rank * 1/(1 + days/30)` scoring — recent knowledge ranks higher
+- **TTL Pruning**: Weekly cleanup of `access_count=0 AND >90 days` entries
+- **MEMORY.md Layered Trim**: Auto-trim by P0-P3 priority to keep MEMORY.md concise
 - **Smart Injection**: SessionStart injects pitfalls + task knowledge + last session summary (budget: ~2500 tokens)
 - **Synonym Expansion**: 8 default synonym groups for query enhancement
 - **ChromaDB**: Optional semantic search via dynamic import, graceful degradation
@@ -208,6 +212,7 @@ Feature flags are auto-derived from tier (explicit overrides still supported):
 
 - `PreToolUse(Bash(git commit*))`: Pre-commit knowledge pitfall check (FTS5 query, warns only)
 - `PreToolUse(Bash(*git commit*))`: Commit guard — blocks raw `git commit` (including chained), enforces `/dev commit` via `DEV_FLOW_COMMIT=1` prefix
+- `UserPromptSubmit`: Auto-retrieval — queries per-project SQLite every 3rd prompt, injects relevant knowledge with temporal decay scoring
 - `SessionStart`: Warn if not initialized + load active ledger + platform knowledge + last session summary + init review session log
 - `PreCompact`: Backup transcript before context compaction
 - `Stop`: Generate session summary via Haiku or heuristic (Tier 1+)
@@ -315,9 +320,11 @@ Task triage (`/dev inbox`), spec generation (`/dev spec`), and post-merge Notion
 Architecture knowledge extraction and query (`dev_product` tool). Post-impl hook reminds to capture product-level decisions after commits.
 
 ### Memory Architecture Alignment
+- Per-project SQLite DB (`.claude/cache/artifact-index/context.db`) as single source of truth — no global `~/.claude/knowledge/` file writes
 - `syncToMemoryMd()`: Writes dev memory context to Auto Memory `MEMORY.md` between markers
-- Topic file output: `pitfalls.md`, `patterns.md`, `decisions.md` during consolidate
-- `memory-sync.sh`: SessionStart hook for bidirectional MEMORY.md↔SQLite sync
+- Auto-retrieval via UserPromptSubmit hook (every 3rd prompt) with temporal decay scoring
+- TTL pruning: `access_count=0 AND >90 days` weekly cleanup
+- MEMORY.md layered auto-trim (P0-P3 priority)
 - Path-scoped pitfall templates: `ios-pitfalls.md` (`**/*.swift`), `android-pitfalls.md` (`**/*.kt`)
 
 ### Rules Distribution

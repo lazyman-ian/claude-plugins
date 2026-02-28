@@ -161,9 +161,10 @@ Knowledge consolidation and cross-session learning.
 { "action": "query", "query": "MainActor" } // FTS5 search across knowledge
 { "action": "list", "type": "pitfall" }    // List entries by type (pitfall/pattern/decision)
 { "action": "extract", "dryRun": true }    // Full project extraction (preview)
+{ "action": "prune" }                      // TTL cleanup: remove access_count=0 AND >90 days entries
 ```
 
-Knowledge store: `~/.claude/knowledge/{platforms,patterns,discoveries}/`
+Knowledge store: Per-project SQLite DB at `.claude/cache/artifact-index/context.db` (temporal decay scoring: `rank * 1/(1 + days/30)`)
 
 ## Tool Selection Guide
 

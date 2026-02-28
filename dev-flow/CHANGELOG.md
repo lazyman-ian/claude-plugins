@@ -5,6 +5,36 @@ All notable changes to dev-flow plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.1.0] - 2026-02-28
+
+### Added
+
+- **Auto-Retrieval Hook**: New `UserPromptSubmit` hook (`prompt-knowledge.sh`) injects relevant knowledge from SQLite FTS5 every 3rd prompt (zero cost, <50ms latency)
+- **Temporal Decay**: FTS5 search results now scored with `rank * 1/(1 + days_since_access/30)`, prioritizing recent and frequently-accessed knowledge
+- **TTL Pruning**: Knowledge entries with `access_count=0` and older than 90 days are automatically pruned weekly on SessionStart. Manual prune via `dev_memory(action="prune")`
+- **MEMORY.md Layered Trim**: Section-aware priority trimming (P0 core never trimmed, P1 tables truncated, P2 Last Session minimized, P3 Compact State removed)
+
+### Changed
+
+- **Project Isolation**: Removed all automatic writes to global `~/.claude/knowledge/` directory. Per-project SQLite DB (`.claude/cache/artifact-index/context.db`) is now the single source of truth
+- **`loadPlatformPitfalls()`** and **`loadRecentDiscoveries()`** now query SQLite instead of reading global files
+- **`memoryStatus()`** counts from SQLite `GROUP BY type` instead of filesystem scanning
+- **`memoryConsolidate()`** uses `smartDedup()` for duplicate detection instead of filesystem checks
+
+### Fixed
+
+- `prune` action missing from `dev_memory` MCP tool schema enum
+- Shell injection vulnerability in `llmCompare()` — dynamic values now passed via environment variables instead of shell interpolation
+- SQL injection risk in `session-start-continuity.sh` — platform value now sanitized before SQL embedding
+
+### Removed
+
+- `ensureKnowledgeDirs()` — no longer creates global knowledge directories
+- `writeKnowledgeEntry()` — no longer writes .md files to global paths
+- `getKnowledgeDir()` — removed from both `memory.ts` and `context-injector.ts`
+- `pitfallsToBullets()` — replaced by direct SQLite query formatting
+- `isDuplicate()` — replaced by `smartDedup()` (SQLite-based)
+
 ## [6.0.0] - 2026-02-27
 
 ### Added

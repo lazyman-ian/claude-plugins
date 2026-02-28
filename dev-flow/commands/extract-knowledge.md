@@ -1,10 +1,10 @@
 ---
-description: Extract reusable knowledge from current project into cross-project knowledge base
+description: Extract reusable knowledge from current project into per-project SQLite knowledge base
 ---
 
 # /dev-flow:extract-knowledge - Knowledge Extraction
 
-Extract reusable knowledge from the current project into `~/.claude/knowledge/`.
+Extract reusable knowledge from the current project into the per-project SQLite DB (`.claude/cache/artifact-index/context.db`).
 
 ## Usage
 
@@ -52,11 +52,13 @@ If the user's project memory file exists at the auto-memory path, append an `## 
 
 ## Knowledge Destinations
 
-| Type | Location |
-|------|----------|
-| `pitfall` | `~/.claude/knowledge/platforms/<platform>/pitfalls.md` |
-| `pattern` | `~/.claude/knowledge/patterns/<id>.md` |
-| `decision` | `~/.claude/knowledge/discoveries/YYYY-MM-DD-<topic>.md` |
+All types are stored in the per-project SQLite DB (`context.db` → `knowledge` table):
+
+| Type | DB `type` Column | Description |
+|------|-----------------|-------------|
+| `pitfall` | `pitfall` | Platform-specific bugs and gotchas |
+| `pattern` | `pattern` | Reusable code patterns |
+| `decision` | `decision` | Technical decisions and their rationale |
 
 ## Output Format
 
@@ -65,12 +67,12 @@ Knowledge Extraction Complete
 
 Platform: ios
 Extracted:
-- 2 pitfalls → platforms/ios/pitfalls.md
-- 1 pattern → patterns/
-- 3 decisions → discoveries/
+- 2 pitfalls → context.db (knowledge table)
+- 1 pattern → context.db (knowledge table)
+- 3 decisions → context.db (knowledge table)
 - 0 skipped (duplicates)
 
-Knowledge base: 12 entries total
+Knowledge base: 12 entries total (per-project SQLite)
 ```
 
 ## Arguments

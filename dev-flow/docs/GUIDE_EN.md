@@ -276,7 +276,7 @@ Implement complete user login functionality
 
 ### Knowledge Base
 
-Cross-project knowledge auto-accumulation and loading.
+Per-project knowledge auto-accumulation and loading, stored in project-local SQLite DB.
 
 ```bash
 # Extract knowledge from current project
@@ -288,20 +288,15 @@ Cross-project knowledge auto-accumulation and loading.
 /dev-flow:extract-knowledge --type discoveries
 ```
 
-**Structure**:
+**Knowledge Storage**:
 ```
-~/.claude/knowledge/
-├── index.md                  # Index
-├── platforms/
-│   ├── ios/pitfalls.md      # iOS pitfalls
-│   └── android/pitfalls.md  # Android pitfalls
-├── patterns/                 # Common patterns
-│   └── async-error-handling.md
-└── discoveries/              # Timeline discoveries
-    └── 2026-01-27-swift-concurrency.md
+<project>/.claude/cache/artifact-index/
+└── context.db                # Per-project SQLite DB (single source of truth)
+                              # Tables: knowledge, reasoning, synonyms,
+                              #         session_summaries, observations
 ```
 
-Auto-loads at session start:
+Auto-loads at session start, auto-retrieves relevant knowledge every 3rd prompt:
 ```
 📚 ios pitfalls: 4 items
 ```
@@ -329,13 +324,18 @@ Auto-loads at session start:
 │  └──────────┘  last summary    └──────┬───────┘            │
 │       ▲                               │                    │
 │       │                               ▼                    │
-│  ┌──────────┐              ┌──────────────────┐            │
-│  │ Knowledge │◀────────────│  Skill / Agent   │            │
-│  │    DB     │   save()    │  auto query()    │            │
-│  │ (SQLite)  │             │  save on finding │            │
-│  └──────────┘              └────────┬─────────┘            │
+│  ┌──────────────┐          ┌──────────────────┐            │
+│  │UserPromptSubmit│────────│  Skill / Agent   │            │
+│  │ auto-retrieve │ decay   │  auto query()    │            │
+│  │ every 3 prompts│scoring │  save on finding │            │
+│  └──────────────┘          └────────┬─────────┘            │
 │       ▲                             │                      │
 │       │                             ▼                      │
+│  ┌──────────┐              ┌──────────────────┐            │
+│  │ Per-proj  │◀────────────│  save() / prune  │            │
+│  │ SQLite DB │   save()    └──────────────────┘            │
+│  └──────────┘                       │                      │
+│       ▲                             ▼                      │
 │  ┌──────────┐              ┌──────────────────┐            │
 │  │ Stop hook │◀─────────── │   Session End    │            │
 │  │ auto-sum  │  Tier 1     └──────────────────┘            │
@@ -353,28 +353,23 @@ Auto-loads at session start:
 | Operation | Trigger | Description |
 |-----------|---------|-------------|
 | Knowledge injection | **Auto** SessionStart | Injects pitfalls + task knowledge + last summary each session |
+| Knowledge retrieval | **Auto** UserPromptSubmit | Every 3rd prompt, auto-queries relevant knowledge with temporal decay scoring |
 | Skill/Agent query | **Auto** before work | debug/plan/implement/validate/review auto-query history |
 | Skill/Agent save | **Semi-auto** after work | Saves when non-obvious patterns discovered |
 | Session summary | **Auto** Stop hook | Tier 1+ auto-generates on session end |
 | Observation capture | **Auto** PostToolUse | Tier 3 auto-classifies every N tool calls |
+| TTL cleanup | **Auto** weekly | Removes entries with `access_count=0 AND >90 days` |
+| MEMORY.md trim | **Auto** | P0-P3 priority layered trim to keep MEMORY.md concise |
 | Knowledge consolidation | **Manual** consolidate | Run once after major feature completion |
 | Knowledge extraction | **Manual** extract | Run once for new project initialization |
 
 #### Storage Locations
 
 ```
-~/.claude/
-├── knowledge/                      # Knowledge files (consolidate output)
-│   ├── platforms/                   #   Platform-specific (ios/android)
-│   ├── patterns/                    #   Generic patterns
-│   └── discoveries/                 #   Exploration findings
-└── cache/artifact-index/
-    └── context.db                   # SQLite database (all FTS5 indexes)
-
 <project>/
 ├── .dev-flow.json                   # Memory config (tier, options)
 ├── .claude/cache/artifact-index/
-│   └── context.db                   # Project-level DB (preferred)
+│   └── context.db                   # Per-project SQLite DB (single source of truth)
 ├── .git/claude/commits/<hash>/
 │   └── reasoning.md                 # Commit reasoning records
 └── thoughts/reasoning/
@@ -383,12 +378,11 @@ Auto-loads at session start:
 
 | Data | Storage Location | Lifecycle |
 |------|-----------------|-----------|
-| Knowledge entries | `context.db` → `knowledge` table | Persistent, cross-session |
+| Knowledge entries | `context.db` → `knowledge` table | Persistent, cross-session. TTL: `access_count=0 AND >90 days` auto-pruned |
 | Reasoning records | `context.db` → `reasoning` table + files | Persistent, git-tracked |
 | Synonyms | `context.db` → `synonyms` table | Persistent, auto-seeded |
 | Session summaries | `context.db` → `session_summaries` table | Persistent, Tier 1+ |
 | Observations | `context.db` → `observations` table | Persistent, Tier 3 |
-| Knowledge files | `~/.claude/knowledge/` | Persistent, cross-project |
 
 #### Checking If It Works
 
@@ -407,8 +401,8 @@ sqlite3 .claude/cache/artifact-index/context.db "SELECT COUNT(*) FROM knowledge;
 sqlite3 .claude/cache/artifact-index/context.db "SELECT id, title FROM session_summaries ORDER BY created_at_epoch DESC LIMIT 5;"
 sqlite3 .claude/cache/artifact-index/context.db "SELECT type, title FROM observations ORDER BY created_at_epoch DESC LIMIT 5;"
 
-# Check knowledge files
-ls ~/.claude/knowledge/platforms/ ~/.claude/knowledge/patterns/ ~/.claude/knowledge/discoveries/
+# Check knowledge entry counts
+sqlite3 .claude/cache/artifact-index/context.db "SELECT type, COUNT(*) FROM knowledge GROUP BY type;"
 ```
 
 #### Tier 0: FTS5 Full-Text Search (Default)
@@ -567,6 +561,8 @@ dev_memory(action='status')
 | Tier | Automatic Behavior | Trigger |
 |------|-------------------|---------|
 | 0 | SessionStart knowledge injection (~2500 tokens) | Every session start |
+| 0 | UserPromptSubmit auto-retrieval (temporal decay) | Every 3rd prompt |
+| 0 | TTL cleanup (`access_count=0 AND >90 days`) | Weekly |
 | 1 | Generate session summary to DB | Stop hook (session end) |
 | 2 | ChromaDB semantic index sync | On save/consolidate |
 | 3 | Batch observation capture + classify | Every N tool uses |
@@ -1025,6 +1021,7 @@ dev-flow auto-enables these hooks:
 | Hook | Trigger | Function |
 |------|---------|----------|
 | PreToolUse | Before `git commit` | Block raw git commit, enforce /dev commit |
+| UserPromptSubmit | User sends prompt | Auto-retrieve relevant knowledge every 3rd prompt (temporal decay scoring) |
 | Setup | First init | Configure dev-flow environment + memory |
 | SessionStart | Resume session | Load ledger + platform knowledge + last summary |
 | PreCompact | Before compact | Backup transcript |

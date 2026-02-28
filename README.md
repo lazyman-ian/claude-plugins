@@ -8,7 +8,7 @@ Development tools for Claude Code.
 
 | Plugin | Version | Skills | Cmds | Agents | Description |
 |--------|---------|--------|------|--------|-------------|
-| [dev-flow](./dev-flow) | 6.0.0 | 22 | 29 | 14 | Workflow: plan → implement → commit → PR → release |
+| [dev-flow](./dev-flow) | 6.1.0 | 22 | 29 | 14 | Workflow: plan → implement → commit → PR → release |
 | [ios-swift-plugin](./ios-swift-plugin) | 1.2.0 | 12 | 4 | 3 | iOS/Swift: SwiftUI, Concurrency, Performance, Migration |
 | [android-kotlin-plugin](./android-kotlin-plugin) | 1.0.0 | 7 | 2 | 2 | Android/Kotlin: Compose, Coroutines, Architecture |
 | [utils](./utils-plugin) | 1.3.0 | 2 | 2 | 0 | Code quality: deslop, search, safety hooks |

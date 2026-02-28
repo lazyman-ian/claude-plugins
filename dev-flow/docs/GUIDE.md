@@ -275,7 +275,7 @@ Ledger 是跨 session 的任务状态追踪器。
 
 ### Knowledge Base 知识库
 
-跨项目知识自动积累和加载。
+项目级知识自动积累和加载，存储在 per-project SQLite DB 中。
 
 ```bash
 # 提取当前项目知识
@@ -287,20 +287,15 @@ Ledger 是跨 session 的任务状态追踪器。
 /dev-flow:extract-knowledge --type discoveries
 ```
 
-**知识结构**:
+**知识存储**:
 ```
-~/.claude/knowledge/
-├── index.md                  # 索引
-├── platforms/
-│   ├── ios/pitfalls.md      # iOS 陷阱
-│   └── android/pitfalls.md  # Android 陷阱
-├── patterns/                 # 通用模式
-│   └── async-error-handling.md
-└── discoveries/              # 时间线发现
-    └── 2026-01-27-swift-concurrency.md
+<project>/.claude/cache/artifact-index/
+└── context.db                # Per-project SQLite DB（单一数据源）
+                              # 表: knowledge, reasoning, synonyms,
+                              #      session_summaries, observations
 ```
 
-Session 启动时自动加载:
+Session 启动时自动加载，每 3 次 prompt 自动检索相关知识:
 ```
 📚 ios pitfalls: 4 条
 ```
@@ -328,13 +323,17 @@ Session 启动时自动加载:
 │  └──────────┘  last summary   └──────┬───────┘              │
 │       ▲                              │                      │
 │       │                              ▼                      │
+│  ┌──────────────┐          ┌──────────────────┐             │
+│  │UserPromptSubmit│────────│  Skill / Agent   │             │
+│  │ 每3次自动检索  │ decay  │  自动 query()    │             │
+│  └──────────────┘ scoring  │  发现后 save()   │             │
+│       ▲                    └────────┬─────────┘             │
+│       │                             │                       │
 │  ┌──────────┐              ┌──────────────────┐             │
-│  │ Knowledge │◀────────────│  Skill / Agent   │             │
-│  │    DB     │   save()    │  自动 query()    │             │
-│  │ (SQLite)  │             │  发现后 save()   │             │
-│  └──────────┘              └────────┬─────────┘             │
-│       ▲                             │                       │
-│       │                             ▼                       │
+│  │ Per-proj  │◀────────────│  save() / prune  │             │
+│  │ SQLite DB │   save()    └──────────────────┘             │
+│  └──────────┘                       │                       │
+│       ▲                             ▼                       │
 │  ┌──────────┐              ┌──────────────────┐             │
 │  │ Stop hook │◀─────────── │   Session 结束   │             │
 │  │ 自动总结  │  Tier 1     └──────────────────┘             │
@@ -352,28 +351,23 @@ Session 启动时自动加载:
 | 操作 | 触发方式 | 说明 |
 |------|---------|------|
 | 知识注入 | **自动** SessionStart | 每次 session 开始注入 pitfalls + 任务知识 + 上次总结 |
+| 知识检索 | **自动** UserPromptSubmit | 每 3 次 prompt 自动查询相关知识，temporal decay 排序 |
 | Skill/Agent 查询 | **自动** 开工前 | debug/plan/implement/validate/review 自动查询历史 |
 | Skill/Agent 保存 | **半自动** 完工后 | 发现非显而易见的模式时自动保存 |
 | Session 总结 | **自动** Stop hook | Tier 1+ session 结束时自动生成 |
 | 观察捕获 | **自动** PostToolUse | Tier 3 每 N 次工具调用自动分类 |
+| TTL 清理 | **自动** 每周 | `access_count=0 AND >90 days` 条目自动删除 |
+| MEMORY.md 精简 | **自动** | P0-P3 优先级分层裁剪，保持简洁 |
 | 知识整合 | **手动** consolidate | 大功能完成后运行一次 |
 | 知识提取 | **手动** extract | 新项目初始化时运行一次 |
 
 #### 存储位置
 
 ```
-~/.claude/
-├── knowledge/                      # 知识文件（consolidate 产出）
-│   ├── platforms/                   #   平台相关 (ios/android)
-│   ├── patterns/                    #   通用模式
-│   └── discoveries/                 #   探索发现
-└── cache/artifact-index/
-    └── context.db                   # SQLite 数据库（所有 FTS5 索引）
-
 <project>/
 ├── .dev-flow.json                   # Memory 配置（tier, options）
 ├── .claude/cache/artifact-index/
-│   └── context.db                   # 项目级 DB（优先）
+│   └── context.db                   # Per-project SQLite DB（单一数据源）
 ├── .git/claude/commits/<hash>/
 │   └── reasoning.md                 # Commit 推理记录
 └── thoughts/reasoning/
@@ -382,12 +376,11 @@ Session 启动时自动加载:
 
 | 数据 | 存储位置 | 生命周期 |
 |------|---------|---------|
-| 知识条目 | `context.db` → `knowledge` 表 | 持久，跨 session |
+| 知识条目 | `context.db` → `knowledge` 表 | 持久，跨 session。TTL: `access_count=0 AND >90 days` 自动清理 |
 | 推理记录 | `context.db` → `reasoning` 表 + 文件 | 持久，跟随 git |
 | 同义词 | `context.db` → `synonyms` 表 | 持久，自动种子 |
 | Session 总结 | `context.db` → `session_summaries` 表 | 持久，Tier 1+ |
 | 观察记录 | `context.db` → `observations` 表 | 持久，Tier 3 |
-| 知识文件 | `~/.claude/knowledge/` | 持久，跨项目 |
 
 #### 检查是否正常工作
 
@@ -406,8 +399,8 @@ sqlite3 .claude/cache/artifact-index/context.db "SELECT COUNT(*) FROM knowledge;
 sqlite3 .claude/cache/artifact-index/context.db "SELECT id, title FROM session_summaries ORDER BY created_at_epoch DESC LIMIT 5;"
 sqlite3 .claude/cache/artifact-index/context.db "SELECT type, title FROM observations ORDER BY created_at_epoch DESC LIMIT 5;"
 
-# 检查知识文件
-ls ~/.claude/knowledge/platforms/ ~/.claude/knowledge/patterns/ ~/.claude/knowledge/discoveries/
+# 检查知识条目数
+sqlite3 .claude/cache/artifact-index/context.db "SELECT type, COUNT(*) FROM knowledge GROUP BY type;"
 ```
 
 #### Tier 0: FTS5 全文搜索（默认）
@@ -566,6 +559,8 @@ dev_memory(action='status')
 | Tier | 自动行为 | 时机 |
 |------|---------|------|
 | 0 | SessionStart 注入知识 (~2500 tokens) | 每次 session 开始 |
+| 0 | UserPromptSubmit 自动检索 (temporal decay) | 每 3 次 prompt |
+| 0 | TTL 清理 (`access_count=0 AND >90 days`) | 每周 |
 | 1 | 生成 session 总结写入 DB | Stop hook (session 结束) |
 | 2 | ChromaDB 语义索引同步 | save/consolidate 时 |
 | 3 | 批量观察捕获分类 | 每 N 次工具调用 |
@@ -1026,6 +1021,7 @@ dev-flow 自动启用以下 hooks:
 | Hook | 触发 | 功能 |
 |------|------|------|
 | PreToolUse | `git commit` 前 | 阻止裸 git commit，强制 /dev commit |
+| UserPromptSubmit | 用户发送 prompt | 每 3 次自动检索相关知识（temporal decay 排序） |
 | Setup | 首次初始化 | 配置 dev-flow 环境 + memory |
 | SessionStart | 恢复 session | 加载 ledger + 平台知识 + 上次总结 |
 | PreCompact | 压缩前 | 备份 transcript |
