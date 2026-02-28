@@ -9,7 +9,6 @@ import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, statSy
 import { join, basename } from 'path';
 import { homedir } from 'os';
 import { detectPlatformSimple } from '../detector';
-import { getSemanticSearch } from './embeddings';
 
 // --- Types ---
 
@@ -185,39 +184,6 @@ CREATE TRIGGER IF NOT EXISTS session_summaries_ad AFTER DELETE ON session_summar
   VALUES('delete', old.rowid, old.request, old.investigated, old.learned, old.completed, old.next_steps);
 END;
 
-CREATE TABLE IF NOT EXISTS observations (
-  id TEXT PRIMARY KEY,
-  session_id TEXT,
-  project TEXT NOT NULL,
-  type TEXT NOT NULL,
-  title TEXT NOT NULL,
-  concepts TEXT,
-  files_modified TEXT,
-  narrative TEXT,
-  prompt_number INTEGER,
-  created_at TEXT NOT NULL,
-  created_at_epoch INTEGER NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_observations_project ON observations(project);
-CREATE INDEX IF NOT EXISTS idx_observations_epoch ON observations(created_at_epoch DESC);
-CREATE INDEX IF NOT EXISTS idx_observations_type ON observations(type);
-
-CREATE VIRTUAL TABLE IF NOT EXISTS observations_fts USING fts5(
-  title, narrative, concepts,
-  content=observations, content_rowid=rowid,
-  tokenize='porter unicode61'
-);
-
-CREATE TRIGGER IF NOT EXISTS observations_ai AFTER INSERT ON observations BEGIN
-  INSERT INTO observations_fts(rowid, title, narrative, concepts)
-  VALUES (new.rowid, new.title, new.narrative, new.concepts);
-END;
-
-CREATE TRIGGER IF NOT EXISTS observations_ad AFTER DELETE ON observations BEGIN
-  INSERT INTO observations_fts(observations_fts, rowid, title, narrative, concepts)
-  VALUES('delete', old.rowid, old.title, old.narrative, old.concepts);
-END;
 `;
 
   try {
@@ -744,33 +710,42 @@ export function memoryList(type?: string): KnowledgeEntry[] {
 
 // --- Memory Config ---
 
-function getMemoryConfig(): { tier: number; sessionSummary: boolean; chromadb: boolean; periodicCapture: boolean; captureInterval: number } {
+function getMemoryConfig(): { tier: number; sessionSummary: boolean } {
   const configPath = join(getCwd(), '.dev-flow.json');
   try {
     if (existsSync(configPath)) {
       const config = JSON.parse(readFileSync(configPath, 'utf-8'));
       const tier = config?.memory?.tier ?? 0;
-      // Derive feature flags from tier when not explicitly set
       return {
         tier,
         sessionSummary: config?.memory?.sessionSummary ?? (tier >= 1),
-        chromadb: config?.memory?.chromadb ?? (tier >= 2),
-        periodicCapture: config?.memory?.periodicCapture ?? (tier >= 3),
-        captureInterval: config?.memory?.captureInterval ?? 10,
       };
     }
   } catch { /* ignore */ }
-  return { tier: 0, sessionSummary: false, chromadb: false, periodicCapture: false, captureInterval: 10 };
+  return { tier: 0, sessionSummary: false };
 }
 
 // --- Ad-hoc Memory Storage ---
 
-export function memorySave(text: string, title?: string, tags?: string[], type?: string): { id: string; message: string } {
+export function memorySave(text: string, title?: string, tags?: string[], type?: string): { id: string; message: string; saved?: boolean; reason?: string } {
   ensureDbSchema();
   const project = getProjectName();
   const platform = detectCurrentPlatform();
   const autoTitle = title || text.slice(0, 60).replace(/\n/g, ' ');
   const entryType = (type === 'pitfall' || type === 'pattern' || type === 'decision') ? type : 'decision';
+
+  try {
+    const dedupResult = smartDedup(
+      { type: entryType, title: autoTitle, content: text, platform },
+      getDbPath()
+    );
+    if (dedupResult.action === 'NOOP') {
+      return { id: '', message: `Duplicate: ${dedupResult.reason} (${dedupResult.method})`, saved: false, reason: `Duplicate: ${dedupResult.reason} (${dedupResult.method})` };
+    }
+  } catch {
+    // Dedup failed (e.g., no knowledge_fts table), proceed with save
+  }
+
   const entry: KnowledgeEntry = {
     id: generateId(entryType, autoTitle),
     type: entryType as 'pitfall' | 'pattern' | 'decision',
@@ -785,18 +760,6 @@ export function memorySave(text: string, title?: string, tags?: string[], type?:
   };
   writeKnowledgeEntry(entry);
   dbInsertKnowledge(entry);
-
-  // Sync to ChromaDB if tier >= 2
-  const config = getMemoryConfig();
-  if (config.tier >= 2 && config.chromadb) {
-    const semantic = getSemanticSearch();
-    semantic.addEntry(entry.id, `${entry.title} ${entry.problem} ${entry.solution}`, {
-      type: entry.type,
-      platform: entry.platform,
-      project: entry.sourceProject,
-      created_at: entry.createdAt,
-    }).catch(() => { /* ignore ChromaDB errors */ });
-  }
 
   return { id: entry.id, message: `Saved: ${autoTitle}` };
 }
@@ -830,53 +793,6 @@ export function memorySearch(query: string, limit: number = 10, type?: string): 
   }
 }
 
-// --- Async Hybrid Search (Tier 2+: ChromaDB semantic + FTS5 keyword) ---
-
-export async function memorySearchAsync(query: string, limit: number = 10, type?: string): Promise<Array<{
-  id: string; type: string; title: string; platform: string; createdAt: string; score?: number;
-}>> {
-  ensureDbSchema();
-  const config = getMemoryConfig();
-
-  if (config.tier >= 2 && config.chromadb) {
-    const semantic = getSemanticSearch();
-    if (await semantic.initialize()) {
-      const filter = type ? { type } : undefined;
-      const semanticResults = await semantic.search(query, limit, filter);
-
-      const ftsResults = memorySearch(query, limit, type);
-
-      const seen = new Set<string>();
-      const merged: Array<{ id: string; type: string; title: string; platform: string; createdAt: string; score?: number }> = [];
-
-      for (const sr of semanticResults) {
-        if (!seen.has(sr.id)) {
-          seen.add(sr.id);
-          merged.push({
-            id: sr.id,
-            type: sr.metadata.type || 'unknown',
-            title: sr.metadata.title || sr.id,
-            platform: sr.metadata.platform || 'general',
-            createdAt: sr.metadata.created_at || '',
-            score: 1 - sr.distance,
-          });
-        }
-      }
-
-      for (const fr of ftsResults) {
-        if (!seen.has(fr.id)) {
-          seen.add(fr.id);
-          merged.push({ ...fr, score: 0.5 });
-        }
-      }
-
-      return merged.slice(0, limit);
-    }
-  }
-
-  return memorySearch(query, limit, type);
-}
-
 // --- Full Entry Retrieval ---
 
 export function memoryGet(ids: string[]): KnowledgeEntry[] {
@@ -903,170 +819,79 @@ export function memoryGet(ids: string[]): KnowledgeEntry[] {
   }
 }
 
-// --- Extract from project (Phase 4 extension) ---
+// --- Extract knowledge from session summaries (batch backfill) ---
 
+/**
+ * Extract knowledge from recent session summaries (batch).
+ * Called via dev_memory(action="extract") for retrospective processing.
+ * Primary extraction already happens in session-summary.sh Stop hook.
+ */
 export function extractFromProject(dryRun: boolean = false): ConsolidationResult {
   ensureDbSchema();
 
-  const cwd = getCwd();
+  const dbPath = getDbPath();
+  if (!existsSync(dbPath)) {
+    return { success: false, message: 'NO_DB', data: { pitfalls: 0, patterns: 0, decisions: 0, skippedDuplicates: 0 } };
+  }
+
   const project = getProjectName();
-  const platform = detectCurrentPlatform();
   const now = new Date().toISOString();
-  let pitfalls = 0, patterns = 0, decisions = 0, skippedDuplicates = 0;
+  let added = 0;
+  let skippedDuplicates = 0;
 
-  // 1. Scan CLAUDE.md "Known Pitfalls" section
-  const claudeMdPath = join(cwd, 'CLAUDE.md');
-  if (existsSync(claudeMdPath)) {
-    const content = readFileSync(claudeMdPath, 'utf-8');
-    const pitfallsMatch = content.match(/## (?:Known Pitfalls|已知陷阱)\n([\s\S]*?)(?=\n## |$)/i);
-    if (pitfallsMatch) {
-      const lines = pitfallsMatch[1].trim().split('\n');
-      let currentTitle = '';
-      let currentBody = '';
+  // Query session_summaries with non-empty learned field
+  // that don't already have corresponding knowledge entries
+  const sql = `SELECT id, session_id, project, learned FROM session_summaries
+    WHERE learned IS NOT NULL AND learned != '' AND learned != 'null'
+    AND id NOT IN (SELECT source_session FROM knowledge WHERE source_session LIKE 'summary-%')
+    ORDER BY created_at_epoch DESC LIMIT 50;`;
 
-      for (const line of lines) {
-        const headerMatch = line.match(/^###?\s+(.+)/);
-        if (headerMatch) {
-          if (currentTitle && currentBody) {
-            const entry: KnowledgeEntry = {
-              id: generateId('pitfall', currentTitle),
-              type: 'pitfall',
-              platform,
-              title: currentTitle,
-              problem: currentBody.slice(0, 300),
-              solution: 'See CLAUDE.md',
-              sourceProject: project,
-              sourceSession: 'CLAUDE.md',
-              createdAt: now,
-              filePath: '',
-            };
+  try {
+    const result = execSync(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: 'utf-8',
+      timeout: 5000,
+    }).trim();
 
-            const pitfallsPath = join(getKnowledgeDir(), 'platforms', platform, 'pitfalls.md');
-            if (existsSync(pitfallsPath) && isDuplicate(readFileSync(pitfallsPath, 'utf-8'), entry.title, entry.problem)) {
-              skippedDuplicates++;
-            } else if (!dryRun) {
-              writeKnowledgeEntry(entry);
-              dbInsertKnowledge(entry);
-              pitfalls++;
-            } else {
-              pitfalls++;
-            }
-          }
-          currentTitle = headerMatch[1].trim();
-          currentBody = '';
-        } else {
-          currentBody += line + '\n';
-        }
+    if (!result) {
+      return { success: true, message: 'EXTRACTED:0|no unprocessed summaries', data: { pitfalls: 0, patterns: 0, decisions: 0, skippedDuplicates: 0 } };
+    }
+
+    for (const line of result.split('\n')) {
+      const [summaryId, sessionId, summaryProject, learned] = line.split('|||');
+      if (!learned || learned === 'null') {
+        skippedDuplicates++;
+        continue;
       }
 
-      // Last entry
-      if (currentTitle && currentBody) {
-        const entry: KnowledgeEntry = {
-          id: generateId('pitfall', currentTitle),
-          type: 'pitfall',
-          platform,
-          title: currentTitle,
-          problem: currentBody.slice(0, 300),
-          solution: 'See CLAUDE.md',
-          sourceProject: project,
-          sourceSession: 'CLAUDE.md',
-          createdAt: now,
-          filePath: '',
-        };
-        const pitfallsPath = join(getKnowledgeDir(), 'platforms', platform, 'pitfalls.md');
-        if (existsSync(pitfallsPath) && isDuplicate(readFileSync(pitfallsPath, 'utf-8'), entry.title, entry.problem)) {
-          skippedDuplicates++;
-        } else if (!dryRun) {
-          writeKnowledgeEntry(entry);
-          dbInsertKnowledge(entry);
-          pitfalls++;
-        } else {
-          pitfalls++;
-        }
+      const entryId = generateId('discovery', learned.slice(0, 40));
+      const entry: KnowledgeEntry = {
+        id: entryId,
+        type: 'decision',
+        platform: 'general',
+        title: learned.slice(0, 80),
+        problem: learned,
+        solution: '',
+        sourceProject: summaryProject || project,
+        sourceSession: summaryId,
+        createdAt: now,
+        filePath: '',
+      };
+
+      if (!dryRun) {
+        writeKnowledgeEntry(entry);
+        dbInsertKnowledge(entry);
       }
+      added++;
     }
+  } catch {
+    // Query failed, return what we have
   }
 
-  // 2. Scan ledger resolved questions → decisions
-  for (const item of scanLedgers()) {
-    if (dryRun) {
-      decisions++;
-      continue;
-    }
-    const entry: KnowledgeEntry = {
-      id: generateId('decision', item.title),
-      type: 'decision',
-      platform,
-      title: item.title,
-      problem: item.problem,
-      solution: item.solution,
-      sourceProject: project,
-      sourceSession: item.session,
-      createdAt: now,
-      filePath: '',
-    };
-    writeKnowledgeEntry(entry);
-    dbInsertKnowledge(entry);
-    decisions++;
-  }
-
-  // 3. Scan reasoning → patterns
-  for (const item of scanReasoning()) {
-    if (dryRun) {
-      patterns++;
-      continue;
-    }
-    const entry: KnowledgeEntry = {
-      id: generateId('pattern', item.title),
-      type: 'pattern',
-      platform,
-      title: item.title,
-      problem: item.problem,
-      solution: item.solution,
-      sourceProject: project,
-      sourceSession: item.session,
-      createdAt: now,
-      filePath: '',
-    };
-    writeKnowledgeEntry(entry);
-    dbInsertKnowledge(entry);
-    patterns++;
-  }
-
-  // 4. Also run standard consolidation (handoffs)
-  for (const item of scanHandoffs()) {
-    const pitfallsPath = join(getKnowledgeDir(), 'platforms', item.platform || platform, 'pitfalls.md');
-    if (existsSync(pitfallsPath) && isDuplicate(readFileSync(pitfallsPath, 'utf-8'), item.title, item.problem)) {
-      skippedDuplicates++;
-      continue;
-    }
-    if (dryRun) {
-      pitfalls++;
-      continue;
-    }
-    const entry: KnowledgeEntry = {
-      id: generateId('pitfall', item.title),
-      type: 'pitfall',
-      platform: item.platform || platform,
-      title: item.title,
-      problem: item.problem,
-      solution: item.solution,
-      sourceProject: project,
-      sourceSession: item.session,
-      createdAt: now,
-      filePath: '',
-    };
-    writeKnowledgeEntry(entry);
-    dbInsertKnowledge(entry);
-    pitfalls++;
-  }
-
-  const total = pitfalls + patterns + decisions;
   const mode = dryRun ? 'DRY_RUN' : 'EXTRACTED';
   return {
     success: true,
-    message: `${mode}:${total}|pitfalls:${pitfalls}|patterns:${patterns}|decisions:${decisions}|skipped:${skippedDuplicates}`,
-    data: { pitfalls, patterns, decisions, skippedDuplicates },
+    message: `${mode}:${added}|discoveries:${added}|skipped:${skippedDuplicates}`,
+    data: { pitfalls: 0, patterns: 0, decisions: added, skippedDuplicates },
   };
 }
 
@@ -1151,5 +976,132 @@ function writeTopicFiles(memDir: string): void {
   }
 }
 
+// --- Smart Dedup ---
+
+interface DedupResult {
+  action: 'ADD' | 'UPDATE' | 'NOOP';
+  targetId?: string;
+  reason: string;
+  method: 'fts5' | 'token-overlap' | 'llm';
+}
+
+function extractKeyTerms(text: string): string[] {
+  const stopWords = new Set(['the','a','an','is','are','was','were','be','been',
+    'have','has','had','do','does','did','will','would','could','should',
+    'and','or','but','in','on','at','to','for','of','with','by','from','as','it','this','that']);
+  return text.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !stopWords.has(w));
+}
+
+function tokenOverlap(textA: string, textB: string): number {
+  const tokensA = new Set(extractKeyTerms(textA));
+  const tokensB = new Set(extractKeyTerms(textB));
+  if (tokensA.size === 0 || tokensB.size === 0) return 0;
+  const intersection = [...tokensA].filter(t => tokensB.has(t)).length;
+  const union = new Set([...tokensA, ...tokensB]).size;
+  return intersection / union;
+}
+
+function smartDedup(
+  newEntry: { type: string; title: string; content: string; platform: string },
+  dbPath: string
+): DedupResult {
+  const keyTerms = extractKeyTerms(`${newEntry.title} ${newEntry.content}`);
+  if (keyTerms.length === 0) {
+    return { action: 'ADD', reason: 'No extractable terms', method: 'fts5' };
+  }
+
+  const ftsQuery = keyTerms.slice(0, 8).join(' OR ');
+  let candidates: Array<{ id: string; title: string; content: string }> = [];
+  try {
+    const sql = `SELECT k.id, k.title, k.problem || ' ' || k.solution as content FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc(ftsQuery)}' ORDER BY rank LIMIT 5;`;
+    const result = execSync(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: 'utf-8',
+      timeout: 3000,
+    }).trim();
+    if (result) {
+      candidates = result.split('\n').map(line => {
+        const [id, title, content] = line.split('|||');
+        return { id, title, content };
+      });
+    }
+  } catch {
+    return { action: 'ADD', reason: 'FTS5 query failed', method: 'fts5' };
+  }
+
+  if (candidates.length === 0) {
+    return { action: 'ADD', reason: 'No FTS5 matches', method: 'fts5' };
+  }
+
+  const newText = `${newEntry.title} ${newEntry.content}`;
+  for (const candidate of candidates) {
+    const existingText = `${candidate.title} ${candidate.content}`;
+    const overlap = tokenOverlap(newText, existingText);
+
+    if (overlap > 0.7) {
+      return { action: 'NOOP', targetId: candidate.id, reason: `Token overlap ${(overlap*100).toFixed(0)}%`, method: 'token-overlap' };
+    }
+
+    if (overlap > 0.3) {
+      const llmResult = llmCompare(
+        { type: newEntry.type, title: newEntry.title, content: newEntry.content },
+        { id: candidate.id, type: 'knowledge', title: candidate.title, content: candidate.content }
+      );
+      if (llmResult) return llmResult;
+      return { action: 'ADD', reason: `Overlap ${(overlap*100).toFixed(0)}%, no API key for disambiguation`, method: 'token-overlap' };
+    }
+  }
+
+  return { action: 'ADD', reason: 'Low similarity to all candidates', method: 'fts5' };
+}
+
+function llmCompare(
+  newEntry: { type: string; title: string; content: string },
+  existing: { id: string; type: string; title: string; content: string }
+): DedupResult | null {
+  const apiKey = process.env.DEV_FLOW_API_KEY || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+
+  const apiUrl = process.env.DEV_FLOW_API_URL || 'https://api.anthropic.com/v1/messages';
+  const model = process.env.DEV_FLOW_MODEL || 'claude-haiku-4-5-20251001';
+  const isAnthropic = apiUrl.includes('api.anthropic.com');
+
+  const prompt = `Are these the same knowledge? Reply ONLY: SAME or DIFFERENT
+A: [${newEntry.type}] ${newEntry.title}: ${newEntry.content}
+B: [${existing.type}] ${existing.title}: ${existing.content}`;
+
+  try {
+    const https = require('https');
+    const url = new URL(apiUrl);
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (isAnthropic) {
+      headers['x-api-key'] = apiKey;
+      headers['anthropic-version'] = '2023-06-01';
+    } else {
+      headers['authorization'] = `Bearer ${apiKey}`;
+    }
+
+    const body = JSON.stringify({
+      model, max_tokens: 10,
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    const result = execSync(
+      `node -e "const https=require('https');const o={hostname:'${url.hostname}',port:${url.port || 443},path:'${url.pathname}',method:'POST',headers:${JSON.stringify(headers)},timeout:5000};const r=https.request(o,res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>process.stdout.write(d))});r.on('error',()=>process.exit(1));r.write(${JSON.stringify(body)});r.end()"`,
+      { encoding: 'utf-8', timeout: 8000 }
+    );
+    const text = (JSON.parse(result)?.content?.[0]?.text || '').trim().toUpperCase();
+
+    if (text.includes('SAME')) {
+      return { action: 'NOOP', targetId: existing.id, reason: 'LLM confirmed duplicate', method: 'llm' };
+    }
+    return { action: 'ADD', reason: 'LLM confirmed different', method: 'llm' };
+  } catch {
+    return null;
+  }
+}
+
 // Exposed for reasoning module and other modules to use
-export { dbInsertReasoning, dbQueryReasoning, ensureDbSchema, getMemoryConfig };
+export { dbInsertReasoning, dbQueryReasoning, ensureDbSchema, getMemoryConfig, extractKeyTerms, tokenOverlap, smartDedup };

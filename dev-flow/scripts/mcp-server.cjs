@@ -3298,8 +3298,8 @@ var require_utils = __commonJS({
       }
       return output.join("");
     }
-    function normalizeComponentEncoding(component, esc5) {
-      const func = esc5 !== true ? escape : unescape;
+    function normalizeComponentEncoding(component, esc3) {
+      const func = esc3 !== true ? escape : unescape;
       if (component.scheme !== void 0) {
         component.scheme = func(component.scheme);
       }
@@ -21693,163 +21693,14 @@ function ledgerSearch(keyword) {
 
 // src/continuity/reasoning.ts
 var import_child_process9 = require("child_process");
-var import_fs4 = require("fs");
-var import_path4 = require("path");
+var import_fs3 = require("fs");
+var import_path3 = require("path");
 
 // src/continuity/memory.ts
 var import_child_process8 = require("child_process");
-var import_fs3 = require("fs");
-var import_path3 = require("path");
-var import_os2 = require("os");
-
-// src/continuity/embeddings.ts
 var import_fs2 = require("fs");
 var import_path2 = require("path");
 var import_os = require("os");
-var SemanticSearch = class {
-  client = null;
-  collection = null;
-  initialized = false;
-  available = false;
-  config;
-  constructor(config2) {
-    this.config = {
-      enabled: config2?.enabled ?? true,
-      persistPath: config2?.persistPath ?? (0, import_path2.join)((0, import_os.homedir)(), ".claude", "cache", "chroma")
-    };
-  }
-  /**
-   * Lazy initialization — called on first search/insert
-   * Returns true if ChromaDB is available, false otherwise
-   */
-  async initialize() {
-    if (this.initialized) return this.available;
-    this.initialized = true;
-    if (!this.config.enabled) {
-      this.available = false;
-      return false;
-    }
-    try {
-      const moduleName = "chromadb";
-      const chromadb = await Function("m", "return import(m)")(moduleName);
-      (0, import_fs2.mkdirSync)(this.config.persistPath, { recursive: true });
-      this.client = new chromadb.ChromaClient({
-        path: this.config.persistPath
-      });
-      this.collection = await this.client.getOrCreateCollection({
-        name: "dev_flow_knowledge",
-        metadata: { "hnsw:space": "cosine" }
-      });
-      this.available = true;
-      return true;
-    } catch {
-      this.available = false;
-      return false;
-    }
-  }
-  isAvailable() {
-    return this.available;
-  }
-  async addEntry(id, text, metadata = {}) {
-    if (!await this.initialize()) return false;
-    try {
-      await this.collection.upsert({
-        ids: [id],
-        documents: [text],
-        metadatas: [metadata]
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  async addEntries(entries) {
-    if (!await this.initialize()) return false;
-    if (entries.length === 0) return true;
-    try {
-      await this.collection.upsert({
-        ids: entries.map((e) => e.id),
-        documents: entries.map((e) => e.text),
-        metadatas: entries.map((e) => e.metadata || {})
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  async search(query, limit = 10, filter) {
-    if (!await this.initialize()) return [];
-    try {
-      const options = {
-        queryTexts: [query],
-        nResults: limit
-      };
-      if (filter && Object.keys(filter).length > 0) {
-        options.where = filter;
-      }
-      const results = await this.collection.query(options);
-      if (!results.ids?.[0]) return [];
-      return results.ids[0].map((id, i) => ({
-        id,
-        distance: results.distances?.[0]?.[i] ?? 1,
-        metadata: results.metadatas?.[0]?.[i] ?? {}
-      }));
-    } catch {
-      return [];
-    }
-  }
-  async getStats() {
-    if (!await this.initialize()) {
-      return { count: 0, available: false };
-    }
-    try {
-      const count = await this.collection.count();
-      return { count, available: true };
-    } catch {
-      return { count: 0, available: true };
-    }
-  }
-  async deleteEntries(ids) {
-    if (!await this.initialize()) return false;
-    try {
-      await this.collection.delete({ ids });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  async rebuildFromEntries(entries) {
-    if (!await this.initialize()) return 0;
-    const batchSize = 100;
-    let total = 0;
-    for (let i = 0; i < entries.length; i += batchSize) {
-      const batch = entries.slice(i, i + batchSize);
-      const success2 = await this.addEntries(
-        batch.map((e) => ({
-          id: e.id,
-          text: `${e.title} ${e.problem} ${e.solution}`,
-          metadata: {
-            type: e.type,
-            platform: e.platform,
-            project: e.sourceProject,
-            created_at: e.createdAt
-          }
-        }))
-      );
-      if (success2) total += batch.length;
-    }
-    return total;
-  }
-};
-var instance = null;
-function getSemanticSearch(config2) {
-  if (!instance) {
-    instance = new SemanticSearch(config2);
-  }
-  return instance;
-}
-
-// src/continuity/memory.ts
 function getCwd2() {
   try {
     return (0, import_child_process8.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
@@ -21858,21 +21709,21 @@ function getCwd2() {
   }
 }
 function getKnowledgeDir() {
-  return (0, import_path3.join)((0, import_os2.homedir)(), ".claude", "knowledge");
+  return (0, import_path2.join)((0, import_os.homedir)(), ".claude", "knowledge");
 }
 function getDbPath() {
   const projectDir = getCwd2();
-  return (0, import_path3.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
+  return (0, import_path2.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
 }
 function ensureKnowledgeDirs() {
   const base = getKnowledgeDir();
-  (0, import_fs3.mkdirSync)((0, import_path3.join)(base, "platforms"), { recursive: true });
-  (0, import_fs3.mkdirSync)((0, import_path3.join)(base, "patterns"), { recursive: true });
-  (0, import_fs3.mkdirSync)((0, import_path3.join)(base, "discoveries"), { recursive: true });
+  (0, import_fs2.mkdirSync)((0, import_path2.join)(base, "platforms"), { recursive: true });
+  (0, import_fs2.mkdirSync)((0, import_path2.join)(base, "patterns"), { recursive: true });
+  (0, import_fs2.mkdirSync)((0, import_path2.join)(base, "discoveries"), { recursive: true });
 }
 function getProjectName() {
   const cwd = getCwd2();
-  return (0, import_path3.basename)(cwd);
+  return (0, import_path2.basename)(cwd);
 }
 function generateId(type, title) {
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
@@ -21889,8 +21740,8 @@ function isDuplicate(existingContent, title, problem) {
 }
 function ensureDbSchema() {
   const dbPath = getDbPath();
-  const dbDir = (0, import_path3.join)(getCwd2(), ".claude", "cache", "artifact-index");
-  (0, import_fs3.mkdirSync)(dbDir, { recursive: true });
+  const dbDir = (0, import_path2.join)(getCwd2(), ".claude", "cache", "artifact-index");
+  (0, import_fs2.mkdirSync)(dbDir, { recursive: true });
   const schema = `
 CREATE TABLE IF NOT EXISTS knowledge (
   id TEXT PRIMARY KEY,
@@ -21978,39 +21829,6 @@ CREATE TRIGGER IF NOT EXISTS session_summaries_ad AFTER DELETE ON session_summar
   VALUES('delete', old.rowid, old.request, old.investigated, old.learned, old.completed, old.next_steps);
 END;
 
-CREATE TABLE IF NOT EXISTS observations (
-  id TEXT PRIMARY KEY,
-  session_id TEXT,
-  project TEXT NOT NULL,
-  type TEXT NOT NULL,
-  title TEXT NOT NULL,
-  concepts TEXT,
-  files_modified TEXT,
-  narrative TEXT,
-  prompt_number INTEGER,
-  created_at TEXT NOT NULL,
-  created_at_epoch INTEGER NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_observations_project ON observations(project);
-CREATE INDEX IF NOT EXISTS idx_observations_epoch ON observations(created_at_epoch DESC);
-CREATE INDEX IF NOT EXISTS idx_observations_type ON observations(type);
-
-CREATE VIRTUAL TABLE IF NOT EXISTS observations_fts USING fts5(
-  title, narrative, concepts,
-  content=observations, content_rowid=rowid,
-  tokenize='porter unicode61'
-);
-
-CREATE TRIGGER IF NOT EXISTS observations_ai AFTER INSERT ON observations BEGIN
-  INSERT INTO observations_fts(rowid, title, narrative, concepts)
-  VALUES (new.rowid, new.title, new.narrative, new.concepts);
-END;
-
-CREATE TRIGGER IF NOT EXISTS observations_ad AFTER DELETE ON observations BEGIN
-  INSERT INTO observations_fts(observations_fts, rowid, title, narrative, concepts)
-  VALUES('delete', old.rowid, old.title, old.narrative, old.concepts);
-END;
 `;
   try {
     (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${schema.replace(/"/g, '\\"')}"`, {
@@ -22023,7 +21841,7 @@ END;
 }
 function dbInsertKnowledge(entry) {
   const dbPath = getDbPath();
-  if (!(0, import_fs3.existsSync)(dbPath)) return false;
+  if (!(0, import_fs2.existsSync)(dbPath)) return false;
   const sql = `INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path) VALUES ('${esc2(entry.id)}', '${esc2(entry.type)}', '${esc2(entry.platform)}', '${esc2(entry.title)}', '${esc2(entry.problem)}', '${esc2(entry.solution)}', '${esc2(entry.sourceProject)}', '${esc2(entry.sourceSession)}', '${esc2(entry.createdAt)}', '${esc2(entry.filePath)}');`;
   try {
     (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 3e3 });
@@ -22034,7 +21852,7 @@ function dbInsertKnowledge(entry) {
 }
 function dbInsertReasoning(commitHash, branch, commitMessage, failedAttempts, decisions) {
   const dbPath = getDbPath();
-  if (!(0, import_fs3.existsSync)(dbPath)) return false;
+  if (!(0, import_fs2.existsSync)(dbPath)) return false;
   const sql = `INSERT OR REPLACE INTO reasoning (commit_hash, branch, commit_message, failed_attempts, decisions, created_at) VALUES ('${esc2(commitHash)}', '${esc2(branch)}', '${esc2(commitMessage)}', '${esc2(failedAttempts)}', '${esc2(decisions)}', '${esc2((/* @__PURE__ */ new Date()).toISOString())}');`;
   try {
     (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 3e3 });
@@ -22045,7 +21863,7 @@ function dbInsertReasoning(commitHash, branch, commitMessage, failedAttempts, de
 }
 function dbQueryKnowledge(query, limit = 10) {
   const dbPath = getDbPath();
-  if (!(0, import_fs3.existsSync)(dbPath)) return [];
+  if (!(0, import_fs2.existsSync)(dbPath)) return [];
   const sql = `SELECT k.id, k.type, k.platform, k.title, k.problem, k.solution, k.source_project, k.source_session, k.created_at, k.file_path FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc2(query)}' ORDER BY rank LIMIT ${limit};`;
   try {
     const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
@@ -22063,7 +21881,7 @@ function dbQueryKnowledge(query, limit = 10) {
 }
 function dbQueryReasoning(query, limit = 10) {
   const dbPath = getDbPath();
-  if (!(0, import_fs3.existsSync)(dbPath)) return [];
+  if (!(0, import_fs2.existsSync)(dbPath)) return [];
   const sql = `SELECT r.commit_hash, r.branch, r.commit_message, r.failed_attempts, r.decisions FROM reasoning r JOIN reasoning_fts f ON r.rowid = f.rowid WHERE reasoning_fts MATCH '${esc2(query)}' ORDER BY rank LIMIT ${limit};`;
   try {
     const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
@@ -22084,7 +21902,7 @@ function esc2(s) {
 }
 function expandQuery(query) {
   const dbPath = getDbPath();
-  if (!(0, import_fs3.existsSync)(dbPath)) return query;
+  if (!(0, import_fs2.existsSync)(dbPath)) return query;
   const terms = query.split(/\s+/).filter(Boolean);
   const expanded = terms.map((term) => {
     try {
@@ -22102,7 +21920,7 @@ function expandQuery(query) {
 }
 function seedSynonyms() {
   const dbPath = getDbPath();
-  if (!(0, import_fs3.existsSync)(dbPath)) return;
+  if (!(0, import_fs2.existsSync)(dbPath)) return;
   const defaults = {
     concurrency: ["thread", "race condition", "async", "await", "actor", "sendable"],
     auth: ["authentication", "authorization", "jwt", "token", "login", "session"],
@@ -22125,19 +21943,19 @@ function scanHandoffs() {
   const cwd = getCwd2();
   const entries = [];
   const searchDirs = [];
-  const handoffsDir = (0, import_path3.join)(cwd, "thoughts", "handoffs");
-  if ((0, import_fs3.existsSync)(handoffsDir)) searchDirs.push(handoffsDir);
-  const sharedBase = (0, import_path3.join)(cwd, "thoughts", "shared", "handoffs");
-  if ((0, import_fs3.existsSync)(sharedBase)) {
-    for (const sub of (0, import_fs3.readdirSync)(sharedBase)) {
-      const subPath = (0, import_path3.join)(sharedBase, sub);
-      if ((0, import_fs3.existsSync)(subPath) && (0, import_fs3.statSync)(subPath).isDirectory()) searchDirs.push(subPath);
+  const handoffsDir = (0, import_path2.join)(cwd, "thoughts", "handoffs");
+  if ((0, import_fs2.existsSync)(handoffsDir)) searchDirs.push(handoffsDir);
+  const sharedBase = (0, import_path2.join)(cwd, "thoughts", "shared", "handoffs");
+  if ((0, import_fs2.existsSync)(sharedBase)) {
+    for (const sub of (0, import_fs2.readdirSync)(sharedBase)) {
+      const subPath = (0, import_path2.join)(sharedBase, sub);
+      if ((0, import_fs2.existsSync)(subPath) && (0, import_fs2.statSync)(subPath).isDirectory()) searchDirs.push(subPath);
     }
   }
   for (const dir of searchDirs) {
-    for (const file2 of (0, import_fs3.readdirSync)(dir)) {
+    for (const file2 of (0, import_fs2.readdirSync)(dir)) {
       if (!file2.endsWith(".md")) continue;
-      const content = (0, import_fs3.readFileSync)((0, import_path3.join)(dir, file2), "utf-8");
+      const content = (0, import_fs2.readFileSync)((0, import_path2.join)(dir, file2), "utf-8");
       const decisionsMatch = content.match(/## Decisions Made\n([\s\S]*?)(?=\n## |$)/);
       if (!decisionsMatch) continue;
       const decisionsBlock = decisionsMatch[1].trim();
@@ -22159,13 +21977,13 @@ function scanHandoffs() {
 }
 function scanReasoning() {
   const cwd = getCwd2();
-  const reasoningDir = (0, import_path3.join)(cwd, ".git", "claude", "commits");
-  if (!(0, import_fs3.existsSync)(reasoningDir)) return [];
+  const reasoningDir = (0, import_path2.join)(cwd, ".git", "claude", "commits");
+  if (!(0, import_fs2.existsSync)(reasoningDir)) return [];
   const entries = [];
-  for (const commitDir of (0, import_fs3.readdirSync)(reasoningDir)) {
-    const reasoningPath = (0, import_path3.join)(reasoningDir, commitDir, "reasoning.md");
-    if (!(0, import_fs3.existsSync)(reasoningPath)) continue;
-    const content = (0, import_fs3.readFileSync)(reasoningPath, "utf-8");
+  for (const commitDir of (0, import_fs2.readdirSync)(reasoningDir)) {
+    const reasoningPath = (0, import_path2.join)(reasoningDir, commitDir, "reasoning.md");
+    if (!(0, import_fs2.existsSync)(reasoningPath)) continue;
+    const content = (0, import_fs2.readFileSync)(reasoningPath, "utf-8");
     const commitMatch = content.match(/## What was committed\n([\s\S]*?)(?=\n## |$)/);
     const commitMsg = commitMatch ? commitMatch[1].trim().split("\n")[0] : commitDir.slice(0, 8);
     const failedMatch = content.match(/### Failed attempts\n([\s\S]*?)(?=### Summary|## |$)/);
@@ -22186,12 +22004,12 @@ function scanReasoning() {
 }
 function scanLedgers() {
   const cwd = getCwd2();
-  const ledgersDir = (0, import_path3.join)(cwd, "thoughts", "ledgers");
-  if (!(0, import_fs3.existsSync)(ledgersDir)) return [];
+  const ledgersDir = (0, import_path2.join)(cwd, "thoughts", "ledgers");
+  if (!(0, import_fs2.existsSync)(ledgersDir)) return [];
   const entries = [];
-  for (const file2 of (0, import_fs3.readdirSync)(ledgersDir)) {
+  for (const file2 of (0, import_fs2.readdirSync)(ledgersDir)) {
     if (!file2.endsWith(".md")) continue;
-    const content = (0, import_fs3.readFileSync)((0, import_path3.join)(ledgersDir, file2), "utf-8");
+    const content = (0, import_fs2.readFileSync)((0, import_path2.join)(ledgersDir, file2), "utf-8");
     const questionsMatch = content.match(/## Open Questions\n([\s\S]*?)(?=\n## |$)/);
     if (!questionsMatch) continue;
     const lines = questionsMatch[1].trim().split("\n");
@@ -22239,17 +22057,17 @@ function writeKnowledgeEntry(entry) {
   const platformLink = entry.platform === "ios" ? "[[iOS \u5E38\u89C1\u9677\u9631]]" : entry.platform === "android" ? "[[Android \u5E38\u89C1\u9677\u9631]]" : "";
   switch (entry.type) {
     case "pitfall": {
-      const platformDir = (0, import_path3.join)(getKnowledgeDir(), "platforms", entry.platform);
-      (0, import_fs3.mkdirSync)(platformDir, { recursive: true });
-      filePath = (0, import_path3.join)(platformDir, "pitfalls.md");
+      const platformDir = (0, import_path2.join)(getKnowledgeDir(), "platforms", entry.platform);
+      (0, import_fs2.mkdirSync)(platformDir, { recursive: true });
+      filePath = (0, import_path2.join)(platformDir, "pitfalls.md");
       const newEntry = `
 ### ${entry.title}
 **Source**: ${entry.sourceProject}, ${date4}
 **Problem**: ${entry.problem}
 **Solution**: ${entry.solution}
 `;
-      if ((0, import_fs3.existsSync)(filePath)) {
-        const existing = (0, import_fs3.readFileSync)(filePath, "utf-8");
+      if ((0, import_fs2.existsSync)(filePath)) {
+        const existing = (0, import_fs2.readFileSync)(filePath, "utf-8");
         if (isDuplicate(existing, entry.title, entry.problem)) return;
         content = existing + newEntry;
       } else {
@@ -22266,7 +22084,7 @@ updated: ${date4}
     }
     case "pattern": {
       const slug = entry.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 50);
-      filePath = (0, import_path3.join)(getKnowledgeDir(), "patterns", `${slug}.md`);
+      filePath = (0, import_path2.join)(getKnowledgeDir(), "patterns", `${slug}.md`);
       content = `---
 type: pattern
 platform: ${entry.platform}
@@ -22289,7 +22107,7 @@ ${platformLink ? `Related: ${platformLink}` : ""}
     }
     case "decision": {
       const slug = entry.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 50);
-      filePath = (0, import_path3.join)(getKnowledgeDir(), "discoveries", `${date4}-${slug}.md`);
+      filePath = (0, import_path2.join)(getKnowledgeDir(), "discoveries", `${date4}-${slug}.md`);
       content = `---
 type: decision
 platform: ${entry.platform}
@@ -22314,7 +22132,7 @@ ${platformLink ? `Related: ${platformLink}` : ""}
       return;
   }
   entry.filePath = filePath;
-  (0, import_fs3.writeFileSync)(filePath, content);
+  (0, import_fs2.writeFileSync)(filePath, content);
 }
 function memoryConsolidate() {
   ensureDbSchema();
@@ -22335,8 +22153,8 @@ function memoryConsolidate() {
       createdAt: now,
       filePath: ""
     };
-    const pitfallsPath = (0, import_path3.join)(getKnowledgeDir(), "platforms", entry.platform, "pitfalls.md");
-    if ((0, import_fs3.existsSync)(pitfallsPath) && isDuplicate((0, import_fs3.readFileSync)(pitfallsPath, "utf-8"), entry.title, entry.problem)) {
+    const pitfallsPath = (0, import_path2.join)(getKnowledgeDir(), "platforms", entry.platform, "pitfalls.md");
+    if ((0, import_fs2.existsSync)(pitfallsPath) && isDuplicate((0, import_fs2.readFileSync)(pitfallsPath, "utf-8"), entry.title, entry.problem)) {
       skippedDuplicates++;
       continue;
     }
@@ -22399,38 +22217,38 @@ function memoryStatus() {
     unprocessedReasoning: 0,
     knowledgeDir
   };
-  const platformsDir = (0, import_path3.join)(knowledgeDir, "platforms");
-  if ((0, import_fs3.existsSync)(platformsDir)) {
-    for (const platform of (0, import_fs3.readdirSync)(platformsDir)) {
-      const pitfallsPath = (0, import_path3.join)(platformsDir, platform, "pitfalls.md");
-      if ((0, import_fs3.existsSync)(pitfallsPath)) {
-        const content = (0, import_fs3.readFileSync)(pitfallsPath, "utf-8");
+  const platformsDir = (0, import_path2.join)(knowledgeDir, "platforms");
+  if ((0, import_fs2.existsSync)(platformsDir)) {
+    for (const platform of (0, import_fs2.readdirSync)(platformsDir)) {
+      const pitfallsPath = (0, import_path2.join)(platformsDir, platform, "pitfalls.md");
+      if ((0, import_fs2.existsSync)(pitfallsPath)) {
+        const content = (0, import_fs2.readFileSync)(pitfallsPath, "utf-8");
         const count = (content.match(/^### /gm) || []).length;
         status.byType.pitfall += count;
         status.totalEntries += count;
       }
     }
   }
-  const patternsDir = (0, import_path3.join)(knowledgeDir, "patterns");
-  if ((0, import_fs3.existsSync)(patternsDir)) {
-    const count = (0, import_fs3.readdirSync)(patternsDir).filter((f) => f.endsWith(".md")).length;
+  const patternsDir = (0, import_path2.join)(knowledgeDir, "patterns");
+  if ((0, import_fs2.existsSync)(patternsDir)) {
+    const count = (0, import_fs2.readdirSync)(patternsDir).filter((f) => f.endsWith(".md")).length;
     status.byType.pattern = count;
     status.totalEntries += count;
   }
-  const discoveriesDir = (0, import_path3.join)(knowledgeDir, "discoveries");
-  if ((0, import_fs3.existsSync)(discoveriesDir)) {
-    const count = (0, import_fs3.readdirSync)(discoveriesDir).filter((f) => f.endsWith(".md")).length;
+  const discoveriesDir = (0, import_path2.join)(knowledgeDir, "discoveries");
+  if ((0, import_fs2.existsSync)(discoveriesDir)) {
+    const count = (0, import_fs2.readdirSync)(discoveriesDir).filter((f) => f.endsWith(".md")).length;
     status.byType.decision = count;
     status.totalEntries += count;
   }
-  const handoffsBase = (0, import_path3.join)(cwd, "thoughts", "shared", "handoffs");
-  if ((0, import_fs3.existsSync)(handoffsBase)) {
-    for (const sessionDir of (0, import_fs3.readdirSync)(handoffsBase)) {
-      const sessionPath = (0, import_path3.join)(handoffsBase, sessionDir);
-      if (!(0, import_fs3.statSync)(sessionPath).isDirectory()) continue;
-      for (const file2 of (0, import_fs3.readdirSync)(sessionPath)) {
+  const handoffsBase = (0, import_path2.join)(cwd, "thoughts", "shared", "handoffs");
+  if ((0, import_fs2.existsSync)(handoffsBase)) {
+    for (const sessionDir of (0, import_fs2.readdirSync)(handoffsBase)) {
+      const sessionPath = (0, import_path2.join)(handoffsBase, sessionDir);
+      if (!(0, import_fs2.statSync)(sessionPath).isDirectory()) continue;
+      for (const file2 of (0, import_fs2.readdirSync)(sessionPath)) {
         if (file2.startsWith("auto-handoff-") && file2.endsWith(".md")) {
-          const content = (0, import_fs3.readFileSync)((0, import_path3.join)(sessionPath, file2), "utf-8");
+          const content = (0, import_fs2.readFileSync)((0, import_path2.join)(sessionPath, file2), "utf-8");
           if (content.includes("## Errors Encountered") && !content.includes("No errors.")) {
             status.unprocessedHandoffs++;
           }
@@ -22438,12 +22256,12 @@ function memoryStatus() {
       }
     }
   }
-  const reasoningDir = (0, import_path3.join)(cwd, ".git", "claude", "commits");
-  if ((0, import_fs3.existsSync)(reasoningDir)) {
-    for (const commitDir of (0, import_fs3.readdirSync)(reasoningDir)) {
-      const reasoningPath = (0, import_path3.join)(reasoningDir, commitDir, "reasoning.md");
-      if (!(0, import_fs3.existsSync)(reasoningPath)) continue;
-      const content = (0, import_fs3.readFileSync)(reasoningPath, "utf-8");
+  const reasoningDir = (0, import_path2.join)(cwd, ".git", "claude", "commits");
+  if ((0, import_fs2.existsSync)(reasoningDir)) {
+    for (const commitDir of (0, import_fs2.readdirSync)(reasoningDir)) {
+      const reasoningPath = (0, import_path2.join)(reasoningDir, commitDir, "reasoning.md");
+      if (!(0, import_fs2.existsSync)(reasoningPath)) continue;
+      const content = (0, import_fs2.readFileSync)(reasoningPath, "utf-8");
       if (content.includes("### Failed attempts")) {
         status.unprocessedReasoning++;
       }
@@ -22457,7 +22275,7 @@ function memoryQuery(query, limit = 10) {
 }
 function memoryList(type) {
   const dbPath = getDbPath();
-  if (!(0, import_fs3.existsSync)(dbPath)) return [];
+  if (!(0, import_fs2.existsSync)(dbPath)) return [];
   const whereClause = type ? `WHERE type = '${esc2(type)}'` : "";
   const sql = `SELECT id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path FROM knowledge ${whereClause} ORDER BY created_at DESC LIMIT 50;`;
   try {
@@ -22474,30 +22292,22 @@ function memoryList(type) {
     return [];
   }
 }
-function getMemoryConfig() {
-  const configPath = (0, import_path3.join)(getCwd2(), ".dev-flow.json");
-  try {
-    if ((0, import_fs3.existsSync)(configPath)) {
-      const config2 = JSON.parse((0, import_fs3.readFileSync)(configPath, "utf-8"));
-      const tier = config2?.memory?.tier ?? 0;
-      return {
-        tier,
-        sessionSummary: config2?.memory?.sessionSummary ?? tier >= 1,
-        chromadb: config2?.memory?.chromadb ?? tier >= 2,
-        periodicCapture: config2?.memory?.periodicCapture ?? tier >= 3,
-        captureInterval: config2?.memory?.captureInterval ?? 10
-      };
-    }
-  } catch {
-  }
-  return { tier: 0, sessionSummary: false, chromadb: false, periodicCapture: false, captureInterval: 10 };
-}
 function memorySave(text, title, tags, type) {
   ensureDbSchema();
   const project = getProjectName();
   const platform = detectCurrentPlatform();
   const autoTitle = title || text.slice(0, 60).replace(/\n/g, " ");
   const entryType = type === "pitfall" || type === "pattern" || type === "decision" ? type : "decision";
+  try {
+    const dedupResult = smartDedup(
+      { type: entryType, title: autoTitle, content: text, platform },
+      getDbPath()
+    );
+    if (dedupResult.action === "NOOP") {
+      return { id: "", message: `Duplicate: ${dedupResult.reason} (${dedupResult.method})`, saved: false, reason: `Duplicate: ${dedupResult.reason} (${dedupResult.method})` };
+    }
+  } catch {
+  }
   const entry = {
     id: generateId(entryType, autoTitle),
     type: entryType,
@@ -22512,23 +22322,12 @@ function memorySave(text, title, tags, type) {
   };
   writeKnowledgeEntry(entry);
   dbInsertKnowledge(entry);
-  const config2 = getMemoryConfig();
-  if (config2.tier >= 2 && config2.chromadb) {
-    const semantic = getSemanticSearch();
-    semantic.addEntry(entry.id, `${entry.title} ${entry.problem} ${entry.solution}`, {
-      type: entry.type,
-      platform: entry.platform,
-      project: entry.sourceProject,
-      created_at: entry.createdAt
-    }).catch(() => {
-    });
-  }
   return { id: entry.id, message: `Saved: ${autoTitle}` };
 }
 function memorySearch(query, limit = 10, type) {
   ensureDbSchema();
   const dbPath = getDbPath();
-  if (!(0, import_fs3.existsSync)(dbPath)) return [];
+  if (!(0, import_fs2.existsSync)(dbPath)) return [];
   const expandedQuery = expandQuery(query);
   const typeFilter = type ? ` AND k.type = '${esc2(type)}'` : "";
   const sql = `SELECT k.id, k.type, k.title, k.platform, k.created_at FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc2(expandedQuery)}'${typeFilter} ORDER BY rank LIMIT ${limit};`;
@@ -22549,7 +22348,7 @@ function memorySearch(query, limit = 10, type) {
 function memoryGet(ids) {
   ensureDbSchema();
   const dbPath = getDbPath();
-  if (!(0, import_fs3.existsSync)(dbPath) || ids.length === 0) return [];
+  if (!(0, import_fs2.existsSync)(dbPath) || ids.length === 0) return [];
   const idList = ids.map((id) => `'${esc2(id)}'`).join(",");
   const sql = `SELECT id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path FROM knowledge WHERE id IN (${idList});`;
   try {
@@ -22568,163 +22367,69 @@ function memoryGet(ids) {
 }
 function extractFromProject(dryRun = false) {
   ensureDbSchema();
-  const cwd = getCwd2();
+  const dbPath = getDbPath();
+  if (!(0, import_fs2.existsSync)(dbPath)) {
+    return { success: false, message: "NO_DB", data: { pitfalls: 0, patterns: 0, decisions: 0, skippedDuplicates: 0 } };
+  }
   const project = getProjectName();
-  const platform = detectCurrentPlatform();
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  let pitfalls = 0, patterns = 0, decisions = 0, skippedDuplicates = 0;
-  const claudeMdPath = (0, import_path3.join)(cwd, "CLAUDE.md");
-  if ((0, import_fs3.existsSync)(claudeMdPath)) {
-    const content = (0, import_fs3.readFileSync)(claudeMdPath, "utf-8");
-    const pitfallsMatch = content.match(/## (?:Known Pitfalls|已知陷阱)\n([\s\S]*?)(?=\n## |$)/i);
-    if (pitfallsMatch) {
-      const lines = pitfallsMatch[1].trim().split("\n");
-      let currentTitle = "";
-      let currentBody = "";
-      for (const line of lines) {
-        const headerMatch = line.match(/^###?\s+(.+)/);
-        if (headerMatch) {
-          if (currentTitle && currentBody) {
-            const entry = {
-              id: generateId("pitfall", currentTitle),
-              type: "pitfall",
-              platform,
-              title: currentTitle,
-              problem: currentBody.slice(0, 300),
-              solution: "See CLAUDE.md",
-              sourceProject: project,
-              sourceSession: "CLAUDE.md",
-              createdAt: now,
-              filePath: ""
-            };
-            const pitfallsPath = (0, import_path3.join)(getKnowledgeDir(), "platforms", platform, "pitfalls.md");
-            if ((0, import_fs3.existsSync)(pitfallsPath) && isDuplicate((0, import_fs3.readFileSync)(pitfallsPath, "utf-8"), entry.title, entry.problem)) {
-              skippedDuplicates++;
-            } else if (!dryRun) {
-              writeKnowledgeEntry(entry);
-              dbInsertKnowledge(entry);
-              pitfalls++;
-            } else {
-              pitfalls++;
-            }
-          }
-          currentTitle = headerMatch[1].trim();
-          currentBody = "";
-        } else {
-          currentBody += line + "\n";
-        }
+  let added = 0;
+  let skippedDuplicates = 0;
+  const sql = `SELECT id, session_id, project, learned FROM session_summaries
+    WHERE learned IS NOT NULL AND learned != '' AND learned != 'null'
+    AND id NOT IN (SELECT source_session FROM knowledge WHERE source_session LIKE 'summary-%')
+    ORDER BY created_at_epoch DESC LIMIT 50;`;
+  try {
+    const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 5e3
+    }).trim();
+    if (!result) {
+      return { success: true, message: "EXTRACTED:0|no unprocessed summaries", data: { pitfalls: 0, patterns: 0, decisions: 0, skippedDuplicates: 0 } };
+    }
+    for (const line of result.split("\n")) {
+      const [summaryId, sessionId, summaryProject, learned] = line.split("|||");
+      if (!learned || learned === "null") {
+        skippedDuplicates++;
+        continue;
       }
-      if (currentTitle && currentBody) {
-        const entry = {
-          id: generateId("pitfall", currentTitle),
-          type: "pitfall",
-          platform,
-          title: currentTitle,
-          problem: currentBody.slice(0, 300),
-          solution: "See CLAUDE.md",
-          sourceProject: project,
-          sourceSession: "CLAUDE.md",
-          createdAt: now,
-          filePath: ""
-        };
-        const pitfallsPath = (0, import_path3.join)(getKnowledgeDir(), "platforms", platform, "pitfalls.md");
-        if ((0, import_fs3.existsSync)(pitfallsPath) && isDuplicate((0, import_fs3.readFileSync)(pitfallsPath, "utf-8"), entry.title, entry.problem)) {
-          skippedDuplicates++;
-        } else if (!dryRun) {
-          writeKnowledgeEntry(entry);
-          dbInsertKnowledge(entry);
-          pitfalls++;
-        } else {
-          pitfalls++;
-        }
+      const entryId = generateId("discovery", learned.slice(0, 40));
+      const entry = {
+        id: entryId,
+        type: "decision",
+        platform: "general",
+        title: learned.slice(0, 80),
+        problem: learned,
+        solution: "",
+        sourceProject: summaryProject || project,
+        sourceSession: summaryId,
+        createdAt: now,
+        filePath: ""
+      };
+      if (!dryRun) {
+        writeKnowledgeEntry(entry);
+        dbInsertKnowledge(entry);
       }
+      added++;
     }
+  } catch {
   }
-  for (const item of scanLedgers()) {
-    if (dryRun) {
-      decisions++;
-      continue;
-    }
-    const entry = {
-      id: generateId("decision", item.title),
-      type: "decision",
-      platform,
-      title: item.title,
-      problem: item.problem,
-      solution: item.solution,
-      sourceProject: project,
-      sourceSession: item.session,
-      createdAt: now,
-      filePath: ""
-    };
-    writeKnowledgeEntry(entry);
-    dbInsertKnowledge(entry);
-    decisions++;
-  }
-  for (const item of scanReasoning()) {
-    if (dryRun) {
-      patterns++;
-      continue;
-    }
-    const entry = {
-      id: generateId("pattern", item.title),
-      type: "pattern",
-      platform,
-      title: item.title,
-      problem: item.problem,
-      solution: item.solution,
-      sourceProject: project,
-      sourceSession: item.session,
-      createdAt: now,
-      filePath: ""
-    };
-    writeKnowledgeEntry(entry);
-    dbInsertKnowledge(entry);
-    patterns++;
-  }
-  for (const item of scanHandoffs()) {
-    const pitfallsPath = (0, import_path3.join)(getKnowledgeDir(), "platforms", item.platform || platform, "pitfalls.md");
-    if ((0, import_fs3.existsSync)(pitfallsPath) && isDuplicate((0, import_fs3.readFileSync)(pitfallsPath, "utf-8"), item.title, item.problem)) {
-      skippedDuplicates++;
-      continue;
-    }
-    if (dryRun) {
-      pitfalls++;
-      continue;
-    }
-    const entry = {
-      id: generateId("pitfall", item.title),
-      type: "pitfall",
-      platform: item.platform || platform,
-      title: item.title,
-      problem: item.problem,
-      solution: item.solution,
-      sourceProject: project,
-      sourceSession: item.session,
-      createdAt: now,
-      filePath: ""
-    };
-    writeKnowledgeEntry(entry);
-    dbInsertKnowledge(entry);
-    pitfalls++;
-  }
-  const total = pitfalls + patterns + decisions;
   const mode = dryRun ? "DRY_RUN" : "EXTRACTED";
   return {
     success: true,
-    message: `${mode}:${total}|pitfalls:${pitfalls}|patterns:${patterns}|decisions:${decisions}|skipped:${skippedDuplicates}`,
-    data: { pitfalls, patterns, decisions, skippedDuplicates }
+    message: `${mode}:${added}|discoveries:${added}|skipped:${skippedDuplicates}`,
+    data: { pitfalls: 0, patterns: 0, decisions: added, skippedDuplicates }
   };
 }
 function getAutoMemoryDir() {
   const projectDir = getCwd2();
   const escapedPath = projectDir.replace(/\//g, "-").replace(/^-/, "");
-  const memDir = (0, import_path3.join)((0, import_os2.homedir)(), ".claude", "projects", escapedPath, "memory");
-  return (0, import_fs3.existsSync)(memDir) ? memDir : null;
+  const memDir = (0, import_path2.join)((0, import_os.homedir)(), ".claude", "projects", escapedPath, "memory");
+  return (0, import_fs2.existsSync)(memDir) ? memDir : null;
 }
 function writeTopicFiles(memDir) {
   const dbPath = getDbPath();
-  if (!(0, import_fs3.existsSync)(dbPath)) return;
+  if (!(0, import_fs2.existsSync)(dbPath)) return;
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const types = ["pitfall", "pattern", "decision"];
   const fileNames = {
@@ -22773,11 +22478,139 @@ Last updated: ${now}
       return lines.join("\n");
     });
     const content = header + entries.join("\n\n");
-    const outPath = (0, import_path3.join)(memDir, fileNames[type]);
+    const outPath = (0, import_path2.join)(memDir, fileNames[type]);
     try {
-      (0, import_fs3.writeFileSync)(outPath, content, "utf-8");
+      (0, import_fs2.writeFileSync)(outPath, content, "utf-8");
     } catch {
     }
+  }
+}
+function extractKeyTerms(text) {
+  const stopWords = /* @__PURE__ */ new Set([
+    "the",
+    "a",
+    "an",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "have",
+    "has",
+    "had",
+    "do",
+    "does",
+    "did",
+    "will",
+    "would",
+    "could",
+    "should",
+    "and",
+    "or",
+    "but",
+    "in",
+    "on",
+    "at",
+    "to",
+    "for",
+    "of",
+    "with",
+    "by",
+    "from",
+    "as",
+    "it",
+    "this",
+    "that"
+  ]);
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !stopWords.has(w));
+}
+function tokenOverlap(textA, textB) {
+  const tokensA = new Set(extractKeyTerms(textA));
+  const tokensB = new Set(extractKeyTerms(textB));
+  if (tokensA.size === 0 || tokensB.size === 0) return 0;
+  const intersection2 = [...tokensA].filter((t) => tokensB.has(t)).length;
+  const union2 = (/* @__PURE__ */ new Set([...tokensA, ...tokensB])).size;
+  return intersection2 / union2;
+}
+function smartDedup(newEntry, dbPath) {
+  const keyTerms = extractKeyTerms(`${newEntry.title} ${newEntry.content}`);
+  if (keyTerms.length === 0) {
+    return { action: "ADD", reason: "No extractable terms", method: "fts5" };
+  }
+  const ftsQuery = keyTerms.slice(0, 8).join(" OR ");
+  let candidates = [];
+  try {
+    const sql = `SELECT k.id, k.title, k.problem || ' ' || k.solution as content FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc2(ftsQuery)}' ORDER BY rank LIMIT 5;`;
+    const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (result) {
+      candidates = result.split("\n").map((line) => {
+        const [id, title, content] = line.split("|||");
+        return { id, title, content };
+      });
+    }
+  } catch {
+    return { action: "ADD", reason: "FTS5 query failed", method: "fts5" };
+  }
+  if (candidates.length === 0) {
+    return { action: "ADD", reason: "No FTS5 matches", method: "fts5" };
+  }
+  const newText = `${newEntry.title} ${newEntry.content}`;
+  for (const candidate of candidates) {
+    const existingText = `${candidate.title} ${candidate.content}`;
+    const overlap = tokenOverlap(newText, existingText);
+    if (overlap > 0.7) {
+      return { action: "NOOP", targetId: candidate.id, reason: `Token overlap ${(overlap * 100).toFixed(0)}%`, method: "token-overlap" };
+    }
+    if (overlap > 0.3) {
+      const llmResult = llmCompare(
+        { type: newEntry.type, title: newEntry.title, content: newEntry.content },
+        { id: candidate.id, type: "knowledge", title: candidate.title, content: candidate.content }
+      );
+      if (llmResult) return llmResult;
+      return { action: "ADD", reason: `Overlap ${(overlap * 100).toFixed(0)}%, no API key for disambiguation`, method: "token-overlap" };
+    }
+  }
+  return { action: "ADD", reason: "Low similarity to all candidates", method: "fts5" };
+}
+function llmCompare(newEntry, existing) {
+  const apiKey = process.env.DEV_FLOW_API_KEY || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+  const apiUrl = process.env.DEV_FLOW_API_URL || "https://api.anthropic.com/v1/messages";
+  const model = process.env.DEV_FLOW_MODEL || "claude-haiku-4-5-20251001";
+  const isAnthropic = apiUrl.includes("api.anthropic.com");
+  const prompt = `Are these the same knowledge? Reply ONLY: SAME or DIFFERENT
+A: [${newEntry.type}] ${newEntry.title}: ${newEntry.content}
+B: [${existing.type}] ${existing.title}: ${existing.content}`;
+  try {
+    const https = require("https");
+    const url2 = new URL(apiUrl);
+    const headers = { "content-type": "application/json" };
+    if (isAnthropic) {
+      headers["x-api-key"] = apiKey;
+      headers["anthropic-version"] = "2023-06-01";
+    } else {
+      headers["authorization"] = `Bearer ${apiKey}`;
+    }
+    const body = JSON.stringify({
+      model,
+      max_tokens: 10,
+      messages: [{ role: "user", content: prompt }]
+    });
+    const result = (0, import_child_process8.execSync)(
+      `node -e "const https=require('https');const o={hostname:'${url2.hostname}',port:${url2.port || 443},path:'${url2.pathname}',method:'POST',headers:${JSON.stringify(headers)},timeout:5000};const r=https.request(o,res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>process.stdout.write(d))});r.on('error',()=>process.exit(1));r.write(${JSON.stringify(body)});r.end()"`,
+      { encoding: "utf-8", timeout: 8e3 }
+    );
+    const text = (JSON.parse(result)?.content?.[0]?.text || "").trim().toUpperCase();
+    if (text.includes("SAME")) {
+      return { action: "NOOP", targetId: existing.id, reason: "LLM confirmed duplicate", method: "llm" };
+    }
+    return { action: "ADD", reason: "LLM confirmed different", method: "llm" };
+  } catch {
+    return null;
   }
 }
 
@@ -22797,19 +22630,19 @@ function getCurrentBranch2() {
   }
 }
 function getReasoningDir() {
-  return (0, import_path4.join)(getCwd3(), ".git", "claude", "commits");
+  return (0, import_path3.join)(getCwd3(), ".git", "claude", "commits");
 }
 function getBranchAttemptsFile() {
   const cwd = getCwd3();
   const branch = getCurrentBranch2().replace(/\//g, "-");
-  return (0, import_path4.join)(cwd, ".git", "claude", "branches", branch, "attempts.jsonl");
+  return (0, import_path3.join)(cwd, ".git", "claude", "branches", branch, "attempts.jsonl");
 }
 function reasoningGenerate(commitHash, commitMessage) {
   const cwd = getCwd3();
   const branch = getCurrentBranch2();
-  const outputDir = (0, import_path4.join)(getReasoningDir(), commitHash);
+  const outputDir = (0, import_path3.join)(getReasoningDir(), commitHash);
   const attemptsFile = getBranchAttemptsFile();
-  (0, import_fs4.mkdirSync)(outputDir, { recursive: true });
+  (0, import_fs3.mkdirSync)(outputDir, { recursive: true });
   let content = `# Commit: ${commitHash.slice(0, 8)}
 
 ## Branch
@@ -22819,12 +22652,12 @@ ${branch}
 ${commitMessage}
 
 `;
-  const ledgersDir = (0, import_path4.join)(cwd, "thoughts", "ledgers");
-  if ((0, import_fs4.existsSync)(ledgersDir)) {
-    const ledgers = (0, import_fs4.readdirSync)(ledgersDir).filter((f) => f.endsWith(".md") && f.startsWith("TASK-"));
+  const ledgersDir = (0, import_path3.join)(cwd, "thoughts", "ledgers");
+  if ((0, import_fs3.existsSync)(ledgersDir)) {
+    const ledgers = (0, import_fs3.readdirSync)(ledgersDir).filter((f) => f.endsWith(".md") && f.startsWith("TASK-"));
     if (ledgers.length > 0) {
-      const ledgerPath = (0, import_path4.join)(ledgersDir, ledgers[0]);
-      const ledgerContent = (0, import_fs4.readFileSync)(ledgerPath, "utf-8");
+      const ledgerPath = (0, import_path3.join)(ledgersDir, ledgers[0]);
+      const ledgerContent = (0, import_fs3.readFileSync)(ledgerPath, "utf-8");
       content += `## Context from Ledger
 
 `;
@@ -22843,9 +22676,9 @@ ${goalMatch[1].trim().split("\n")[0]}
   content += `## What was tried
 
 `;
-  if ((0, import_fs4.existsSync)(attemptsFile)) {
+  if ((0, import_fs3.existsSync)(attemptsFile)) {
     try {
-      const attempts = (0, import_fs4.readFileSync)(attemptsFile, "utf-8").split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+      const attempts = (0, import_fs3.readFileSync)(attemptsFile, "utf-8").split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
       const failures = attempts.filter((a) => a.type === "build_fail");
       const passes = attempts.filter((a) => a.type === "build_pass");
       if (failures.length > 0) {
@@ -22868,7 +22701,7 @@ ${goalMatch[1].trim().split("\n")[0]}
         content += `Build passed on first try.
 `;
       }
-      (0, import_fs4.writeFileSync)(attemptsFile, "");
+      (0, import_fs3.writeFileSync)(attemptsFile, "");
     } catch {
       content += `_No build attempts recorded._
 `;
@@ -22893,10 +22726,10 @@ ${goalMatch[1].trim().split("\n")[0]}
     content += `- (unable to determine)
 `;
   }
-  (0, import_fs4.writeFileSync)((0, import_path4.join)(outputDir, "reasoning.md"), content);
-  const persistentDir = (0, import_path4.join)(cwd, "thoughts", "reasoning");
-  (0, import_fs4.mkdirSync)(persistentDir, { recursive: true });
-  (0, import_fs4.writeFileSync)((0, import_path4.join)(persistentDir, `${commitHash.slice(0, 8)}-reasoning.md`), content);
+  (0, import_fs3.writeFileSync)((0, import_path3.join)(outputDir, "reasoning.md"), content);
+  const persistentDir = (0, import_path3.join)(cwd, "thoughts", "reasoning");
+  (0, import_fs3.mkdirSync)(persistentDir, { recursive: true });
+  (0, import_fs3.writeFileSync)((0, import_path3.join)(persistentDir, `${commitHash.slice(0, 8)}-reasoning.md`), content);
   try {
     ensureDbSchema();
     const failedMatch = content.match(/### Failed attempts\n([\s\S]*?)(?=### Summary|## |$)/);
@@ -22908,19 +22741,19 @@ ${goalMatch[1].trim().split("\n")[0]}
   return {
     success: true,
     message: `Generated:${commitHash.slice(0, 8)}`,
-    data: { path: (0, import_path4.join)(outputDir, "reasoning.md"), persistentPath: (0, import_path4.join)(persistentDir, `${commitHash.slice(0, 8)}-reasoning.md`) }
+    data: { path: (0, import_path3.join)(outputDir, "reasoning.md"), persistentPath: (0, import_path3.join)(persistentDir, `${commitHash.slice(0, 8)}-reasoning.md`) }
   };
 }
 function reasoningRecall(keyword, limit = 5) {
   const reasoningDir = getReasoningDir();
   const cwd = getCwd3();
   const matches = [];
-  if ((0, import_fs4.existsSync)(reasoningDir)) {
-    for (const commitDir of (0, import_fs4.readdirSync)(reasoningDir)) {
+  if ((0, import_fs3.existsSync)(reasoningDir)) {
+    for (const commitDir of (0, import_fs3.readdirSync)(reasoningDir)) {
       if (matches.length >= limit) break;
-      const reasoningPath = (0, import_path4.join)(reasoningDir, commitDir, "reasoning.md");
-      if (!(0, import_fs4.existsSync)(reasoningPath)) continue;
-      const content = (0, import_fs4.readFileSync)(reasoningPath, "utf-8");
+      const reasoningPath = (0, import_path3.join)(reasoningDir, commitDir, "reasoning.md");
+      if (!(0, import_fs3.existsSync)(reasoningPath)) continue;
+      const content = (0, import_fs3.readFileSync)(reasoningPath, "utf-8");
       if (!content.toLowerCase().includes(keyword.toLowerCase())) continue;
       let commitMessage = "";
       let date4 = "";
@@ -22950,12 +22783,12 @@ function reasoningRecall(keyword, limit = 5) {
       });
     }
   }
-  const ledgersDir = (0, import_path4.join)(cwd, "thoughts", "ledgers");
+  const ledgersDir = (0, import_path3.join)(cwd, "thoughts", "ledgers");
   const ledgerMatches = [];
-  if ((0, import_fs4.existsSync)(ledgersDir)) {
-    for (const file2 of (0, import_fs4.readdirSync)(ledgersDir)) {
+  if ((0, import_fs3.existsSync)(ledgersDir)) {
+    for (const file2 of (0, import_fs3.readdirSync)(ledgersDir)) {
       if (!file2.endsWith(".md")) continue;
-      const content = (0, import_fs4.readFileSync)((0, import_path4.join)(ledgersDir, file2), "utf-8");
+      const content = (0, import_fs3.readFileSync)((0, import_path3.join)(ledgersDir, file2), "utf-8");
       if (content.toLowerCase().includes(keyword.toLowerCase())) {
         const lines = content.split("\n");
         const matchLine = lines.find(
@@ -22979,12 +22812,12 @@ function reasoningRecall(keyword, limit = 5) {
     }
   } catch {
   }
-  const persistentDir = (0, import_path4.join)(cwd, "thoughts", "reasoning");
-  if ((0, import_fs4.existsSync)(persistentDir)) {
-    for (const file2 of (0, import_fs4.readdirSync)(persistentDir)) {
+  const persistentDir = (0, import_path3.join)(cwd, "thoughts", "reasoning");
+  if ((0, import_fs3.existsSync)(persistentDir)) {
+    for (const file2 of (0, import_fs3.readdirSync)(persistentDir)) {
       if (!file2.endsWith("-reasoning.md")) continue;
       if (matches.length >= limit) break;
-      const content = (0, import_fs4.readFileSync)((0, import_path4.join)(persistentDir, file2), "utf-8");
+      const content = (0, import_fs3.readFileSync)((0, import_path3.join)(persistentDir, file2), "utf-8");
       if (!content.toLowerCase().includes(keyword.toLowerCase())) continue;
       const hash2 = file2.replace("-reasoning.md", "");
       if (matches.find((m) => m.commitHash === hash2)) continue;
@@ -23014,10 +22847,10 @@ function reasoningAggregate(baseBranch = "master") {
       cwd
     }).trim().split("\n").filter((h) => h);
     for (const commit of commits) {
-      const reasoningPath = (0, import_path4.join)(reasoningDir, commit, "reasoning.md");
-      if (!(0, import_fs4.existsSync)(reasoningPath)) continue;
+      const reasoningPath = (0, import_path3.join)(reasoningDir, commit, "reasoning.md");
+      if (!(0, import_fs3.existsSync)(reasoningPath)) continue;
       foundAny = true;
-      const content = (0, import_fs4.readFileSync)(reasoningPath, "utf-8");
+      const content = (0, import_fs3.readFileSync)(reasoningPath, "utf-8");
       const msg = (0, import_child_process9.execSync)(`git log -1 --format="%s" ${commit}`, {
         encoding: "utf-8",
         cwd
@@ -23213,8 +23046,8 @@ function branchPrune() {
 
 // src/continuity/defaults.ts
 var import_child_process11 = require("child_process");
-var import_fs5 = require("fs");
-var import_path5 = require("path");
+var import_fs4 = require("fs");
+var import_path4 = require("path");
 function getCwd5() {
   try {
     return (0, import_child_process11.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
@@ -23317,9 +23150,9 @@ function inferReviewers() {
   const reviewers = [];
   const codeownersPaths = [".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"];
   for (const coPath of codeownersPaths) {
-    const fullPath = (0, import_path5.join)(cwd, coPath);
-    if ((0, import_fs5.existsSync)(fullPath)) {
-      const content = (0, import_fs5.readFileSync)(fullPath, "utf-8");
+    const fullPath = (0, import_path4.join)(cwd, coPath);
+    if ((0, import_fs4.existsSync)(fullPath)) {
+      const content = (0, import_fs4.readFileSync)(fullPath, "utf-8");
       const lines = content.split("\n").filter((l) => l && !l.startsWith("#"));
       for (const file2 of files) {
         for (const line of lines) {
@@ -23395,10 +23228,10 @@ function inferAll() {
 }
 
 // src/continuity/task-sync.ts
-var import_fs6 = require("fs");
+var import_fs5 = require("fs");
 function parseLedgerState(ledgerPath) {
-  if (!(0, import_fs6.existsSync)(ledgerPath)) return [];
-  const content = (0, import_fs6.readFileSync)(ledgerPath, "utf-8");
+  if (!(0, import_fs5.existsSync)(ledgerPath)) return [];
+  const content = (0, import_fs5.readFileSync)(ledgerPath, "utf-8");
   const tasks = [];
   const stateMatch = content.match(/## State\s*\n([\s\S]*?)(?=\n## |$)/m);
   if (!stateMatch) return [];
@@ -23494,8 +23327,8 @@ function getTaskSyncSummary(ledgerPath) {
   return `TASKS|${tasks.length} total|${completed} done|${inProgress} active|${pending} pending`;
 }
 function exportLedgerAsJson(ledgerPath) {
-  if (!(0, import_fs6.existsSync)(ledgerPath)) return null;
-  const content = (0, import_fs6.readFileSync)(ledgerPath, "utf-8");
+  if (!(0, import_fs5.existsSync)(ledgerPath)) return null;
+  const content = (0, import_fs5.readFileSync)(ledgerPath, "utf-8");
   const taskIdMatch = ledgerPath.match(/TASK-\d+/);
   const taskId = taskIdMatch ? taskIdMatch[0] : "unknown";
   return {
@@ -23508,9 +23341,9 @@ function exportLedgerAsJson(ledgerPath) {
 
 // src/continuity/context-injector.ts
 var import_child_process12 = require("child_process");
-var import_fs7 = require("fs");
-var import_path6 = require("path");
-var import_os3 = require("os");
+var import_fs6 = require("fs");
+var import_path5 = require("path");
+var import_os2 = require("os");
 
 // src/coordination/coordinator.ts
 var TaskCoordinator = class {
@@ -23857,436 +23690,6 @@ ${result.diff_stat}`
     }
     default:
       return { content: [{ type: "text", text: "\u274C Action required: prepare|finalize" }] };
-  }
-}
-
-// src/continuity/instincts.ts
-var import_child_process14 = require("child_process");
-var import_fs8 = require("fs");
-var import_path7 = require("path");
-function getDbPath2(projectDir) {
-  return (0, import_path7.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
-}
-function esc3(s) {
-  return (s || "").replace(/'/g, "''");
-}
-function dbQuery(dbPath, sql) {
-  try {
-    return (0, import_child_process14.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-      encoding: "utf-8",
-      timeout: 5e3
-    }).trim();
-  } catch {
-    return "";
-  }
-}
-function dbExec(dbPath, sql) {
-  try {
-    (0, import_child_process14.execSync)(`sqlite3 "${dbPath}" "${sql.replace(/"/g, '\\"')}"`, {
-      encoding: "utf-8",
-      timeout: 5e3
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-function ensureInstinctsTable(dbPath) {
-  const schema = `CREATE TABLE IF NOT EXISTS instincts (id TEXT PRIMARY KEY, trigger TEXT, action TEXT, confidence REAL, domain TEXT, source TEXT, evidence_count INTEGER, last_seen TEXT, examples TEXT);`;
-  dbExec(dbPath, schema);
-}
-function hasObservationsTable(dbPath) {
-  const result = dbQuery(
-    dbPath,
-    `SELECT name FROM sqlite_master WHERE type='table' AND name='observations';`
-  );
-  return result.trim() === "observations";
-}
-function loadObservations(dbPath) {
-  const result = dbQuery(
-    dbPath,
-    `SELECT title, narrative, concepts FROM observations ORDER BY created_at_epoch DESC LIMIT 200;`
-  );
-  if (!result) return [];
-  return result.split("\n").map((line) => {
-    const [title, narrative, concepts] = line.split("|||");
-    return { title: title || "", narrative: narrative || "", concepts: concepts || "" };
-  }).filter((o) => o.title || o.narrative);
-}
-function tokenize(text) {
-  return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 3);
-}
-function sharedKeywords(a, b) {
-  const setB = new Set(b);
-  return a.filter((w) => setB.has(w));
-}
-function clusterObservations(observations) {
-  const tokenized = observations.map((o) => ({
-    obs: o,
-    tokens: tokenize(`${o.title} ${o.narrative} ${o.concepts}`)
-  }));
-  const clusters = [];
-  const assigned = /* @__PURE__ */ new Set();
-  for (let i = 0; i < tokenized.length; i++) {
-    if (assigned.has(i)) continue;
-    const cluster = {
-      keywords: tokenized[i].tokens,
-      observations: [tokenized[i].obs]
-    };
-    assigned.add(i);
-    for (let j = i + 1; j < tokenized.length; j++) {
-      if (assigned.has(j)) continue;
-      const shared = sharedKeywords(tokenized[i].tokens, tokenized[j].tokens);
-      if (shared.length >= 2) {
-        cluster.observations.push(tokenized[j].obs);
-        assigned.add(j);
-      }
-    }
-    if (cluster.observations.length >= 3) {
-      clusters.push(cluster);
-    }
-  }
-  return clusters;
-}
-function deriveInstinct(cluster) {
-  const allText = cluster.observations.map((o) => `${o.title} ${o.narrative}`).join(" ");
-  const tokens = tokenize(allText);
-  const freq = {};
-  for (const t of tokens) {
-    freq[t] = (freq[t] || 0) + 1;
-  }
-  const topKeywords = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k]) => k);
-  const domain2 = deriveDomain(topKeywords);
-  const titleFreq = {};
-  for (const o of cluster.observations) {
-    titleFreq[o.title] = (titleFreq[o.title] || 0) + 1;
-  }
-  const topTitle = Object.entries(titleFreq).sort((a, b) => b[1] - a[1])[0]?.[0] || topKeywords.join(" ");
-  const idBase = topKeywords.slice(0, 3).join("-").replace(/[^a-z0-9-]/g, "");
-  const contentSig = cluster.observations.map((o) => o.title).join("|");
-  const hashSuffix = contentSig.split("").reduce((h, c) => (h << 5) - h + c.charCodeAt(0) | 0, 0).toString(36).replace("-", "n");
-  const id = idBase ? `${idBase}-${hashSuffix}` : `instinct-${Date.now().toString(36)}`;
-  const trigger = `when working with ${topKeywords.slice(0, 3).join(", ")}`;
-  const action = topTitle.slice(0, 120);
-  const examples = cluster.observations.slice(0, 5).map((o) => o.title.slice(0, 80)).filter(Boolean);
-  return {
-    id,
-    trigger,
-    action,
-    confidence: Math.min(0.3 + cluster.observations.length * 0.1, 0.9),
-    domain: domain2,
-    source: "session-observation",
-    evidenceCount: cluster.observations.length,
-    lastSeen: (/* @__PURE__ */ new Date()).toISOString(),
-    examples
-  };
-}
-function deriveDomain(keywords) {
-  const domainMap = {
-    "swift-style": ["swift", "guard", "optional", "closure", "protocol"],
-    "git-workflow": ["commit", "branch", "merge", "rebase", "push"],
-    "testing": ["test", "mock", "assert", "spec", "unit"],
-    "performance": ["performance", "memory", "optimize", "cache", "slow"],
-    "android-kotlin": ["kotlin", "android", "compose", "coroutine", "flow"],
-    "typescript": ["typescript", "type", "interface", "generic", "async"]
-  };
-  for (const [domain2, markers] of Object.entries(domainMap)) {
-    if (keywords.some((k) => markers.includes(k))) {
-      return domain2;
-    }
-  }
-  return "general";
-}
-function loadExistingInstinct(dbPath, id) {
-  const result = dbQuery(
-    dbPath,
-    `SELECT id, trigger, action, confidence, domain, source, evidence_count, last_seen, examples FROM instincts WHERE id = '${esc3(id)}';`
-  );
-  if (!result) return null;
-  const [rid, trigger, action, confidence, domain2, source, evidenceCount, lastSeen, examples] = result.split("|||");
-  if (!rid) return null;
-  return {
-    id: rid,
-    trigger,
-    action,
-    confidence: parseFloat(confidence) || 0,
-    domain: domain2,
-    source,
-    evidenceCount: parseInt(evidenceCount, 10) || 0,
-    lastSeen,
-    examples: (() => {
-      try {
-        return JSON.parse(examples || "[]");
-      } catch {
-        return [];
-      }
-    })()
-  };
-}
-function upsertInstinct(dbPath, instinct) {
-  const existing = loadExistingInstinct(dbPath, instinct.id);
-  let toWrite = instinct;
-  if (existing) {
-    toWrite = {
-      ...existing,
-      confidence: Math.min(existing.confidence + 0.1, 1),
-      evidenceCount: existing.evidenceCount + instinct.evidenceCount,
-      lastSeen: (/* @__PURE__ */ new Date()).toISOString(),
-      examples: [.../* @__PURE__ */ new Set([...existing.examples, ...instinct.examples])].slice(0, 5)
-    };
-  }
-  const sql = `INSERT OR REPLACE INTO instincts (id, trigger, action, confidence, domain, source, evidence_count, last_seen, examples) VALUES ('${esc3(toWrite.id)}', '${esc3(toWrite.trigger)}', '${esc3(toWrite.action)}', ${toWrite.confidence}, '${esc3(toWrite.domain)}', '${esc3(toWrite.source)}', ${toWrite.evidenceCount}, '${esc3(toWrite.lastSeen)}', '${esc3(JSON.stringify(toWrite.examples))}');`;
-  return dbExec(dbPath, sql);
-}
-function instinctExtract(projectDir) {
-  const dbPath = getDbPath2(projectDir);
-  if (!(0, import_fs8.existsSync)(dbPath)) {
-    return { success: false, extracted: 0, message: "No observations found. Enable Tier 3 in .dev-flow.json" };
-  }
-  if (!hasObservationsTable(dbPath)) {
-    return { success: false, extracted: 0, message: "No observations found. Enable Tier 3 in .dev-flow.json" };
-  }
-  const observations = loadObservations(dbPath);
-  if (observations.length === 0) {
-    return { success: true, extracted: 0, message: "No observations to process yet. Run more sessions with Tier 3 enabled." };
-  }
-  ensureInstinctsTable(dbPath);
-  const clusters = clusterObservations(observations);
-  if (clusters.length === 0) {
-    return { success: true, extracted: 0, message: `Processed ${observations.length} observations. Not enough clustering to extract instincts (need 3+ similar observations).` };
-  }
-  let extracted = 0;
-  for (const cluster of clusters) {
-    const instinct = deriveInstinct(cluster);
-    if (upsertInstinct(dbPath, instinct)) {
-      extracted++;
-    }
-  }
-  return { success: true, extracted, message: `Extracted ${extracted} instincts from ${observations.length} observations (${clusters.length} clusters).` };
-}
-function instinctList(projectDir, domain2) {
-  const dbPath = getDbPath2(projectDir);
-  if (!(0, import_fs8.existsSync)(dbPath)) return [];
-  ensureInstinctsTable(dbPath);
-  const whereClause = domain2 ? `WHERE domain = '${esc3(domain2)}'` : "";
-  const result = dbQuery(
-    dbPath,
-    `SELECT id, trigger, action, confidence, domain, source, evidence_count, last_seen, examples FROM instincts ${whereClause} ORDER BY confidence DESC;`
-  );
-  if (!result) return [];
-  return result.split("\n").map((line) => {
-    const [id, trigger, action, confidence, dom, source, evidenceCount, lastSeen, examples] = line.split("|||");
-    if (!id) return null;
-    return {
-      id,
-      trigger,
-      action,
-      confidence: parseFloat(confidence) || 0,
-      domain: dom,
-      source,
-      evidenceCount: parseInt(evidenceCount, 10) || 0,
-      lastSeen,
-      examples: (() => {
-        try {
-          return JSON.parse(examples || "[]");
-        } catch {
-          return [];
-        }
-      })()
-    };
-  }).filter((i) => i !== null);
-}
-
-// src/continuity/product-brain.ts
-var import_child_process15 = require("child_process");
-var import_fs9 = require("fs");
-var import_path8 = require("path");
-var import_os4 = require("os");
-function esc4(s) {
-  return (s || "").replace(/'/g, "''");
-}
-function getDbPath3(projectDir) {
-  return (0, import_path8.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
-}
-function generateId2() {
-  return `pb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
-function dbExec2(dbPath, sql) {
-  try {
-    (0, import_child_process15.execSync)(`sqlite3 "${dbPath}" "${sql.replace(/"/g, '\\"')}"`, {
-      encoding: "utf-8",
-      timeout: 5e3
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-function dbQuery2(dbPath, sql) {
-  try {
-    return (0, import_child_process15.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql.replace(/"/g, '\\"')}"`, {
-      encoding: "utf-8",
-      timeout: 5e3
-    }).trim();
-  } catch {
-    return "";
-  }
-}
-function ensureProductBrainTable(dbPath) {
-  (0, import_fs9.mkdirSync)((0, import_path8.dirname)(dbPath), { recursive: true });
-  const schema = `CREATE TABLE IF NOT EXISTS product_brain (id TEXT PRIMARY KEY, domain TEXT NOT NULL, topic TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, source TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`;
-  dbExec2(dbPath, schema);
-}
-function ensureDbDir(projectDir) {
-  const dbDir = (0, import_path8.join)(projectDir, ".claude", "cache", "artifact-index");
-  (0, import_fs9.mkdirSync)(dbDir, { recursive: true });
-}
-function inferDomainFromPath(filePath) {
-  const lower = filePath.toLowerCase();
-  if (lower.includes("/ios/") || lower.includes(".swift") || lower.includes("xcodeproj") || lower.includes("appdelegate")) return "ios";
-  if (lower.includes("/android/") || lower.includes(".kt") || lower.includes("gradle") || lower.includes("androidmanifest")) return "android";
-  if (lower.includes("/web/") || lower.includes(".tsx") || lower.includes(".jsx") || lower.includes("react")) return "web";
-  if (lower.includes("/backend/") || lower.includes("/api/") || lower.includes("/server/") || lower.includes(".go") || lower.includes(".py")) return "backend";
-  return "shared";
-}
-function inferTopicFromPath(filePath) {
-  const lower = filePath.toLowerCase();
-  if (lower.includes("auth") || lower.includes("login") || lower.includes("session")) return "authentication";
-  if (lower.includes("nav") || lower.includes("router") || lower.includes("route")) return "navigation";
-  if (lower.includes("data") || lower.includes("model") || lower.includes("schema") || lower.includes("db") || lower.includes("repository")) return "data-layer";
-  if (lower.includes("ui") || lower.includes("view") || lower.includes("component") || lower.includes("screen")) return "ui";
-  if (lower.includes("network") || lower.includes("api") || lower.includes("request") || lower.includes("http")) return "networking";
-  if (lower.includes("test") || lower.includes("spec")) return "testing";
-  if (lower.includes("config") || lower.includes("setting") || lower.includes("env")) return "configuration";
-  return "general";
-}
-function productExtract(projectDir, specPath) {
-  const dbPath = getDbPath3(projectDir);
-  ensureDbDir(projectDir);
-  ensureProductBrainTable(dbPath);
-  const entries = [];
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  let recentCommits = "";
-  try {
-    recentCommits = (0, import_child_process15.execSync)("git log --oneline -5 --name-only", {
-      cwd: projectDir,
-      encoding: "utf-8",
-      timeout: 5e3
-    }).trim();
-  } catch {
-    return entries;
-  }
-  if (!recentCommits) return entries;
-  const commitBlocks = recentCommits.split("\n\n").filter(Boolean);
-  const filesByDomain = /* @__PURE__ */ new Map();
-  for (const block of commitBlocks) {
-    const lines = block.split("\n").filter(Boolean);
-    if (lines.length === 0) continue;
-    const commitMsg = lines[0].replace(/^[a-f0-9]+ /, "");
-    const changedFiles = lines.slice(1);
-    for (const file2 of changedFiles) {
-      const domain2 = inferDomainFromPath(file2);
-      const topic = inferTopicFromPath(file2);
-      const key = `${domain2}:${topic}`;
-      if (!filesByDomain.has(key)) {
-        filesByDomain.set(key, { files: [], commitMsg });
-      }
-      filesByDomain.get(key).files.push(file2);
-    }
-  }
-  let specContext = "";
-  if (specPath && (0, import_fs9.existsSync)(specPath) && specPath.startsWith(projectDir)) {
-    try {
-      specContext = (0, import_fs9.readFileSync)(specPath, "utf-8").split("\n").slice(0, 50).join("\n").trim();
-    } catch {
-    }
-  }
-  for (const [key, { files, commitMsg }] of filesByDomain) {
-    const [domain2, topic] = key.split(":");
-    const fileList = files.slice(0, 5).join(", ");
-    const content = specContext ? `Files: ${fileList}
-Commit: ${commitMsg}
-Spec context: ${specContext.slice(0, 200)}` : `Files: ${fileList}
-Commit: ${commitMsg}`;
-    entries.push({
-      id: generateId2(),
-      domain: domain2,
-      topic,
-      title: `${commitMsg.slice(0, 60)}`,
-      content,
-      source: commitMsg.slice(0, 80),
-      created_at: now,
-      updated_at: now
-    });
-  }
-  return entries;
-}
-function productQuery(projectDir, options) {
-  const dbPath = getDbPath3(projectDir);
-  if (!(0, import_fs9.existsSync)(dbPath)) return [];
-  ensureProductBrainTable(dbPath);
-  const conditions = [];
-  if (options.domain) conditions.push(`domain = '${esc4(options.domain)}'`);
-  if (options.topic) conditions.push(`topic = '${esc4(options.topic)}'`);
-  if (options.query) {
-    const q = esc4(options.query);
-    conditions.push(`(title LIKE '%${q}%' OR content LIKE '%${q}%' OR topic LIKE '%${q}%')`);
-  }
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  const sql = `SELECT id, domain, topic, title, content, source, created_at, updated_at FROM product_brain ${where} ORDER BY updated_at DESC LIMIT 20;`;
-  const result = dbQuery2(dbPath, sql);
-  if (!result) return [];
-  return result.split("\n").map((line) => {
-    const [id, domain2, topic, title, content, source, created_at, updated_at] = line.split("|||");
-    if (!id) return null;
-    return { id, domain: domain2, topic, title, content, source, created_at, updated_at };
-  }).filter((e) => e !== null);
-}
-function productSave(projectDir, entry) {
-  const dbPath = getDbPath3(projectDir);
-  ensureDbDir(projectDir);
-  ensureProductBrainTable(dbPath);
-  const id = generateId2();
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  const sql = `INSERT INTO product_brain (id, domain, topic, title, content, source, created_at, updated_at) VALUES ('${esc4(id)}', '${esc4(entry.domain)}', '${esc4(entry.topic)}', '${esc4(entry.title)}', '${esc4(entry.content)}', '${esc4(entry.source)}', '${esc4(now)}', '${esc4(now)}');`;
-  dbExec2(dbPath, sql);
-  return id;
-}
-function productWriteTopicFiles(projectDir) {
-  const dbPath = getDbPath3(projectDir);
-  if (!(0, import_fs9.existsSync)(dbPath)) return;
-  const escapedPath = projectDir.replace(/\//g, "-").replace(/^-/, "");
-  const memDir = (0, import_path8.join)((0, import_os4.homedir)(), ".claude", "projects", escapedPath, "memory");
-  if (!(0, import_fs9.existsSync)(memDir)) return;
-  const sql = `SELECT DISTINCT domain FROM product_brain ORDER BY domain;`;
-  const domainsResult = dbQuery2(dbPath, sql);
-  if (!domainsResult) return;
-  const domains = domainsResult.split("\n").filter(Boolean);
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  for (const domain2 of domains) {
-    const entriesSql = `SELECT topic, title, content, source, updated_at FROM product_brain WHERE domain = '${esc4(domain2)}' ORDER BY updated_at DESC LIMIT 30;`;
-    const entriesResult = dbQuery2(dbPath, entriesSql);
-    if (!entriesResult) continue;
-    const rows = entriesResult.split("\n").filter(Boolean).map((line) => {
-      const [topic, title, content, source, updated_at] = line.split("|||");
-      return { topic, title, content, source, updated_at };
-    });
-    const header = `# Product Knowledge: ${domain2.charAt(0).toUpperCase() + domain2.slice(1)}
-Last updated: ${now}
-
-`;
-    const sections = rows.map((r) => [
-      `## ${r.topic} \u2014 ${r.title}`,
-      r.content.trim(),
-      `Source: ${r.source}`,
-      "---"
-    ].join("\n"));
-    const fileContent = header + sections.join("\n\n");
-    const outPath = (0, import_path8.join)(memDir, `product-${domain2}.md`);
-    try {
-      (0, import_fs9.writeFileSync)(outPath, fileContent, "utf-8");
-    } catch {
-    }
   }
 }
 
@@ -24674,40 +24077,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         }
       }
     },
-    {
-      name: "dev_instinct",
-      description: "[~30 tokens] Extract and list behavioral instincts from session observations",
-      inputSchema: {
-        type: "object",
-        properties: {
-          action: { type: "string", enum: ["extract", "list"], description: "Action to perform" },
-          domain: { type: "string", description: "Filter by domain (list only)" }
-        },
-        required: ["action"]
-      }
-    },
-    {
-      name: "dev_product",
-      description: "[~50 tokens] Manage product domain knowledge (extract/query/save/write_topics)",
-      inputSchema: {
-        type: "object",
-        properties: {
-          action: {
-            type: "string",
-            enum: ["extract", "query", "save", "write_topics"],
-            description: "Action to perform"
-          },
-          specPath: { type: "string", description: "Path to spec file for context (extract only)" },
-          domain: { type: "string", description: "Domain filter: ios|android|web|backend|shared (query/save)" },
-          topic: { type: "string", description: "Topic filter e.g. authentication, navigation (query/save)" },
-          query: { type: "string", description: "Text search query (query only)" },
-          title: { type: "string", description: "Entry title (save only)" },
-          content: { type: "string", description: "Detailed knowledge content (save only)" },
-          source: { type: "string", description: "Source spec/commit that generated this (save only)" }
-        },
-        required: ["action"]
-      }
-    },
     // Notion tools
     {
       name: "dev_inbox",
@@ -24878,59 +24247,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return aggregateTool(args?.action, args?.handoffIds, args?.taskId);
       case "dev_commit":
         return commitTool(args?.action, args?.token, args?.message, args?.skip_review);
-      case "dev_instinct": {
-        const action = args?.action;
-        const cwd = process.cwd();
-        if (action === "extract") {
-          const result = instinctExtract(cwd);
-          return { content: [{ type: "text", text: result.message }] };
-        } else if (action === "list") {
-          const instincts = instinctList(cwd, args?.domain);
-          const text = instincts.length === 0 ? "No instincts found. Run extract first." : instincts.map((i) => `[${i.confidence.toFixed(1)}] ${i.trigger} \u2192 ${i.action} (${i.domain}, ${i.evidenceCount} evidence)`).join("\n");
-          return { content: [{ type: "text", text }] };
-        }
-        return { content: [{ type: "text", text: "\u274C Action required: extract|list" }] };
-      }
-      case "dev_product": {
-        const action = args?.action;
-        const cwd = process.cwd();
-        if (action === "extract") {
-          const entries = productExtract(cwd, args?.specPath);
-          if (entries.length === 0) {
-            return { content: [{ type: "text", text: "No product knowledge extracted (no recent commits or spec changes)." }] };
-          }
-          const summary = entries.map((e) => `[${e.domain}/${e.topic}] ${e.title}`).join("\n");
-          return { content: [{ type: "text", text: `Extracted ${entries.length} entries:
-${summary}` }] };
-        } else if (action === "query") {
-          const results = productQuery(cwd, {
-            domain: args?.domain,
-            topic: args?.topic,
-            query: args?.query
-          });
-          if (results.length === 0) {
-            return { content: [{ type: "text", text: "No product knowledge found." }] };
-          }
-          const text = results.map((e) => `[${e.domain}/${e.topic}] ${e.title}
-${e.content.slice(0, 200)}`).join("\n\n---\n\n");
-          return { content: [{ type: "text", text }] };
-        } else if (action === "save") {
-          const domain2 = args?.domain || "shared";
-          const topic = args?.topic || "general";
-          const title = args?.title;
-          const content = args?.content;
-          const source = args?.source || "manual";
-          if (!title || !content) {
-            return { content: [{ type: "text", text: "\u274C title and content required for save action" }] };
-          }
-          const id = productSave(cwd, { domain: domain2, topic, title, content, source });
-          return { content: [{ type: "text", text: `Saved: ${id}` }] };
-        } else if (action === "write_topics") {
-          productWriteTopicFiles(cwd);
-          return { content: [{ type: "text", text: "Product topic files written to Auto Memory directory." }] };
-        }
-        return { content: [{ type: "text", text: "\u274C Action required: extract|query|save|write_topics" }] };
-      }
       // Notion tools
       case "dev_inbox": {
         const notionCfg = getNotionConfig(process.cwd());

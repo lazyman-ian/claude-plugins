@@ -20,8 +20,6 @@ import * as android from './platforms/android';
 import * as continuity from './continuity';
 import * as coordination from './coordination';
 import { commitTool } from './git/commit';
-import { instinctExtract, instinctList } from './continuity/instincts';
-import { productExtract, productQuery, productSave, productWriteTopicFiles } from './continuity/product-brain';
 import { getNotionConfig, buildInboxFilter, formatTaskSummary, extractSpecFields } from './notion';
 
 const server = new Server(
@@ -313,40 +311,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         },
       },
     },
-    {
-      name: 'dev_instinct',
-      description: '[~30 tokens] Extract and list behavioral instincts from session observations',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          action: { type: 'string', enum: ['extract', 'list'], description: 'Action to perform' },
-          domain: { type: 'string', description: 'Filter by domain (list only)' },
-        },
-        required: ['action'],
-      },
-    },
-    {
-      name: 'dev_product',
-      description: '[~50 tokens] Manage product domain knowledge (extract/query/save/write_topics)',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          action: {
-            type: 'string',
-            enum: ['extract', 'query', 'save', 'write_topics'],
-            description: 'Action to perform',
-          },
-          specPath: { type: 'string', description: 'Path to spec file for context (extract only)' },
-          domain: { type: 'string', description: 'Domain filter: ios|android|web|backend|shared (query/save)' },
-          topic: { type: 'string', description: 'Topic filter e.g. authentication, navigation (query/save)' },
-          query: { type: 'string', description: 'Text search query (query only)' },
-          title: { type: 'string', description: 'Entry title (save only)' },
-          content: { type: 'string', description: 'Detailed knowledge content (save only)' },
-          source: { type: 'string', description: 'Source spec/commit that generated this (save only)' },
-        },
-        required: ['action'],
-      },
-    },
     // Notion tools
     {
       name: 'dev_inbox',
@@ -529,59 +493,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return aggregateTool(args?.action as string, args?.handoffIds as string, args?.taskId as string);
       case 'dev_commit':
         return commitTool(args?.action as string, args?.token as string, args?.message as string, args?.skip_review as boolean);
-      case 'dev_instinct': {
-        const action = args?.action as string;
-        const cwd = process.cwd();
-        if (action === 'extract') {
-          const result = instinctExtract(cwd);
-          return { content: [{ type: 'text', text: result.message }] };
-        } else if (action === 'list') {
-          const instincts = instinctList(cwd, args?.domain as string);
-          const text = instincts.length === 0
-            ? 'No instincts found. Run extract first.'
-            : instincts.map(i => `[${i.confidence.toFixed(1)}] ${i.trigger} → ${i.action} (${i.domain}, ${i.evidenceCount} evidence)`).join('\n');
-          return { content: [{ type: 'text', text }] };
-        }
-        return { content: [{ type: 'text', text: '❌ Action required: extract|list' }] };
-      }
-      case 'dev_product': {
-        const action = args?.action as string;
-        const cwd = process.cwd();
-        if (action === 'extract') {
-          const entries = productExtract(cwd, args?.specPath as string | undefined);
-          if (entries.length === 0) {
-            return { content: [{ type: 'text', text: 'No product knowledge extracted (no recent commits or spec changes).' }] };
-          }
-          const summary = entries.map(e => `[${e.domain}/${e.topic}] ${e.title}`).join('\n');
-          return { content: [{ type: 'text', text: `Extracted ${entries.length} entries:\n${summary}` }] };
-        } else if (action === 'query') {
-          const results = productQuery(cwd, {
-            domain: args?.domain as string | undefined,
-            topic: args?.topic as string | undefined,
-            query: args?.query as string | undefined,
-          });
-          if (results.length === 0) {
-            return { content: [{ type: 'text', text: 'No product knowledge found.' }] };
-          }
-          const text = results.map(e => `[${e.domain}/${e.topic}] ${e.title}\n${e.content.slice(0, 200)}`).join('\n\n---\n\n');
-          return { content: [{ type: 'text', text: text }] };
-        } else if (action === 'save') {
-          const domain = (args?.domain as string) || 'shared';
-          const topic = (args?.topic as string) || 'general';
-          const title = args?.title as string;
-          const content = args?.content as string;
-          const source = (args?.source as string) || 'manual';
-          if (!title || !content) {
-            return { content: [{ type: 'text', text: '❌ title and content required for save action' }] };
-          }
-          const id = productSave(cwd, { domain, topic, title, content, source });
-          return { content: [{ type: 'text', text: `Saved: ${id}` }] };
-        } else if (action === 'write_topics') {
-          productWriteTopicFiles(cwd);
-          return { content: [{ type: 'text', text: 'Product topic files written to Auto Memory directory.' }] };
-        }
-        return { content: [{ type: 'text', text: '❌ Action required: extract|query|save|write_topics' }] };
-      }
       // Notion tools
       case 'dev_inbox': {
         const notionCfg = getNotionConfig(process.cwd());

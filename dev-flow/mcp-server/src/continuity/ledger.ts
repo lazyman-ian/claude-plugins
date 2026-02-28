@@ -4,7 +4,7 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'fs';
 import { join, basename } from 'path';
 
 const LEDGERS_DIR = 'thoughts/ledgers';
@@ -363,4 +363,21 @@ export function ledgerSearch(keyword: string): LedgerResult {
     message: `Found:${matches.length}`,
     data: matches,
   };
+}
+
+/**
+ * Load the most recent compact checkpoint.
+ * Called by SessionStart to restore context after compaction.
+ */
+export function loadCompactCheckpoint(): string | null {
+  const cwd = getCwd();
+  const checkpointPath = join(cwd, LEDGERS_DIR, '.compact-checkpoint.md');
+  if (!existsSync(checkpointPath)) return null;
+
+  try {
+    const stat = statSync(checkpointPath);
+    if (Date.now() - stat.mtime.getTime() > 3600_000) return null;
+  } catch { return null; }
+
+  return readFileSync(checkpointPath, 'utf-8');
 }

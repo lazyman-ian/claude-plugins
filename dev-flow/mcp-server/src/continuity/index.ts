@@ -9,5 +9,4 @@ export * from './branch';
 export * from './defaults';
 export * from './task-sync';
 export * from './memory';
-export * from './embeddings';
 export * from './context-injector';

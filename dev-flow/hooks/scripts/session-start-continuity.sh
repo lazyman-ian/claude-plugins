@@ -275,6 +275,40 @@ if [[ "$SESSION_TYPE" == "clear" || "$SESSION_TYPE" == "compact" ]]; then
     fi
 fi
 
+# --- Load compact checkpoint if exists (Phase 4) ---
+CHECKPOINT="$PROJECT_DIR/thoughts/ledgers/.compact-checkpoint.md"
+CHECKPOINT_AGE=99999
+if [[ -f "$CHECKPOINT" ]]; then
+    CHECKPOINT_MTIME=$(stat -f%m "$CHECKPOINT" 2>/dev/null || echo "0")
+    CHECKPOINT_AGE=$(( $(date +%s) - CHECKPOINT_MTIME ))
+    if [[ "$CHECKPOINT_AGE" -lt 3600 ]]; then
+        CHECKPOINT_CONTENT=$(head -40 "$CHECKPOINT")
+        CHECKPOINT_MSG="Compact checkpoint loaded ($(( CHECKPOINT_AGE / 60 )) min ago):\n${CHECKPOINT_CONTENT}"
+
+        CURRENT_MSG=$(echo "$OUTPUT" | jq -r '.message // ""')
+        if [[ -n "$CURRENT_MSG" ]]; then
+            NEW_MSG="${CHECKPOINT_MSG}\n\n${CURRENT_MSG}"
+        else
+            NEW_MSG="$CHECKPOINT_MSG"
+        fi
+        OUTPUT=$(echo "$OUTPUT" | jq --arg msg "$NEW_MSG" '.message = $msg | .systemMessage = $msg')
+    fi
+fi
+
+# --- Clean stale compact state from MEMORY.md ---
+ENCODED_PATH=$(echo "$PROJECT_DIR" | /usr/bin/sed 's|/|-|g')
+MEMORY_MD="$HOME/.claude/projects/$ENCODED_PATH/memory/MEMORY.md"
+if [[ -f "$MEMORY_MD" ]] && grep -q 'COMPACT-STATE-START' "$MEMORY_MD" 2>/dev/null; then
+    if [[ ! -f "$CHECKPOINT" ]] || [[ "$CHECKPOINT_AGE" -ge 3600 ]]; then
+        # Remove stale COMPACT-STATE section
+        awk '
+            /<!-- COMPACT-STATE-START -->/ { skip=1; next }
+            /<!-- COMPACT-STATE-END -->/ { skip=0; next }
+            !skip { print }
+        ' "$MEMORY_MD" > "${MEMORY_MD}.tmp" 2>/dev/null && mv "${MEMORY_MD}.tmp" "$MEMORY_MD" 2>/dev/null
+    fi
+fi
+
 # Add branch change notification (for any session type)
 if [[ -n "$BRANCH_CHANGED" ]]; then
     CURRENT_MSG=$(echo "$OUTPUT" | jq -r '.message // ""')

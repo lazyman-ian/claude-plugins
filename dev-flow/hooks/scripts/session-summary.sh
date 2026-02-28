@@ -9,9 +9,16 @@ INPUT=$(cat)
 STOP_TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
-# v2.1.47: last_assistant_message available directly (preferred over transcript parsing)
+# v2.1.47: last_assistant_message + transcript_path available in Stop hook
 LAST_MSG=$(echo "$INPUT" | jq -r '.last_assistant_message // empty' 2>/dev/null)
-TRANSCRIPT=$(echo "$INPUT" | jq -r '.stop_hook_transcript // empty' 2>/dev/null)
+TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null)
+STOP_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null)
+
+# Guard: prevent infinite loop if Stop hook causes continuation
+if [ "$STOP_ACTIVE" = "true" ]; then
+  echo '{"continue":true}'
+  exit 0
+fi
 
 # Early exit: Check tier config
 CONFIG_FILE="${CWD}/.dev-flow.json"
@@ -35,13 +42,12 @@ RECENT_COMMITS=$(git -C "$CWD" log --oneline -5 2>/dev/null || echo "")
 UNCOMMITTED=$(git -C "$CWD" diff --stat 2>/dev/null || echo "")
 STAGED=$(git -C "$CWD" diff --cached --stat 2>/dev/null || echo "")
 
-# Build excerpt: prefer last_assistant_message (v2.1.47), fallback to transcript
-# Use character substring (not tail -c) to avoid breaking multi-byte UTF-8
+# Build excerpt: prefer last_assistant_message (v2.1.47), fallback to transcript file
 EXCERPT=""
 if [ -n "$LAST_MSG" ]; then
   EXCERPT="${LAST_MSG: -3000}"
-elif [ -n "$TRANSCRIPT" ]; then
-  EXCERPT="${TRANSCRIPT: -3000}"
+elif [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
+  EXCERPT=$(tail -c 4000 "$TRANSCRIPT_PATH" 2>/dev/null)
 fi
 
 REQUEST=""
@@ -65,8 +71,26 @@ fi
 
 if [ -n "$API_KEY" ]; then
   # --- LLM-powered summary (high quality) ---
-  PROMPT="Summarize this Claude Code session concisely. Return ONLY valid JSON with these exact fields (1-2 sentences each):
-{\"request\": \"what the user asked for\", \"investigated\": \"what was explored/researched\", \"learned\": \"key insights or discoveries\", \"completed\": \"what was accomplished\", \"next_steps\": \"what should happen next\"}
+  PROMPT="Summarize this Claude Code session concisely. Return ONLY valid JSON with these exact fields:
+{
+  \"request\": \"what the user asked for (1-2 sentences)\",
+  \"investigated\": \"what was explored/researched (1-2 sentences)\",
+  \"learned\": \"key insights or discoveries (1-2 sentences)\",
+  \"completed\": \"what was accomplished (1-2 sentences)\",
+  \"next_steps\": \"what should happen next (1-2 sentences)\",
+  \"knowledge_points\": [
+    {
+      \"type\": \"pitfall|pattern|decision\",
+      \"title\": \"concise title\",
+      \"content\": \"problem + solution in 1-2 sentences\",
+      \"platform\": \"ios|android|web|general\"
+    }
+  ]
+}
+
+Rules for knowledge_points:
+- Only genuine insights worth remembering (bugs, workarounds, architecture decisions, API quirks)
+- Skip routine operations. Return [] if nothing notable. Max 3.
 
 Recent git changes:
 ${GIT_CHANGES}
@@ -82,7 +106,7 @@ ${EXCERPT}"
     -H "content-type: application/json" \
     -d "{
       \"model\": \"${API_MODEL}\",
-      \"max_tokens\": 300,
+      \"max_tokens\": 600,
       \"messages\": [{
         \"role\": \"user\",
         \"content\": ${ESCAPED_PROMPT}
@@ -183,6 +207,53 @@ esc() { echo "$1" | /usr/bin/sed "s/'/''/g"; }
 sqlite3 "$DB_PATH" "INSERT OR REPLACE INTO session_summaries (id, session_id, project, request, investigated, learned, completed, next_steps, files_modified, created_at, created_at_epoch)
 VALUES ('$(esc "$SUMMARY_ID")', '$(esc "$SESSION_ID")', '$(esc "$PROJECT")', '$(esc "$REQUEST")', '$(esc "$INVESTIGATED")', '$(esc "$LEARNED")', '$(esc "$COMPLETED")', '$(esc "$NEXT_STEPS")', '$(esc "$GIT_CHANGES")', '${NOW}', ${EPOCH});" 2>/dev/null
 
+# --- Write knowledge_points from LLM summary ---
+if [ -n "$SUMMARY_TEXT" ]; then
+  KNOWLEDGE=$(echo "$SUMMARY_TEXT" | jq -c '.knowledge_points // []' 2>/dev/null)
+  NUM_POINTS=$(echo "$KNOWLEDGE" | jq 'length' 2>/dev/null || echo "0")
+
+  if [ "$NUM_POINTS" -gt 0 ] && [ "$NUM_POINTS" != "null" ]; then
+    KNOWLEDGE_DIR="$HOME/.claude/knowledge"
+    for i in $(seq 0 $((NUM_POINTS - 1))); do
+      KP_TYPE=$(echo "$KNOWLEDGE" | jq -r ".[$i].type" 2>/dev/null)
+      KP_TITLE=$(echo "$KNOWLEDGE" | jq -r ".[$i].title" 2>/dev/null)
+      KP_CONTENT=$(echo "$KNOWLEDGE" | jq -r ".[$i].content" 2>/dev/null)
+      KP_PLATFORM=$(echo "$KNOWLEDGE" | jq -r ".[$i].platform // \"general\"" 2>/dev/null)
+
+      case "$KP_TYPE" in
+        pitfall)  KP_DIR="$KNOWLEDGE_DIR/platforms/${KP_PLATFORM}" ;;
+        pattern)  KP_DIR="$KNOWLEDGE_DIR/patterns" ;;
+        decision) KP_DIR="$KNOWLEDGE_DIR/discoveries" ;;
+        *)        KP_DIR="$KNOWLEDGE_DIR/discoveries" ;;
+      esac
+      mkdir -p "$KP_DIR" 2>/dev/null
+
+      SAFE_TITLE=$(echo "$KP_TITLE" | /usr/bin/sed 's/[^a-zA-Z0-9 _-]//g' | head -c 60)
+      KP_FILE="$KP_DIR/${SAFE_TITLE}.md"
+      if [ ! -f "$KP_FILE" ]; then
+        {
+          echo "---"
+          echo "type: ${KP_TYPE}"
+          echo "platform: ${KP_PLATFORM}"
+          echo "tags: [auto-extracted]"
+          echo "created: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          echo "---"
+          echo ""
+          echo "# ${KP_TITLE}"
+          echo ""
+          printf '%s\n' "$KP_CONTENT"
+        } > "$KP_FILE"
+      fi
+
+      # SQLite FTS5 — use existing knowledge table schema from memory.ts
+      if [ -n "$DB_PATH" ] && [ -f "$DB_PATH" ]; then
+        KP_ID="kp-$(date +%s)-$i"
+        sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path)
+          VALUES ('$(esc "$KP_ID")', '$(esc "$KP_TYPE")', '$(esc "$KP_PLATFORM")', '$(esc "$KP_TITLE")', '$(esc "$KP_CONTENT")', '', '$(esc "$PROJECT")', '$(esc "$SESSION_ID")', '${NOW}', '$(esc "$KP_FILE")');" 2>/dev/null
+      fi
+    done
+  fi
+fi
 
 # --- Update MEMORY.md Last Session section ---
 # Only update if we have meaningful content

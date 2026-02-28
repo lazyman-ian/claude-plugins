@@ -87,6 +87,18 @@
         ]
       }
     ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/task-checkpoint.sh",
+            "timeout": 5000,
+            "statusMessage": "Checkpointing task..."
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
@@ -149,17 +161,6 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/post-merge-notion.sh",
             "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Read|Edit|Write|Bash|Grep|Glob|WebSearch|WebFetch",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/observe-batch.sh",
-            "timeout": 20,
-            "async": true
           }
         ]
       },
