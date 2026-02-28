@@ -197,8 +197,8 @@ PROMPT
 2. Issues → SendMessage teammate to fix
 3. Aggregate all handoffs: dev_aggregate(action='pr_ready', taskId='TASK-{id}')
 4. Verify per repo: /dev-flow:verify (platform-specific lint + build + test)
-5. Consolidate team knowledge: dev_memory(action='consolidate')
-   # Handoffs → pitfalls, reasoning → patterns → available next session
+5. Save team learnings: dev_memory(action='save', text='...', tags='cross-platform,learnings')
+   # Save key pitfalls, patterns, decisions → available next session
 6. Per repo: /dev pr → auto-push + create PR
 7. /describe → PR description (use aggregated summary)
 8. Shutdown teammates → TeamDelete

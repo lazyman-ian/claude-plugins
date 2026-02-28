@@ -24,17 +24,12 @@ Generate a comprehensive PR description based on the commits and changes in the 
    dev_commits(format="full")
    ```
 
-3. **Get reasoning history** (if available):
-   ```
-   dev_reasoning(action="aggregate", baseBranch="master")
-   ```
-
-4. **Get task info from ledger**:
+3. **Get task info from ledger**:
    ```
    dev_ledger(action="status")
    ```
 
-5. **Generate PR description**:
+4. **Generate PR description**:
 
    ```markdown
    ## Summary / 概要
@@ -77,4 +72,4 @@ Generate a comprehensive PR description based on the commits and changes in the 
    Task: TASK-XXX
    ```
 
-6. **Output the description** ready for copy-paste or direct use with `gh pr create`
+5. **Output the description** ready for copy-paste or direct use with `gh pr create`

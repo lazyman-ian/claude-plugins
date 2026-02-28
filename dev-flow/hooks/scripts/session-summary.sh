@@ -2,8 +2,9 @@
 set -o pipefail
 
 # Session Summary Stop Hook
-# Calls Haiku to generate session summary, writes to knowledge DB
-# Only active when .dev-flow.json has memory.tier >= 1
+# Generates a lightweight session summary and writes to:
+# 1. .claude/cache/.last-session.json (for next session pickup)
+# 2. MEMORY.md Last Session section (for cross-session context)
 
 INPUT=$(cat)
 STOP_TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
@@ -16,18 +17,6 @@ STOP_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null)
 
 # Guard: prevent infinite loop if Stop hook causes continuation
 if [ "$STOP_ACTIVE" = "true" ]; then
-  echo '{"continue":true}'
-  exit 0
-fi
-
-# Early exit: Check tier config
-CONFIG_FILE="${CWD}/.dev-flow.json"
-TIER=0
-if [ -f "$CONFIG_FILE" ]; then
-  TIER=$(jq -r '.memory.tier // 0' "$CONFIG_FILE" 2>/dev/null || echo "0")
-fi
-
-if [ "$TIER" -lt 1 ]; then
   echo '{"continue":true}'
   exit 0
 fi
@@ -77,20 +66,8 @@ if [ -n "$API_KEY" ]; then
   \"investigated\": \"what was explored/researched (1-2 sentences)\",
   \"learned\": \"key insights or discoveries (1-2 sentences)\",
   \"completed\": \"what was accomplished (1-2 sentences)\",
-  \"next_steps\": \"what should happen next (1-2 sentences)\",
-  \"knowledge_points\": [
-    {
-      \"type\": \"pitfall|pattern|decision\",
-      \"title\": \"concise title\",
-      \"content\": \"problem + solution in 1-2 sentences\",
-      \"platform\": \"ios|android|web|general\"
-    }
-  ]
+  \"next_steps\": \"what should happen next (1-2 sentences)\"
 }
-
-Rules for knowledge_points:
-- Only genuine insights worth remembering (bugs, workarounds, architecture decisions, API quirks)
-- Skip routine operations. Return [] if nothing notable. Max 3.
 
 Recent git changes:
 ${GIT_CHANGES}
@@ -106,7 +83,7 @@ ${EXCERPT}"
     -H "content-type: application/json" \
     -d "{
       \"model\": \"${API_MODEL}\",
-      \"max_tokens\": 600,
+      \"max_tokens\": 400,
       \"messages\": [{
         \"role\": \"user\",
         \"content\": ${ESCAPED_PROMPT}
@@ -159,75 +136,39 @@ if [ -z "$REQUEST" ] && [ -z "$COMPLETED" ]; then
     fi
   fi
 
-  # Empty session: skip writing to DB entirely
+  # Empty session: skip writing entirely
   if [ -z "$COMPLETED" ] && [ -z "$REQUEST" ] && [ -z "$INVESTIGATED" ]; then
     echo '{"continue":true}'
     exit 0
   fi
 fi
 
-# Write to SQLite database
-DB_DIR="${CWD}/.claude/cache/artifact-index"
-DB_PATH="${DB_DIR}/context.db"
-EPOCH=$(date +%s)
+# --- Write to .last-session.json ---
+CACHE_DIR="${CWD}/.claude/cache"
+mkdir -p "$CACHE_DIR" 2>/dev/null
 NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-# Use session_id as stable key to prevent duplicates (was generating unique hash each time → 10x duplication)
-SUMMARY_ID="summary-${SESSION_ID:-unknown-$(date +%s)}"
 
-# Ensure table exists
-sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS session_summaries (
-  id TEXT PRIMARY KEY,
-  session_id TEXT,
-  project TEXT NOT NULL,
-  request TEXT,
-  investigated TEXT,
-  learned TEXT,
-  completed TEXT,
-  next_steps TEXT,
-  files_modified TEXT,
-  created_at TEXT NOT NULL,
-  created_at_epoch INTEGER NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_session_summaries_project ON session_summaries(project);
-CREATE INDEX IF NOT EXISTS idx_session_summaries_epoch ON session_summaries(created_at_epoch DESC);
-CREATE VIRTUAL TABLE IF NOT EXISTS session_summaries_fts USING fts5(
-  request, investigated, learned, completed, next_steps,
-  content=session_summaries, content_rowid=rowid,
-  tokenize='porter unicode61'
-);
-CREATE TRIGGER IF NOT EXISTS session_summaries_ai AFTER INSERT ON session_summaries BEGIN
-  INSERT INTO session_summaries_fts(rowid, request, investigated, learned, completed, next_steps)
-  VALUES (new.rowid, new.request, new.investigated, new.learned, new.completed, new.next_steps);
-END;" 2>/dev/null
-
-# Escape single quotes for SQL
-esc() { echo "$1" | /usr/bin/sed "s/'/''/g"; }
-
-# REPLACE to keep latest summary per session (Stop hook fires multiple times per session)
-sqlite3 "$DB_PATH" "INSERT OR REPLACE INTO session_summaries (id, session_id, project, request, investigated, learned, completed, next_steps, files_modified, created_at, created_at_epoch)
-VALUES ('$(esc "$SUMMARY_ID")', '$(esc "$SESSION_ID")', '$(esc "$PROJECT")', '$(esc "$REQUEST")', '$(esc "$INVESTIGATED")', '$(esc "$LEARNED")', '$(esc "$COMPLETED")', '$(esc "$NEXT_STEPS")', '$(esc "$GIT_CHANGES")', '${NOW}', ${EPOCH});" 2>/dev/null
-
-# --- Write knowledge_points from LLM summary ---
-if [ -n "$SUMMARY_TEXT" ]; then
-  KNOWLEDGE=$(echo "$SUMMARY_TEXT" | jq -c '.knowledge_points // []' 2>/dev/null)
-  NUM_POINTS=$(echo "$KNOWLEDGE" | jq 'length' 2>/dev/null || echo "0")
-
-  if [ "$NUM_POINTS" -gt 0 ] && [ "$NUM_POINTS" != "null" ]; then
-    for i in $(seq 0 $((NUM_POINTS - 1))); do
-      KP_TYPE=$(echo "$KNOWLEDGE" | jq -r ".[$i].type" 2>/dev/null)
-      KP_TITLE=$(echo "$KNOWLEDGE" | jq -r ".[$i].title" 2>/dev/null)
-      KP_CONTENT=$(echo "$KNOWLEDGE" | jq -r ".[$i].content" 2>/dev/null)
-      KP_PLATFORM=$(echo "$KNOWLEDGE" | jq -r ".[$i].platform // \"general\"" 2>/dev/null)
-
-      # Write to SQLite knowledge table (per-project DB)
-      if [ -n "$DB_PATH" ] && [ -f "$DB_PATH" ]; then
-        KP_ID="kp-$(date +%s)-$i"
-        sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path)
-          VALUES ('$(esc "$KP_ID")', '$(esc "$KP_TYPE")', '$(esc "$KP_PLATFORM")', '$(esc "$KP_TITLE")', '$(esc "$KP_CONTENT")', '', '$(esc "$PROJECT")', '$(esc "$SESSION_ID")', '${NOW}', '');" 2>/dev/null
-      fi
-    done
-  fi
-fi
+jq -n \
+  --arg sid "$SESSION_ID" \
+  --arg project "$PROJECT" \
+  --arg request "$REQUEST" \
+  --arg investigated "$INVESTIGATED" \
+  --arg learned "$LEARNED" \
+  --arg completed "$COMPLETED" \
+  --arg next_steps "$NEXT_STEPS" \
+  --arg files "$GIT_CHANGES" \
+  --arg created_at "$NOW" \
+  '{
+    session_id: $sid,
+    project: $project,
+    request: $request,
+    investigated: $investigated,
+    learned: $learned,
+    completed: $completed,
+    next_steps: $next_steps,
+    files_modified: $files,
+    created_at: $created_at
+  }' > "$CACHE_DIR/.last-session.json" 2>/dev/null
 
 # --- Update MEMORY.md Last Session section ---
 # Only update if we have meaningful content
@@ -282,7 +223,7 @@ if [ -n "$NEXT_STEPS" ] || [ -n "$LEARNED" ] || [ -n "$COMPLETED" ]; then
       LINE_COUNT=$(wc -l < "$MEMORY_MD" 2>/dev/null | tr -d ' ')
     fi
 
-    # Step 2: trim P2 (Last Session → minimal 1-line)
+    # Step 2: trim P2 (Last Session -> minimal 1-line)
     if [ "$LINE_COUNT" -gt 180 ]; then
       # Extract first "Next:" line from Last Session block (macOS-safe, no grep -P)
       FIRST_NEXT=$(awk '/^## Last Session/,/<!-- LAST-SESSION-END -->/' "$MEMORY_MD" 2>/dev/null \

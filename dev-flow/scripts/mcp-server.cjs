@@ -21691,16 +21691,8 @@ function ledgerSearch(keyword) {
   };
 }
 
-// src/continuity/reasoning.ts
-var import_child_process9 = require("child_process");
-var import_fs3 = require("fs");
-var import_path3 = require("path");
-
-// src/continuity/memory.ts
+// src/continuity/branch.ts
 var import_child_process8 = require("child_process");
-var import_fs2 = require("fs");
-var import_path2 = require("path");
-var import_os = require("os");
 function getCwd2() {
   try {
     return (0, import_child_process8.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
@@ -21708,1150 +21700,9 @@ function getCwd2() {
     return process.cwd();
   }
 }
-function getDbPath() {
-  const projectDir = getCwd2();
-  return (0, import_path2.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
-}
-function getProjectName() {
-  const cwd = getCwd2();
-  return (0, import_path2.basename)(cwd);
-}
-function generateId(type, title) {
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
-  const ts = Date.now().toString(36);
-  return `${type}-${slug}-${ts}`;
-}
-function ensureDbSchema() {
-  const dbPath = getDbPath();
-  const dbDir = (0, import_path2.join)(getCwd2(), ".claude", "cache", "artifact-index");
-  (0, import_fs2.mkdirSync)(dbDir, { recursive: true });
-  const schema = `
-CREATE TABLE IF NOT EXISTS knowledge (
-  id TEXT PRIMARY KEY,
-  type TEXT NOT NULL,
-  platform TEXT,
-  title TEXT NOT NULL,
-  problem TEXT,
-  solution TEXT,
-  source_project TEXT,
-  source_session TEXT,
-  created_at TEXT NOT NULL,
-  file_path TEXT NOT NULL,
-  access_count INTEGER DEFAULT 0,
-  last_accessed TEXT
-);
-
-CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
-  title, problem, solution, content=knowledge, content_rowid=rowid,
-  tokenize='porter unicode61', prefix='2,3'
-);
-
-CREATE TRIGGER IF NOT EXISTS knowledge_ai AFTER INSERT ON knowledge BEGIN
-  INSERT INTO knowledge_fts(rowid, title, problem, solution) VALUES (new.rowid, new.title, new.problem, new.solution);
-END;
-
-CREATE TRIGGER IF NOT EXISTS knowledge_ad AFTER DELETE ON knowledge BEGIN
-  INSERT INTO knowledge_fts(knowledge_fts, rowid, title, problem, solution) VALUES('delete', old.rowid, old.title, old.problem, old.solution);
-END;
-
-CREATE TABLE IF NOT EXISTS reasoning (
-  commit_hash TEXT PRIMARY KEY,
-  branch TEXT,
-  commit_message TEXT,
-  failed_attempts TEXT,
-  decisions TEXT,
-  created_at TEXT NOT NULL
-);
-
-CREATE VIRTUAL TABLE IF NOT EXISTS reasoning_fts USING fts5(
-  commit_message, failed_attempts, decisions, content=reasoning,
-  tokenize='porter unicode61'
-);
-
-CREATE TRIGGER IF NOT EXISTS reasoning_ai AFTER INSERT ON reasoning BEGIN
-  INSERT INTO reasoning_fts(rowid, commit_message, failed_attempts, decisions) VALUES (new.rowid, new.commit_message, new.failed_attempts, new.decisions);
-END;
-
-CREATE TRIGGER IF NOT EXISTS reasoning_ad AFTER DELETE ON reasoning BEGIN
-  INSERT INTO reasoning_fts(reasoning_fts, rowid, commit_message, failed_attempts, decisions) VALUES('delete', old.rowid, old.commit_message, old.failed_attempts, old.decisions);
-END;
-
-CREATE TABLE IF NOT EXISTS synonyms (
-  term TEXT PRIMARY KEY,
-  expansions TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS session_summaries (
-  id TEXT PRIMARY KEY,
-  session_id TEXT,
-  project TEXT NOT NULL,
-  request TEXT,
-  investigated TEXT,
-  learned TEXT,
-  completed TEXT,
-  next_steps TEXT,
-  files_modified TEXT,
-  created_at TEXT NOT NULL,
-  created_at_epoch INTEGER NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_session_summaries_project ON session_summaries(project);
-CREATE INDEX IF NOT EXISTS idx_session_summaries_epoch ON session_summaries(created_at_epoch DESC);
-
-CREATE VIRTUAL TABLE IF NOT EXISTS session_summaries_fts USING fts5(
-  request, investigated, learned, completed, next_steps,
-  content=session_summaries, content_rowid=rowid,
-  tokenize='porter unicode61'
-);
-
-CREATE TRIGGER IF NOT EXISTS session_summaries_ai AFTER INSERT ON session_summaries BEGIN
-  INSERT INTO session_summaries_fts(rowid, request, investigated, learned, completed, next_steps)
-  VALUES (new.rowid, new.request, new.investigated, new.learned, new.completed, new.next_steps);
-END;
-
-CREATE TRIGGER IF NOT EXISTS session_summaries_ad AFTER DELETE ON session_summaries BEGIN
-  INSERT INTO session_summaries_fts(session_summaries_fts, rowid, request, investigated, learned, completed, next_steps)
-  VALUES('delete', old.rowid, old.request, old.investigated, old.learned, old.completed, old.next_steps);
-END;
-
-`;
-  try {
-    (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${schema.replace(/"/g, '\\"')}"`, {
-      encoding: "utf-8",
-      timeout: 5e3
-    });
-  } catch {
-  }
-  try {
-    (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN access_count INTEGER DEFAULT 0;"`, { encoding: "utf-8", timeout: 2e3 });
-  } catch {
-  }
-  try {
-    (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN last_accessed TEXT;"`, { encoding: "utf-8", timeout: 2e3 });
-  } catch {
-  }
-  seedSynonyms();
-}
-function dbInsertKnowledge(entry) {
-  const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) return false;
-  const sql = `INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed) VALUES ('${esc2(entry.id)}', '${esc2(entry.type)}', '${esc2(entry.platform)}', '${esc2(entry.title)}', '${esc2(entry.problem)}', '${esc2(entry.solution)}', '${esc2(entry.sourceProject)}', '${esc2(entry.sourceSession)}', '${esc2(entry.createdAt)}', '${esc2(entry.filePath)}', 0, NULL);`;
-  try {
-    (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 3e3 });
-    return true;
-  } catch {
-    return false;
-  }
-}
-function dbInsertReasoning(commitHash, branch, commitMessage, failedAttempts, decisions) {
-  const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) return false;
-  const sql = `INSERT OR REPLACE INTO reasoning (commit_hash, branch, commit_message, failed_attempts, decisions, created_at) VALUES ('${esc2(commitHash)}', '${esc2(branch)}', '${esc2(commitMessage)}', '${esc2(failedAttempts)}', '${esc2(decisions)}', '${esc2((/* @__PURE__ */ new Date()).toISOString())}');`;
-  try {
-    (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 3e3 });
-    return true;
-  } catch {
-    return false;
-  }
-}
-function dbQueryKnowledge(query, limit = 10) {
-  const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) return [];
-  const sql = `SELECT k.id, k.type, k.platform, k.title, k.problem, k.solution, k.source_project, k.source_session, k.created_at, k.file_path FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc2(query)}' ORDER BY rank LIMIT ${limit};`;
-  try {
-    const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-      encoding: "utf-8",
-      timeout: 3e3
-    }).trim();
-    if (!result) return [];
-    return result.split("\n").map((line) => {
-      const [id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split("|||");
-      return { id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
-    });
-  } catch {
-    return [];
-  }
-}
-function dbQueryReasoning(query, limit = 10) {
-  const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) return [];
-  const sql = `SELECT r.commit_hash, r.branch, r.commit_message, r.failed_attempts, r.decisions FROM reasoning r JOIN reasoning_fts f ON r.rowid = f.rowid WHERE reasoning_fts MATCH '${esc2(query)}' ORDER BY rank LIMIT ${limit};`;
-  try {
-    const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-      encoding: "utf-8",
-      timeout: 3e3
-    }).trim();
-    if (!result) return [];
-    return result.split("\n").map((line) => {
-      const [commitHash, branch, commitMessage, failedAttempts, decisions] = line.split("|||");
-      return { commitHash, branch, commitMessage, failedAttempts, decisions };
-    });
-  } catch {
-    return [];
-  }
-}
-function esc2(s) {
-  return (s || "").replace(/'/g, "''");
-}
-function expandQuery(query) {
-  const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) return query;
-  const terms = query.split(/\s+/).filter(Boolean);
-  const expanded = terms.map((term) => {
-    try {
-      const sql = `SELECT expansions FROM synonyms WHERE term = '${esc2(term.toLowerCase())}';`;
-      const result = (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 2e3 }).trim();
-      if (result) {
-        const synonyms = JSON.parse(result);
-        return `(${term} OR ${synonyms.join(" OR ")})`;
-      }
-    } catch {
-    }
-    return term;
-  });
-  return expanded.join(" ");
-}
-function seedSynonyms() {
-  const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) return;
-  const defaults = {
-    concurrency: ["thread", "race condition", "async", "await", "actor", "sendable"],
-    auth: ["authentication", "authorization", "jwt", "token", "login", "session"],
-    crash: ["fatal", "exception", "abort", "signal", "SIGABRT"],
-    performance: ["slow", "latency", "memory leak", "cpu", "optimize"],
-    ui: ["layout", "view", "component", "render", "display"],
-    network: ["http", "api", "request", "response", "fetch", "url"],
-    database: ["sqlite", "core data", "realm", "migration", "schema"],
-    test: ["unit test", "integration", "mock", "stub", "assert"]
-  };
-  for (const [term, expansions] of Object.entries(defaults)) {
-    try {
-      const sql = `INSERT OR IGNORE INTO synonyms (term, expansions) VALUES ('${esc2(term)}', '${esc2(JSON.stringify(expansions))}');`;
-      (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 2e3 });
-    } catch {
-    }
-  }
-}
-function scanHandoffs() {
-  const cwd = getCwd2();
-  const entries = [];
-  const searchDirs = [];
-  const handoffsDir = (0, import_path2.join)(cwd, "thoughts", "handoffs");
-  if ((0, import_fs2.existsSync)(handoffsDir)) searchDirs.push(handoffsDir);
-  const sharedBase = (0, import_path2.join)(cwd, "thoughts", "shared", "handoffs");
-  if ((0, import_fs2.existsSync)(sharedBase)) {
-    for (const sub of (0, import_fs2.readdirSync)(sharedBase)) {
-      const subPath = (0, import_path2.join)(sharedBase, sub);
-      if ((0, import_fs2.existsSync)(subPath) && (0, import_fs2.statSync)(subPath).isDirectory()) searchDirs.push(subPath);
-    }
-  }
-  for (const dir of searchDirs) {
-    for (const file2 of (0, import_fs2.readdirSync)(dir)) {
-      if (!file2.endsWith(".md")) continue;
-      const content = (0, import_fs2.readFileSync)((0, import_path2.join)(dir, file2), "utf-8");
-      const decisionsMatch = content.match(/## Decisions Made\n([\s\S]*?)(?=\n## |$)/);
-      if (!decisionsMatch) continue;
-      const decisionsBlock = decisionsMatch[1].trim();
-      if (!decisionsBlock || decisionsBlock.length < 30) continue;
-      const titleMatch = content.match(/^# (.+)/m);
-      const title = titleMatch ? titleMatch[1].slice(0, 80) : file2.replace(".md", "");
-      const whatMatch = content.match(/## What Was Done\n([\s\S]*?)(?=\n## |$)/);
-      const context = whatMatch ? whatMatch[1].trim().slice(0, 300) : "";
-      entries.push({
-        title,
-        problem: context || title,
-        solution: decisionsBlock.slice(0, 500),
-        session: file2.replace(".md", ""),
-        platform: detectPlatformFromContent(content)
-      });
-    }
-  }
-  return entries;
-}
-function scanReasoning() {
-  const cwd = getCwd2();
-  const reasoningDir = (0, import_path2.join)(cwd, ".git", "claude", "commits");
-  if (!(0, import_fs2.existsSync)(reasoningDir)) return [];
-  const entries = [];
-  for (const commitDir of (0, import_fs2.readdirSync)(reasoningDir)) {
-    const reasoningPath = (0, import_path2.join)(reasoningDir, commitDir, "reasoning.md");
-    if (!(0, import_fs2.existsSync)(reasoningPath)) continue;
-    const content = (0, import_fs2.readFileSync)(reasoningPath, "utf-8");
-    const commitMatch = content.match(/## What was committed\n([\s\S]*?)(?=\n## |$)/);
-    const commitMsg = commitMatch ? commitMatch[1].trim().split("\n")[0] : commitDir.slice(0, 8);
-    const failedMatch = content.match(/### Failed attempts\n([\s\S]*?)(?=### Summary|## |$)/);
-    if (!failedMatch) continue;
-    const failedText = failedMatch[1].trim();
-    if (!failedText || failedText.length < 20) continue;
-    const summaryMatch = content.match(/### (?:Summary|Why this approach)\n([\s\S]*?)(?=### |## |$)/);
-    const solution = summaryMatch ? summaryMatch[1].trim().slice(0, 500) : "";
-    if (!solution) continue;
-    entries.push({
-      title: `Failed approach: ${commitMsg.slice(0, 60)}`,
-      problem: failedText.slice(0, 500),
-      solution,
-      session: commitDir.slice(0, 8)
-    });
-  }
-  return entries;
-}
-function scanLedgers() {
-  const cwd = getCwd2();
-  const ledgersDir = (0, import_path2.join)(cwd, "thoughts", "ledgers");
-  if (!(0, import_fs2.existsSync)(ledgersDir)) return [];
-  const entries = [];
-  for (const file2 of (0, import_fs2.readdirSync)(ledgersDir)) {
-    if (!file2.endsWith(".md")) continue;
-    const content = (0, import_fs2.readFileSync)((0, import_path2.join)(ledgersDir, file2), "utf-8");
-    const questionsMatch = content.match(/## Open Questions\n([\s\S]*?)(?=\n## |$)/);
-    if (!questionsMatch) continue;
-    const lines = questionsMatch[1].trim().split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const resolvedMatch = line.match(/^-\s*\[x\]\s*(.+)/i) || line.match(/^-\s*~~(.+)~~/);
-      if (!resolvedMatch) continue;
-      const questionText = resolvedMatch[1].replace(/~~/g, "").trim();
-      const answerLines = [];
-      for (let j = i + 1; j < lines.length; j++) {
-        const nextLine = lines[j];
-        if (nextLine.match(/^\s{2,}/) || nextLine.match(/^\s*→/)) {
-          answerLines.push(nextLine.trim());
-        } else {
-          break;
-        }
-      }
-      const answer = answerLines.join(" ").trim();
-      if (!answer) continue;
-      entries.push({
-        title: `Decision: ${questionText.slice(0, 60)}`,
-        problem: questionText,
-        solution: answer.slice(0, 500),
-        session: file2.replace(".md", "")
-      });
-    }
-  }
-  return entries;
-}
-function detectPlatformFromContent(content) {
-  const lower = content.toLowerCase();
-  if (lower.includes(".swift") || lower.includes("swiftui") || lower.includes("xcode")) return "ios";
-  if (lower.includes(".kt") || lower.includes("kotlin") || lower.includes("gradle")) return "android";
-  if (lower.includes(".tsx") || lower.includes(".jsx") || lower.includes("react")) return "web";
-  return "general";
-}
-function detectCurrentPlatform() {
-  return detectPlatformSimple(getCwd2());
-}
-function memoryConsolidate() {
-  ensureDbSchema();
-  const project = getProjectName();
-  const platform = detectCurrentPlatform();
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  let pitfalls = 0, patterns = 0, decisions = 0, skippedDuplicates = 0;
-  const dbPath = getDbPath();
-  for (const item of scanHandoffs()) {
-    const entry = {
-      id: generateId("pitfall", item.title),
-      type: "pitfall",
-      platform: item.platform || platform,
-      title: item.title,
-      problem: item.problem,
-      solution: item.solution,
-      sourceProject: project,
-      sourceSession: item.session,
-      createdAt: now,
-      filePath: ""
-    };
-    try {
-      const dedupResult = smartDedup(
-        { type: entry.type, title: entry.title, content: entry.problem, platform: entry.platform },
-        dbPath
-      );
-      if (dedupResult.action === "NOOP") {
-        skippedDuplicates++;
-        continue;
-      }
-    } catch {
-    }
-    dbInsertKnowledge(entry);
-    pitfalls++;
-  }
-  for (const item of scanReasoning()) {
-    const entry = {
-      id: generateId("pattern", item.title),
-      type: "pattern",
-      platform,
-      title: item.title,
-      problem: item.problem,
-      solution: item.solution,
-      sourceProject: project,
-      sourceSession: item.session,
-      createdAt: now,
-      filePath: ""
-    };
-    dbInsertKnowledge(entry);
-    patterns++;
-  }
-  for (const item of scanLedgers()) {
-    const entry = {
-      id: generateId("decision", item.title),
-      type: "decision",
-      platform,
-      title: item.title,
-      problem: item.problem,
-      solution: item.solution,
-      sourceProject: project,
-      sourceSession: item.session,
-      createdAt: now,
-      filePath: ""
-    };
-    dbInsertKnowledge(entry);
-    decisions++;
-  }
-  const total = pitfalls + patterns + decisions;
-  const autoMemDir = getAutoMemoryDir();
-  if (autoMemDir) {
-    writeTopicFiles(autoMemDir);
-  }
-  return {
-    success: true,
-    message: `Consolidated:${total}|pitfalls:${pitfalls}|patterns:${patterns}|decisions:${decisions}|skipped:${skippedDuplicates}`,
-    data: { pitfalls, patterns, decisions, skippedDuplicates }
-  };
-}
-function memoryStatus() {
-  const cwd = getCwd2();
-  const status = {
-    totalEntries: 0,
-    byType: { pitfall: 0, pattern: 0, decision: 0 },
-    unprocessedHandoffs: 0,
-    unprocessedReasoning: 0,
-    knowledgeDir: getDbPath()
-  };
-  const dbPath = getDbPath();
-  if ((0, import_fs2.existsSync)(dbPath)) {
-    try {
-      const countResult = (0, import_child_process8.execSync)(
-        `sqlite3 "${dbPath}" "SELECT type, COUNT(*) FROM knowledge GROUP BY type;"`,
-        { encoding: "utf-8", timeout: 3e3 }
-      ).trim();
-      if (countResult) {
-        for (const line of countResult.split("\n")) {
-          const [type, countStr] = line.split("|");
-          const count = parseInt(countStr, 10) || 0;
-          if (type in status.byType) {
-            status.byType[type] = count;
-          }
-          status.totalEntries += count;
-        }
-      }
-    } catch {
-    }
-  }
-  const handoffsBase = (0, import_path2.join)(cwd, "thoughts", "shared", "handoffs");
-  if ((0, import_fs2.existsSync)(handoffsBase)) {
-    for (const sessionDir of (0, import_fs2.readdirSync)(handoffsBase)) {
-      const sessionPath = (0, import_path2.join)(handoffsBase, sessionDir);
-      if (!(0, import_fs2.statSync)(sessionPath).isDirectory()) continue;
-      for (const file2 of (0, import_fs2.readdirSync)(sessionPath)) {
-        if (file2.startsWith("auto-handoff-") && file2.endsWith(".md")) {
-          const content = (0, import_fs2.readFileSync)((0, import_path2.join)(sessionPath, file2), "utf-8");
-          if (content.includes("## Errors Encountered") && !content.includes("No errors.")) {
-            status.unprocessedHandoffs++;
-          }
-        }
-      }
-    }
-  }
-  const reasoningDir = (0, import_path2.join)(cwd, ".git", "claude", "commits");
-  if ((0, import_fs2.existsSync)(reasoningDir)) {
-    for (const commitDir of (0, import_fs2.readdirSync)(reasoningDir)) {
-      const reasoningPath = (0, import_path2.join)(reasoningDir, commitDir, "reasoning.md");
-      if (!(0, import_fs2.existsSync)(reasoningPath)) continue;
-      const content = (0, import_fs2.readFileSync)(reasoningPath, "utf-8");
-      if (content.includes("### Failed attempts")) {
-        status.unprocessedReasoning++;
-      }
-    }
-  }
-  return status;
-}
-function memoryQuery(query, limit = 10) {
-  ensureDbSchema();
-  return dbQueryKnowledge(expandQuery(query), limit);
-}
-function memoryList(type) {
-  const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) return [];
-  const whereClause = type ? `WHERE type = '${esc2(type)}'` : "";
-  const sql = `SELECT id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path FROM knowledge ${whereClause} ORDER BY created_at DESC LIMIT 50;`;
-  try {
-    const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-      encoding: "utf-8",
-      timeout: 3e3
-    }).trim();
-    if (!result) return [];
-    return result.split("\n").map((line) => {
-      const [id, type2, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split("|||");
-      return { id, type: type2, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
-    });
-  } catch {
-    return [];
-  }
-}
-function memorySave(text, title, tags, type) {
-  ensureDbSchema();
-  const project = getProjectName();
-  const platform = detectCurrentPlatform();
-  const autoTitle = title || text.slice(0, 60).replace(/\n/g, " ");
-  const entryType = type === "pitfall" || type === "pattern" || type === "decision" ? type : "decision";
-  try {
-    const dedupResult = smartDedup(
-      { type: entryType, title: autoTitle, content: text, platform },
-      getDbPath()
-    );
-    if (dedupResult.action === "NOOP") {
-      return { id: "", message: `Duplicate: ${dedupResult.reason} (${dedupResult.method})`, saved: false, reason: `Duplicate: ${dedupResult.reason} (${dedupResult.method})` };
-    }
-  } catch {
-  }
-  const entry = {
-    id: generateId(entryType, autoTitle),
-    type: entryType,
-    platform,
-    title: autoTitle,
-    problem: text,
-    solution: tags?.join(", ") || "",
-    sourceProject: project,
-    sourceSession: "manual",
-    createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-    filePath: ""
-  };
-  dbInsertKnowledge(entry);
-  return { id: entry.id, message: `Saved: ${autoTitle}` };
-}
-function memorySearch(query, limit = 10, type) {
-  ensureDbSchema();
-  const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) return [];
-  const expandedQuery = expandQuery(query);
-  const typeFilter = type ? ` AND k.type = '${esc2(type)}'` : "";
-  const sql = `SELECT k.id, k.type, k.title, k.platform, k.created_at
-   FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid
-   WHERE knowledge_fts MATCH '${esc2(expandedQuery)}'${typeFilter}
-   ORDER BY rank * (1.0 / (1.0 + COALESCE(julianday('now') - julianday(COALESCE(k.last_accessed, k.created_at)), 0) / 30.0))
-   LIMIT ${limit};`;
-  try {
-    const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-      encoding: "utf-8",
-      timeout: 3e3
-    }).trim();
-    if (!result) return [];
-    const entries = result.split("\n").map((line) => {
-      const [id, entryType, title, platform, createdAt] = line.split("|||");
-      return { id, type: entryType, title, platform, createdAt };
-    });
-    if (entries.length > 0) {
-      const idList = entries.map((e) => `'${esc2(e.id)}'`).join(",");
-      try {
-        (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "UPDATE knowledge SET access_count = COALESCE(access_count, 0) + 1, last_accessed = datetime('now') WHERE id IN (${idList});"`, {
-          encoding: "utf-8",
-          timeout: 2e3
-        });
-      } catch {
-      }
-    }
-    return entries;
-  } catch {
-    return [];
-  }
-}
-function memoryGet(ids) {
-  ensureDbSchema();
-  const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath) || ids.length === 0) return [];
-  const idList = ids.map((id) => `'${esc2(id)}'`).join(",");
-  const sql = `SELECT id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path FROM knowledge WHERE id IN (${idList});`;
-  try {
-    const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-      encoding: "utf-8",
-      timeout: 3e3
-    }).trim();
-    if (!result) return [];
-    return result.split("\n").map((line) => {
-      const [id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split("|||");
-      return { id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
-    });
-  } catch {
-    return [];
-  }
-}
-function memoryPrune(dryRun = false) {
-  ensureDbSchema();
-  const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) return { pruned: 0, message: "No database" };
-  const countSql = `SELECT COUNT(*) FROM knowledge WHERE COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;`;
-  let count = 0;
-  try {
-    count = parseInt((0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${countSql}"`, { encoding: "utf-8", timeout: 3e3 }).trim(), 10) || 0;
-  } catch {
-    return { pruned: 0, message: "Query failed" };
-  }
-  if (count === 0) return { pruned: 0, message: "No stale entries" };
-  if (dryRun) return { pruned: count, message: `Would prune ${count} stale entries (access_count=0, >90 days)` };
-  try {
-    (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "DELETE FROM knowledge WHERE COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;"`, {
-      encoding: "utf-8",
-      timeout: 5e3
-    });
-  } catch {
-    return { pruned: 0, message: "Delete failed" };
-  }
-  try {
-    const orphans = (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "SELECT file_path FROM knowledge WHERE COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;"`, {
-      encoding: "utf-8",
-      timeout: 3e3
-    }).trim();
-  } catch {
-  }
-  return { pruned: count, message: `Pruned ${count} stale entries` };
-}
-function extractFromProject(dryRun = false) {
-  ensureDbSchema();
-  const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) {
-    return { success: false, message: "NO_DB", data: { pitfalls: 0, patterns: 0, decisions: 0, skippedDuplicates: 0 } };
-  }
-  const project = getProjectName();
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  let added = 0;
-  let skippedDuplicates = 0;
-  const sql = `SELECT id, session_id, project, learned FROM session_summaries
-    WHERE learned IS NOT NULL AND learned != '' AND learned != 'null'
-    AND id NOT IN (SELECT source_session FROM knowledge WHERE source_session LIKE 'summary-%')
-    ORDER BY created_at_epoch DESC LIMIT 50;`;
-  try {
-    const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-      encoding: "utf-8",
-      timeout: 5e3
-    }).trim();
-    if (!result) {
-      return { success: true, message: "EXTRACTED:0|no unprocessed summaries", data: { pitfalls: 0, patterns: 0, decisions: 0, skippedDuplicates: 0 } };
-    }
-    for (const line of result.split("\n")) {
-      const [summaryId, sessionId, summaryProject, learned] = line.split("|||");
-      if (!learned || learned === "null") {
-        skippedDuplicates++;
-        continue;
-      }
-      const entryId = generateId("discovery", learned.slice(0, 40));
-      const entry = {
-        id: entryId,
-        type: "decision",
-        platform: "general",
-        title: learned.slice(0, 80),
-        problem: learned,
-        solution: "",
-        sourceProject: summaryProject || project,
-        sourceSession: summaryId,
-        createdAt: now,
-        filePath: ""
-      };
-      if (!dryRun) {
-        dbInsertKnowledge(entry);
-      }
-      added++;
-    }
-  } catch {
-  }
-  const mode = dryRun ? "DRY_RUN" : "EXTRACTED";
-  return {
-    success: true,
-    message: `${mode}:${added}|discoveries:${added}|skipped:${skippedDuplicates}`,
-    data: { pitfalls: 0, patterns: 0, decisions: added, skippedDuplicates }
-  };
-}
-function getAutoMemoryDir() {
-  const projectDir = getCwd2();
-  const escapedPath = projectDir.replace(/\//g, "-").replace(/^-/, "");
-  const memDir = (0, import_path2.join)((0, import_os.homedir)(), ".claude", "projects", escapedPath, "memory");
-  return (0, import_fs2.existsSync)(memDir) ? memDir : null;
-}
-function writeTopicFiles(memDir) {
-  const dbPath = getDbPath();
-  if (!(0, import_fs2.existsSync)(dbPath)) return;
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  const types = ["pitfall", "pattern", "decision"];
-  const fileNames = {
-    pitfall: "pitfalls.md",
-    pattern: "patterns.md",
-    decision: "decisions.md"
-  };
-  const headings = {
-    pitfall: "Pitfalls",
-    pattern: "Patterns",
-    decision: "Decisions"
-  };
-  for (const type of types) {
-    const sql = `SELECT platform, title, problem, solution, source_project, created_at, file_path FROM knowledge WHERE type = '${esc2(type)}' ORDER BY created_at DESC LIMIT 50;`;
-    let rows = [];
-    try {
-      const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-        encoding: "utf-8",
-        timeout: 3e3
-      }).trim();
-      if (result) {
-        rows = result.split("\n").map((line) => {
-          const [platform, title, problem, solution, sourceProject, createdAt, filePath] = line.split("|||");
-          return { platform, title, problem, solution, sourceProject, createdAt, filePath };
-        });
-      }
-    } catch {
-      continue;
-    }
-    if (rows.length === 0) continue;
-    const header = `# ${headings[type]}
-
-Last updated: ${now}
-
-`;
-    const entries = rows.map((r) => {
-      const lines = [
-        `## ${r.platform ? r.platform + " \u2014 " : ""}${r.title}`
-      ];
-      if (r.problem) lines.push(r.problem.trim());
-      const meta3 = [];
-      if (r.sourceProject) meta3.push(`Source: ${r.sourceProject}`);
-      if (r.solution) meta3.push(`Tags: ${r.solution.slice(0, 80)}`);
-      if (meta3.length > 0) lines.push(meta3.join(" | "));
-      lines.push("---");
-      return lines.join("\n");
-    });
-    const content = header + entries.join("\n\n");
-    const outPath = (0, import_path2.join)(memDir, fileNames[type]);
-    try {
-      (0, import_fs2.writeFileSync)(outPath, content, "utf-8");
-    } catch {
-    }
-  }
-}
-function extractKeyTerms(text) {
-  const stopWords = /* @__PURE__ */ new Set([
-    "the",
-    "a",
-    "an",
-    "is",
-    "are",
-    "was",
-    "were",
-    "be",
-    "been",
-    "have",
-    "has",
-    "had",
-    "do",
-    "does",
-    "did",
-    "will",
-    "would",
-    "could",
-    "should",
-    "and",
-    "or",
-    "but",
-    "in",
-    "on",
-    "at",
-    "to",
-    "for",
-    "of",
-    "with",
-    "by",
-    "from",
-    "as",
-    "it",
-    "this",
-    "that"
-  ]);
-  return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !stopWords.has(w));
-}
-function tokenOverlap(textA, textB) {
-  const tokensA = new Set(extractKeyTerms(textA));
-  const tokensB = new Set(extractKeyTerms(textB));
-  if (tokensA.size === 0 || tokensB.size === 0) return 0;
-  const intersection2 = [...tokensA].filter((t) => tokensB.has(t)).length;
-  const union2 = (/* @__PURE__ */ new Set([...tokensA, ...tokensB])).size;
-  return intersection2 / union2;
-}
-function smartDedup(newEntry, dbPath) {
-  const keyTerms = extractKeyTerms(`${newEntry.title} ${newEntry.content}`);
-  if (keyTerms.length === 0) {
-    return { action: "ADD", reason: "No extractable terms", method: "fts5" };
-  }
-  const ftsQuery = keyTerms.slice(0, 8).join(" OR ");
-  let candidates = [];
-  try {
-    const sql = `SELECT k.id, k.title, k.problem || ' ' || k.solution as content FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc2(ftsQuery)}' ORDER BY rank LIMIT 5;`;
-    const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-      encoding: "utf-8",
-      timeout: 3e3
-    }).trim();
-    if (result) {
-      candidates = result.split("\n").map((line) => {
-        const [id, title, content] = line.split("|||");
-        return { id, title, content };
-      });
-    }
-  } catch {
-    return { action: "ADD", reason: "FTS5 query failed", method: "fts5" };
-  }
-  if (candidates.length === 0) {
-    return { action: "ADD", reason: "No FTS5 matches", method: "fts5" };
-  }
-  const newText = `${newEntry.title} ${newEntry.content}`;
-  for (const candidate of candidates) {
-    const existingText = `${candidate.title} ${candidate.content}`;
-    const overlap = tokenOverlap(newText, existingText);
-    if (overlap > 0.7) {
-      return { action: "NOOP", targetId: candidate.id, reason: `Token overlap ${(overlap * 100).toFixed(0)}%`, method: "token-overlap" };
-    }
-    if (overlap > 0.3) {
-      const llmResult = llmCompare(
-        { type: newEntry.type, title: newEntry.title, content: newEntry.content },
-        { id: candidate.id, type: "knowledge", title: candidate.title, content: candidate.content }
-      );
-      if (llmResult) return llmResult;
-      return { action: "ADD", reason: `Overlap ${(overlap * 100).toFixed(0)}%, no API key for disambiguation`, method: "token-overlap" };
-    }
-  }
-  return { action: "ADD", reason: "Low similarity to all candidates", method: "fts5" };
-}
-function llmCompare(newEntry, existing) {
-  const apiKey = process.env.DEV_FLOW_API_KEY || process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
-  const apiUrl = process.env.DEV_FLOW_API_URL || "https://api.anthropic.com/v1/messages";
-  const model = process.env.DEV_FLOW_MODEL || "claude-haiku-4-5-20251001";
-  const isAnthropic = apiUrl.includes("api.anthropic.com");
-  const prompt = `Are these the same knowledge? Reply ONLY: SAME or DIFFERENT
-A: [${newEntry.type}] ${newEntry.title}: ${newEntry.content}
-B: [${existing.type}] ${existing.title}: ${existing.content}`;
-  try {
-    const https = require("https");
-    const url2 = new URL(apiUrl);
-    const headers = { "content-type": "application/json" };
-    if (isAnthropic) {
-      headers["x-api-key"] = apiKey;
-      headers["anthropic-version"] = "2023-06-01";
-    } else {
-      headers["authorization"] = `Bearer ${apiKey}`;
-    }
-    const body = JSON.stringify({
-      model,
-      max_tokens: 10,
-      messages: [{ role: "user", content: prompt }]
-    });
-    const opts = JSON.stringify({
-      hostname: url2.hostname,
-      port: Number(url2.port) || 443,
-      path: url2.pathname,
-      method: "POST",
-      headers,
-      timeout: 5e3
-    });
-    const script = `const https=require('https');const o=JSON.parse(process.env.OPTS);const r=https.request(o,res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>process.stdout.write(d))});r.on('error',()=>process.exit(1));r.write(process.env.BODY);r.end()`;
-    const result = (0, import_child_process8.execSync)(`node -e "${script}"`, {
-      encoding: "utf-8",
-      timeout: 8e3,
-      env: { ...process.env, OPTS: opts, BODY: body }
-    });
-    const text = (JSON.parse(result)?.content?.[0]?.text || "").trim().toUpperCase();
-    if (text.includes("SAME")) {
-      return { action: "NOOP", targetId: existing.id, reason: "LLM confirmed duplicate", method: "llm" };
-    }
-    return { action: "ADD", reason: "LLM confirmed different", method: "llm" };
-  } catch {
-    return null;
-  }
-}
-
-// src/continuity/reasoning.ts
-function getCwd3() {
-  try {
-    return (0, import_child_process9.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
-  } catch {
-    return process.cwd();
-  }
-}
-function getCurrentBranch2() {
-  try {
-    return (0, import_child_process9.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
-  } catch {
-    return "detached";
-  }
-}
-function getReasoningDir() {
-  return (0, import_path3.join)(getCwd3(), ".git", "claude", "commits");
-}
-function getBranchAttemptsFile() {
-  const cwd = getCwd3();
-  const branch = getCurrentBranch2().replace(/\//g, "-");
-  return (0, import_path3.join)(cwd, ".git", "claude", "branches", branch, "attempts.jsonl");
-}
-function reasoningGenerate(commitHash, commitMessage) {
-  const cwd = getCwd3();
-  const branch = getCurrentBranch2();
-  const outputDir = (0, import_path3.join)(getReasoningDir(), commitHash);
-  const attemptsFile = getBranchAttemptsFile();
-  (0, import_fs3.mkdirSync)(outputDir, { recursive: true });
-  let content = `# Commit: ${commitHash.slice(0, 8)}
-
-## Branch
-${branch}
-
-## What was committed
-${commitMessage}
-
-`;
-  const ledgersDir = (0, import_path3.join)(cwd, "thoughts", "ledgers");
-  if ((0, import_fs3.existsSync)(ledgersDir)) {
-    const ledgers = (0, import_fs3.readdirSync)(ledgersDir).filter((f) => f.endsWith(".md") && f.startsWith("TASK-"));
-    if (ledgers.length > 0) {
-      const ledgerPath = (0, import_path3.join)(ledgersDir, ledgers[0]);
-      const ledgerContent = (0, import_fs3.readFileSync)(ledgerPath, "utf-8");
-      content += `## Context from Ledger
-
-`;
-      content += `**Ledger**: \`${ledgers[0]}\`
-
-`;
-      const goalMatch = ledgerContent.match(/^## Goal\s*\n([\s\S]*?)(?=\n## |$)/m);
-      if (goalMatch) {
-        content += `### Goal
-${goalMatch[1].trim().split("\n")[0]}
-
-`;
-      }
-    }
-  }
-  content += `## What was tried
-
-`;
-  if ((0, import_fs3.existsSync)(attemptsFile)) {
-    try {
-      const attempts = (0, import_fs3.readFileSync)(attemptsFile, "utf-8").split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
-      const failures = attempts.filter((a) => a.type === "build_fail");
-      const passes = attempts.filter((a) => a.type === "build_pass");
-      if (failures.length > 0) {
-        content += `### Failed attempts
-`;
-        for (const f of failures.slice(-5)) {
-          const cmd = f.command?.split(" ").slice(0, 3).join(" ") || "unknown";
-          const err = f.error?.split("\n")[0]?.slice(0, 100) || "unknown error";
-          content += `- \`${cmd}...\`: ${err}
-`;
-        }
-        content += "\n";
-      }
-      content += `### Summary
-`;
-      if (failures.length > 0) {
-        content += `Build passed after **${failures.length} failed attempt(s)**.
-`;
-      } else {
-        content += `Build passed on first try.
-`;
-      }
-      (0, import_fs3.writeFileSync)(attemptsFile, "");
-    } catch {
-      content += `_No build attempts recorded._
-`;
-    }
-  } else {
-    content += `_No build attempts recorded._
-`;
-  }
-  content += `
-## Files changed
-`;
-  try {
-    const files = (0, import_child_process9.execSync)(`git diff-tree --no-commit-id --name-only -r ${commitHash}`, {
-      encoding: "utf-8",
-      cwd
-    }).trim().split("\n");
-    for (const f of files) {
-      content += `- ${f}
-`;
-    }
-  } catch {
-    content += `- (unable to determine)
-`;
-  }
-  (0, import_fs3.writeFileSync)((0, import_path3.join)(outputDir, "reasoning.md"), content);
-  const persistentDir = (0, import_path3.join)(cwd, "thoughts", "reasoning");
-  (0, import_fs3.mkdirSync)(persistentDir, { recursive: true });
-  (0, import_fs3.writeFileSync)((0, import_path3.join)(persistentDir, `${commitHash.slice(0, 8)}-reasoning.md`), content);
-  try {
-    ensureDbSchema();
-    const failedMatch = content.match(/### Failed attempts\n([\s\S]*?)(?=### Summary|## |$)/);
-    const failedAttempts = failedMatch ? failedMatch[1].trim() : "";
-    const decisionsText = `branch:${branch} | ${commitMessage}`;
-    dbInsertReasoning(commitHash, branch, commitMessage, failedAttempts, decisionsText);
-  } catch {
-  }
-  return {
-    success: true,
-    message: `Generated:${commitHash.slice(0, 8)}`,
-    data: { path: (0, import_path3.join)(outputDir, "reasoning.md"), persistentPath: (0, import_path3.join)(persistentDir, `${commitHash.slice(0, 8)}-reasoning.md`) }
-  };
-}
-function reasoningRecall(keyword, limit = 5) {
-  const reasoningDir = getReasoningDir();
-  const cwd = getCwd3();
-  const matches = [];
-  if ((0, import_fs3.existsSync)(reasoningDir)) {
-    for (const commitDir of (0, import_fs3.readdirSync)(reasoningDir)) {
-      if (matches.length >= limit) break;
-      const reasoningPath = (0, import_path3.join)(reasoningDir, commitDir, "reasoning.md");
-      if (!(0, import_fs3.existsSync)(reasoningPath)) continue;
-      const content = (0, import_fs3.readFileSync)(reasoningPath, "utf-8");
-      if (!content.toLowerCase().includes(keyword.toLowerCase())) continue;
-      let commitMessage = "";
-      let date4 = "";
-      try {
-        commitMessage = (0, import_child_process9.execSync)(`git log -1 --format="%s" ${commitDir}`, {
-          encoding: "utf-8",
-          cwd
-        }).trim();
-        date4 = (0, import_child_process9.execSync)(`git log -1 --format="%ar" ${commitDir}`, {
-          encoding: "utf-8",
-          cwd
-        }).trim();
-      } catch {
-        commitMessage = "Unknown commit";
-        date4 = "Unknown date";
-      }
-      const lines = content.split("\n");
-      const matchLine = lines.findIndex(
-        (l) => l.toLowerCase().includes(keyword.toLowerCase())
-      );
-      const context = matchLine >= 0 ? lines.slice(Math.max(0, matchLine - 1), matchLine + 2).join("\n").trim() : "";
-      matches.push({
-        commitHash: commitDir.slice(0, 8),
-        commitMessage,
-        date: date4,
-        context: context.slice(0, 200)
-      });
-    }
-  }
-  const ledgersDir = (0, import_path3.join)(cwd, "thoughts", "ledgers");
-  const ledgerMatches = [];
-  if ((0, import_fs3.existsSync)(ledgersDir)) {
-    for (const file2 of (0, import_fs3.readdirSync)(ledgersDir)) {
-      if (!file2.endsWith(".md")) continue;
-      const content = (0, import_fs3.readFileSync)((0, import_path3.join)(ledgersDir, file2), "utf-8");
-      if (content.toLowerCase().includes(keyword.toLowerCase())) {
-        const lines = content.split("\n");
-        const matchLine = lines.find(
-          (l) => l.toLowerCase().includes(keyword.toLowerCase())
-        );
-        ledgerMatches.push({
-          name: file2,
-          context: matchLine?.trim().slice(0, 100) || ""
-        });
-      }
-    }
-  }
-  let ftsMatches = [];
-  try {
-    ensureDbSchema();
-    const ftsResults = dbQueryReasoning(keyword, limit);
-    for (const r of ftsResults) {
-      if (!matches.find((m) => m.commitHash === r.commitHash.slice(0, 8))) {
-        ftsMatches.push({ commitHash: r.commitHash.slice(0, 8), commitMessage: r.commitMessage });
-      }
-    }
-  } catch {
-  }
-  const persistentDir = (0, import_path3.join)(cwd, "thoughts", "reasoning");
-  if ((0, import_fs3.existsSync)(persistentDir)) {
-    for (const file2 of (0, import_fs3.readdirSync)(persistentDir)) {
-      if (!file2.endsWith("-reasoning.md")) continue;
-      if (matches.length >= limit) break;
-      const content = (0, import_fs3.readFileSync)((0, import_path3.join)(persistentDir, file2), "utf-8");
-      if (!content.toLowerCase().includes(keyword.toLowerCase())) continue;
-      const hash2 = file2.replace("-reasoning.md", "");
-      if (matches.find((m) => m.commitHash === hash2)) continue;
-      matches.push({
-        commitHash: hash2,
-        commitMessage: content.match(/## What was committed\n(.+)/)?.[1]?.trim() || "Unknown",
-        date: "persistent",
-        context: ""
-      });
-    }
-  }
-  const total = matches.length + ledgerMatches.length + ftsMatches.length;
-  return {
-    success: true,
-    message: `Found:${total}|commits:${matches.length}|fts:${ftsMatches.length}|ledgers:${ledgerMatches.length}`,
-    data: { commits: matches, ftsMatches, ledgers: ledgerMatches }
-  };
-}
-function reasoningAggregate(baseBranch = "master") {
-  const cwd = getCwd3();
-  const reasoningDir = getReasoningDir();
-  let output = "## Approaches Tried\n\n";
-  let foundAny = false;
-  try {
-    const commits = (0, import_child_process9.execSync)(`git log ${baseBranch}..HEAD --format="%H" --reverse`, {
-      encoding: "utf-8",
-      cwd
-    }).trim().split("\n").filter((h) => h);
-    for (const commit of commits) {
-      const reasoningPath = (0, import_path3.join)(reasoningDir, commit, "reasoning.md");
-      if (!(0, import_fs3.existsSync)(reasoningPath)) continue;
-      foundAny = true;
-      const content = (0, import_fs3.readFileSync)(reasoningPath, "utf-8");
-      const msg = (0, import_child_process9.execSync)(`git log -1 --format="%s" ${commit}`, {
-        encoding: "utf-8",
-        cwd
-      }).trim();
-      output += `### ${msg} (\`${commit.slice(0, 8)}\`)
-
-`;
-      const failedMatch = content.match(/### Failed attempts\s*\n([\s\S]*?)(?=### Summary|$)/);
-      const summaryMatch = content.match(/### Summary\s*\n([\s\S]*?)(?=\n## |$)/);
-      if (failedMatch) {
-        output += failedMatch[1].trim() + "\n\n";
-      }
-      if (summaryMatch) {
-        output += summaryMatch[1].trim() + "\n\n";
-      }
-    }
-  } catch {
-  }
-  if (!foundAny) {
-    output += "_No reasoning files found for commits in this PR._\n";
-  }
-  output += "\n---\n*Auto-generated from development reasoning.*\n";
-  return {
-    success: true,
-    message: foundAny ? "Aggregated" : "No reasoning found",
-    data: { content: output }
-  };
-}
-
-// src/continuity/branch.ts
-var import_child_process10 = require("child_process");
-function getCwd4() {
-  try {
-    return (0, import_child_process10.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
-  } catch {
-    return process.cwd();
-  }
-}
 function getDefaultBranch() {
   try {
-    const ref = (0, import_child_process10.execSync)("git symbolic-ref refs/remotes/origin/HEAD", {
+    const ref = (0, import_child_process8.execSync)("git symbolic-ref refs/remotes/origin/HEAD", {
       encoding: "utf-8"
     }).trim();
     return ref.replace("refs/remotes/origin/", "");
@@ -22859,19 +21710,19 @@ function getDefaultBranch() {
     return "master";
   }
 }
-function getCurrentBranch3() {
+function getCurrentBranch2() {
   try {
-    return (0, import_child_process10.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
+    return (0, import_child_process8.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
   } catch {
     return "";
   }
 }
 function branchListMerged() {
-  const cwd = getCwd4();
+  const cwd = getCwd2();
   const defaultBranch = getDefaultBranch();
-  const currentBranch = getCurrentBranch3();
+  const currentBranch = getCurrentBranch2();
   try {
-    const merged = (0, import_child_process10.execSync)(`git branch --merged ${defaultBranch}`, {
+    const merged = (0, import_child_process8.execSync)(`git branch --merged ${defaultBranch}`, {
       encoding: "utf-8",
       cwd
     }).split("\n").map((b) => b.trim().replace("* ", "")).filter((b) => b && b !== defaultBranch && b !== "main" && b !== "master" && b !== "develop" && b !== currentBranch);
@@ -22885,7 +21736,7 @@ function branchListMerged() {
   }
 }
 function branchCleanup(dryRun = false) {
-  const cwd = getCwd4();
+  const cwd = getCwd2();
   const { data } = branchListMerged();
   if (!data?.branches || data.branches.length === 0) {
     return { success: true, message: "No branches to clean" };
@@ -22901,14 +21752,14 @@ function branchCleanup(dryRun = false) {
   const failed = [];
   for (const branch of data.branches) {
     try {
-      (0, import_child_process10.execSync)(`git branch -d "${branch}"`, { encoding: "utf-8", cwd });
+      (0, import_child_process8.execSync)(`git branch -d "${branch}"`, { encoding: "utf-8", cwd });
       deleted.push(branch);
     } catch {
       failed.push(branch);
     }
   }
   try {
-    (0, import_child_process10.execSync)("git fetch --prune origin", { encoding: "utf-8", cwd });
+    (0, import_child_process8.execSync)("git fetch --prune origin", { encoding: "utf-8", cwd });
   } catch {
   }
   return {
@@ -22918,18 +21769,18 @@ function branchCleanup(dryRun = false) {
   };
 }
 function branchListStale(days = 30) {
-  const cwd = getCwd4();
+  const cwd = getCwd2();
   const cutoffDate = /* @__PURE__ */ new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
   const stale = [];
   try {
-    const branches = (0, import_child_process10.execSync)('git for-each-ref --format="%(refname:short)" refs/heads/', {
+    const branches = (0, import_child_process8.execSync)('git for-each-ref --format="%(refname:short)" refs/heads/', {
       encoding: "utf-8",
       cwd
     }).split("\n").filter((b) => b && !["master", "main", "develop"].includes(b));
     for (const branch of branches) {
       try {
-        const dateStr = (0, import_child_process10.execSync)(`git log -1 --format="%ci" "${branch}"`, {
+        const dateStr = (0, import_child_process8.execSync)(`git log -1 --format="%ci" "${branch}"`, {
           encoding: "utf-8",
           cwd
         }).trim().split(" ")[0];
@@ -22951,30 +21802,30 @@ function branchListStale(days = 30) {
   };
 }
 function branchStashSwitch(targetBranch) {
-  const cwd = getCwd4();
-  const currentBranch = getCurrentBranch3();
+  const cwd = getCwd2();
+  const currentBranch = getCurrentBranch2();
   let hasChanges = false;
   try {
-    (0, import_child_process10.execSync)("git diff --quiet && git diff --cached --quiet", { cwd });
+    (0, import_child_process8.execSync)("git diff --quiet && git diff --cached --quiet", { cwd });
   } catch {
     hasChanges = true;
   }
   if (hasChanges) {
     const stashMsg = `Auto-stash from ${currentBranch} before switching to ${targetBranch}`;
     try {
-      (0, import_child_process10.execSync)(`git stash push -m "${stashMsg}"`, { encoding: "utf-8", cwd });
+      (0, import_child_process8.execSync)(`git stash push -m "${stashMsg}"`, { encoding: "utf-8", cwd });
     } catch (error2) {
       return { success: false, message: `Stash failed: ${error2.message}` };
     }
   }
   try {
     try {
-      (0, import_child_process10.execSync)(`git show-ref --verify --quiet refs/heads/${targetBranch}`, { cwd });
-      (0, import_child_process10.execSync)(`git checkout "${targetBranch}"`, { encoding: "utf-8", cwd });
+      (0, import_child_process8.execSync)(`git show-ref --verify --quiet refs/heads/${targetBranch}`, { cwd });
+      (0, import_child_process8.execSync)(`git checkout "${targetBranch}"`, { encoding: "utf-8", cwd });
     } catch {
       try {
-        (0, import_child_process10.execSync)(`git show-ref --verify --quiet refs/remotes/origin/${targetBranch}`, { cwd });
-        (0, import_child_process10.execSync)(`git checkout -b "${targetBranch}" "origin/${targetBranch}"`, { encoding: "utf-8", cwd });
+        (0, import_child_process8.execSync)(`git show-ref --verify --quiet refs/remotes/origin/${targetBranch}`, { cwd });
+        (0, import_child_process8.execSync)(`git checkout -b "${targetBranch}" "origin/${targetBranch}"`, { encoding: "utf-8", cwd });
       } catch {
         return { success: false, message: `Branch not found: ${targetBranch}` };
       }
@@ -22984,7 +21835,7 @@ function branchStashSwitch(targetBranch) {
   }
   let hasStash = false;
   try {
-    const stashList = (0, import_child_process10.execSync)("git stash list", { encoding: "utf-8", cwd });
+    const stashList = (0, import_child_process8.execSync)("git stash list", { encoding: "utf-8", cwd });
     hasStash = stashList.includes(`from ${targetBranch}`);
   } catch {
   }
@@ -22995,9 +21846,9 @@ function branchStashSwitch(targetBranch) {
   };
 }
 function branchPrune() {
-  const cwd = getCwd4();
+  const cwd = getCwd2();
   try {
-    (0, import_child_process10.execSync)("git fetch --prune origin", { encoding: "utf-8", cwd });
+    (0, import_child_process8.execSync)("git fetch --prune origin", { encoding: "utf-8", cwd });
     return { success: true, message: "Remote tracking branches pruned" };
   } catch (error2) {
     return { success: false, message: error2.message };
@@ -23005,28 +21856,28 @@ function branchPrune() {
 }
 
 // src/continuity/defaults.ts
-var import_child_process11 = require("child_process");
-var import_fs4 = require("fs");
-var import_path4 = require("path");
-function getCwd5() {
+var import_child_process9 = require("child_process");
+var import_fs2 = require("fs");
+var import_path2 = require("path");
+function getCwd3() {
   try {
-    return (0, import_child_process11.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
+    return (0, import_child_process9.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
   } catch {
     return process.cwd();
   }
 }
-function getCurrentBranch4() {
+function getCurrentBranch3() {
   try {
-    return (0, import_child_process11.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
+    return (0, import_child_process9.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
   } catch {
     return "";
   }
 }
 function getChangedFiles() {
-  const cwd = getCwd5();
+  const cwd = getCwd3();
   try {
-    const staged = (0, import_child_process11.execSync)("git diff --name-only --cached", { encoding: "utf-8", cwd }).trim();
-    const unstaged = (0, import_child_process11.execSync)("git diff --name-only HEAD", { encoding: "utf-8", cwd }).trim();
+    const staged = (0, import_child_process9.execSync)("git diff --name-only --cached", { encoding: "utf-8", cwd }).trim();
+    const unstaged = (0, import_child_process9.execSync)("git diff --name-only HEAD", { encoding: "utf-8", cwd }).trim();
     const files = [...staged.split("\n"), ...unstaged.split("\n")].filter((f) => f);
     return [...new Set(files)];
   } catch {
@@ -23082,7 +21933,7 @@ function inferScope(files) {
   };
 }
 function inferLabels() {
-  const branch = getCurrentBranch4();
+  const branch = getCurrentBranch3();
   const files = getChangedFiles();
   const labels = [];
   if (branch.startsWith("feature/")) labels.push("enhancement");
@@ -23105,14 +21956,14 @@ function inferLabels() {
   };
 }
 function inferReviewers() {
-  const cwd = getCwd5();
+  const cwd = getCwd3();
   const files = getChangedFiles();
   const reviewers = [];
   const codeownersPaths = [".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"];
   for (const coPath of codeownersPaths) {
-    const fullPath = (0, import_path4.join)(cwd, coPath);
-    if ((0, import_fs4.existsSync)(fullPath)) {
-      const content = (0, import_fs4.readFileSync)(fullPath, "utf-8");
+    const fullPath = (0, import_path2.join)(cwd, coPath);
+    if ((0, import_fs2.existsSync)(fullPath)) {
+      const content = (0, import_fs2.readFileSync)(fullPath, "utf-8");
       const lines = content.split("\n").filter((l) => l && !l.startsWith("#"));
       for (const file2 of files) {
         for (const line of lines) {
@@ -23137,7 +21988,7 @@ function inferReviewers() {
   if (reviewers.length === 0 && files.length > 0) {
     try {
       for (const file2 of files.slice(0, 3)) {
-        const author = (0, import_child_process11.execSync)(`git log -1 --format="%an" -- "${file2}"`, {
+        const author = (0, import_child_process9.execSync)(`git log -1 --format="%an" -- "${file2}"`, {
           encoding: "utf-8",
           cwd
         }).trim();
@@ -23155,10 +22006,10 @@ function inferReviewers() {
   };
 }
 function inferWorkingSet() {
-  const branch = getCurrentBranch4();
+  const branch = getCurrentBranch3();
   const files = getChangedFiles();
-  const staged = (0, import_child_process11.execSync)("git diff --name-only --cached", { encoding: "utf-8" }).trim().split("\n").filter((f) => f);
-  const unstaged = (0, import_child_process11.execSync)("git diff --name-only", { encoding: "utf-8" }).trim().split("\n").filter((f) => f);
+  const staged = (0, import_child_process9.execSync)("git diff --name-only --cached", { encoding: "utf-8" }).trim().split("\n").filter((f) => f);
+  const unstaged = (0, import_child_process9.execSync)("git diff --name-only", { encoding: "utf-8" }).trim().split("\n").filter((f) => f);
   return {
     success: true,
     message: `branch:${branch}|staged:${staged.length}|unstaged:${unstaged.length}`,
@@ -23188,10 +22039,10 @@ function inferAll() {
 }
 
 // src/continuity/task-sync.ts
-var import_fs5 = require("fs");
+var import_fs3 = require("fs");
 function parseLedgerState(ledgerPath) {
-  if (!(0, import_fs5.existsSync)(ledgerPath)) return [];
-  const content = (0, import_fs5.readFileSync)(ledgerPath, "utf-8");
+  if (!(0, import_fs3.existsSync)(ledgerPath)) return [];
+  const content = (0, import_fs3.readFileSync)(ledgerPath, "utf-8");
   const tasks = [];
   const stateMatch = content.match(/## State\s*\n([\s\S]*?)(?=\n## |$)/m);
   if (!stateMatch) return [];
@@ -23287,8 +22138,8 @@ function getTaskSyncSummary(ledgerPath) {
   return `TASKS|${tasks.length} total|${completed} done|${inProgress} active|${pending} pending`;
 }
 function exportLedgerAsJson(ledgerPath) {
-  if (!(0, import_fs5.existsSync)(ledgerPath)) return null;
-  const content = (0, import_fs5.readFileSync)(ledgerPath, "utf-8");
+  if (!(0, import_fs3.existsSync)(ledgerPath)) return null;
+  const content = (0, import_fs3.readFileSync)(ledgerPath, "utf-8");
   const taskIdMatch = ledgerPath.match(/TASK-\d+/);
   const taskId = taskIdMatch ? taskIdMatch[0] : "unknown";
   return {
@@ -23299,11 +22150,694 @@ function exportLedgerAsJson(ledgerPath) {
   };
 }
 
+// src/continuity/memory.ts
+var import_child_process10 = require("child_process");
+var import_fs4 = require("fs");
+var import_path3 = require("path");
+function getCwd4() {
+  try {
+    return (0, import_child_process10.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
+  } catch {
+    return process.cwd();
+  }
+}
+function getDbPath() {
+  const projectDir = getCwd4();
+  return (0, import_path3.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
+}
+function getProjectName() {
+  const cwd = getCwd4();
+  return (0, import_path3.basename)(cwd);
+}
+function generateId(type, title) {
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+  const ts = Date.now().toString(36);
+  return `${type}-${slug}-${ts}`;
+}
+function ensureDbSchema() {
+  const dbPath = getDbPath();
+  const dbDir = (0, import_path3.join)(getCwd4(), ".claude", "cache", "artifact-index");
+  (0, import_fs4.mkdirSync)(dbDir, { recursive: true });
+  const schema = `
+CREATE TABLE IF NOT EXISTS knowledge (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  platform TEXT,
+  title TEXT NOT NULL,
+  problem TEXT,
+  solution TEXT,
+  source_project TEXT,
+  source_session TEXT,
+  created_at TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  access_count INTEGER DEFAULT 0,
+  last_accessed TEXT
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
+  title, problem, solution, content=knowledge, content_rowid=rowid,
+  tokenize='porter unicode61', prefix='2,3'
+);
+
+CREATE TRIGGER IF NOT EXISTS knowledge_ai AFTER INSERT ON knowledge BEGIN
+  INSERT INTO knowledge_fts(rowid, title, problem, solution) VALUES (new.rowid, new.title, new.problem, new.solution);
+END;
+
+CREATE TRIGGER IF NOT EXISTS knowledge_ad AFTER DELETE ON knowledge BEGIN
+  INSERT INTO knowledge_fts(knowledge_fts, rowid, title, problem, solution) VALUES('delete', old.rowid, old.title, old.problem, old.solution);
+END;
+
+CREATE TABLE IF NOT EXISTS synonyms (
+  term TEXT PRIMARY KEY,
+  expansions TEXT NOT NULL
+);
+
+`;
+  try {
+    (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "${schema.replace(/"/g, '\\"')}"`, {
+      encoding: "utf-8",
+      timeout: 5e3
+    });
+  } catch {
+  }
+  try {
+    (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN access_count INTEGER DEFAULT 0;"`, { encoding: "utf-8", timeout: 2e3 });
+  } catch {
+  }
+  try {
+    (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN last_accessed TEXT;"`, { encoding: "utf-8", timeout: 2e3 });
+  } catch {
+  }
+  try {
+    (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN priority TEXT DEFAULT 'important';"`, { encoding: "utf-8", timeout: 2e3 });
+  } catch {
+  }
+  seedSynonyms();
+}
+function dbInsertKnowledge(entry) {
+  const dbPath = getDbPath();
+  if (!(0, import_fs4.existsSync)(dbPath)) return false;
+  const priority = entry.priority || "important";
+  const sql = `INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed, priority) VALUES ('${esc2(entry.id)}', '${esc2(entry.type)}', '${esc2(entry.platform)}', '${esc2(entry.title)}', '${esc2(entry.problem)}', '${esc2(entry.solution)}', '${esc2(entry.sourceProject)}', '${esc2(entry.sourceSession)}', '${esc2(entry.createdAt)}', '${esc2(entry.filePath)}', 0, NULL, '${esc2(priority)}');`;
+  try {
+    (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 3e3 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+function dbQueryKnowledge(query, limit = 10) {
+  const dbPath = getDbPath();
+  if (!(0, import_fs4.existsSync)(dbPath)) return [];
+  const sql = `SELECT k.id, k.type, k.platform, k.title, k.problem, k.solution, k.source_project, k.source_session, k.created_at, k.file_path FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc2(query)}' ORDER BY rank LIMIT ${limit};`;
+  try {
+    const result = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (!result) return [];
+    return result.split("\n").map((line) => {
+      const [id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split("|||");
+      return { id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
+    });
+  } catch {
+    return [];
+  }
+}
+function esc2(s) {
+  return (s || "").replace(/'/g, "''");
+}
+function expandQuery(query) {
+  const dbPath = getDbPath();
+  if (!(0, import_fs4.existsSync)(dbPath)) return query;
+  const terms = query.split(/\s+/).filter(Boolean);
+  const expanded = terms.map((term) => {
+    try {
+      const sql = `SELECT expansions FROM synonyms WHERE term = '${esc2(term.toLowerCase())}';`;
+      const result = (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 2e3 }).trim();
+      if (result) {
+        const synonyms = JSON.parse(result);
+        return `(${term} OR ${synonyms.join(" OR ")})`;
+      }
+    } catch {
+    }
+    return term;
+  });
+  return expanded.join(" ");
+}
+function seedSynonyms() {
+  const dbPath = getDbPath();
+  if (!(0, import_fs4.existsSync)(dbPath)) return;
+  const defaults = {
+    concurrency: ["thread", "race condition", "async", "await", "actor", "sendable"],
+    auth: ["authentication", "authorization", "jwt", "token", "login", "session"],
+    crash: ["fatal", "exception", "abort", "signal", "SIGABRT"],
+    performance: ["slow", "latency", "memory leak", "cpu", "optimize"],
+    ui: ["layout", "view", "component", "render", "display"],
+    network: ["http", "api", "request", "response", "fetch", "url"],
+    database: ["sqlite", "core data", "realm", "migration", "schema"],
+    test: ["unit test", "integration", "mock", "stub", "assert"]
+  };
+  for (const [term, expansions] of Object.entries(defaults)) {
+    try {
+      const sql = `INSERT OR IGNORE INTO synonyms (term, expansions) VALUES ('${esc2(term)}', '${esc2(JSON.stringify(expansions))}');`;
+      (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 2e3 });
+    } catch {
+    }
+  }
+}
+function detectCurrentPlatform() {
+  return detectPlatformSimple(getCwd4());
+}
+function getVaultPath() {
+  const cwd = getCwd4();
+  const configPath = (0, import_path3.join)(cwd, ".dev-flow.json");
+  try {
+    const config2 = JSON.parse((0, import_fs4.readFileSync)(configPath, "utf-8"));
+    if (config2?.memory?.vault) return (0, import_path3.join)(cwd, config2.memory.vault);
+  } catch {
+  }
+  return (0, import_path3.join)(cwd, "thoughts", "knowledge");
+}
+function parseFrontmatter(content) {
+  const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!match) return { data: {}, body: content };
+  const data = {};
+  for (const line of match[1].split("\n")) {
+    const kv = line.match(/^(\w[\w-]*):\s*(.+)$/);
+    if (kv) data[kv[1]] = kv[2].trim();
+  }
+  return { data, body: match[2] };
+}
+function generateFrontmatter(meta3) {
+  const lines = ["---"];
+  lines.push(`type: ${meta3.type}`);
+  lines.push(`priority: ${meta3.priority || "important"}`);
+  lines.push(`platform: ${meta3.platform}`);
+  if (meta3.tags?.length) lines.push(`tags: [${meta3.tags.join(", ")}]`);
+  lines.push(`created: ${meta3.created}`);
+  lines.push(`access_count: ${meta3.access_count || 0}`);
+  lines.push("---");
+  return lines.join("\n");
+}
+function ensureVaultDirs() {
+  const vault = getVaultPath();
+  for (const dir of ["pitfalls", "patterns", "decisions", "habits"]) {
+    (0, import_fs4.mkdirSync)((0, import_path3.join)(vault, dir), { recursive: true });
+  }
+}
+function generateSlug(title) {
+  return title.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+}
+function countVaultFiles() {
+  const vaultPath = getVaultPath();
+  let count = 0;
+  for (const dir of ["pitfalls", "patterns", "decisions", "habits"]) {
+    const dirPath = (0, import_path3.join)(vaultPath, dir);
+    if (!(0, import_fs4.existsSync)(dirPath)) continue;
+    for (const file2 of (0, import_fs4.readdirSync)(dirPath)) {
+      if (file2.endsWith(".md") && !file2.startsWith("_")) count++;
+    }
+  }
+  return count;
+}
+function memoryStatus() {
+  const cwd = getCwd4();
+  const status = {
+    totalEntries: 0,
+    byType: { pitfall: 0, pattern: 0, decision: 0, habit: 0 },
+    unprocessedHandoffs: 0,
+    knowledgeDir: getDbPath(),
+    vaultPath: getVaultPath(),
+    vaultFiles: countVaultFiles()
+  };
+  const dbPath = getDbPath();
+  if ((0, import_fs4.existsSync)(dbPath)) {
+    try {
+      const countResult = (0, import_child_process10.execSync)(
+        `sqlite3 "${dbPath}" "SELECT type, COUNT(*) FROM knowledge GROUP BY type;"`,
+        { encoding: "utf-8", timeout: 3e3 }
+      ).trim();
+      if (countResult) {
+        for (const line of countResult.split("\n")) {
+          const [type, countStr] = line.split("|");
+          const count = parseInt(countStr, 10) || 0;
+          if (type in status.byType) {
+            status.byType[type] = count;
+          }
+          status.totalEntries += count;
+        }
+      }
+    } catch {
+    }
+  }
+  const handoffsBase = (0, import_path3.join)(cwd, "thoughts", "shared", "handoffs");
+  if ((0, import_fs4.existsSync)(handoffsBase)) {
+    for (const sessionDir of (0, import_fs4.readdirSync)(handoffsBase)) {
+      const sessionPath = (0, import_path3.join)(handoffsBase, sessionDir);
+      if (!(0, import_fs4.statSync)(sessionPath).isDirectory()) continue;
+      for (const file2 of (0, import_fs4.readdirSync)(sessionPath)) {
+        if (file2.startsWith("auto-handoff-") && file2.endsWith(".md")) {
+          const content = (0, import_fs4.readFileSync)((0, import_path3.join)(sessionPath, file2), "utf-8");
+          if (content.includes("## Errors Encountered") && !content.includes("No errors.")) {
+            status.unprocessedHandoffs++;
+          }
+        }
+      }
+    }
+  }
+  return status;
+}
+function memoryQuery(query, limit = 10) {
+  ensureDbSchema();
+  return dbQueryKnowledge(expandQuery(query), limit);
+}
+function memoryList(type) {
+  const dbPath = getDbPath();
+  if (!(0, import_fs4.existsSync)(dbPath)) return [];
+  const whereClause = type ? `WHERE type = '${esc2(type)}'` : "";
+  const sql = `SELECT id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path FROM knowledge ${whereClause} ORDER BY created_at DESC LIMIT 50;`;
+  try {
+    const result = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (!result) return [];
+    return result.split("\n").map((line) => {
+      const [id, type2, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split("|||");
+      return { id, type: type2, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
+    });
+  } catch {
+    return [];
+  }
+}
+function qualityCheck(text, title) {
+  if (text.length < 20) return { pass: false, reason: "Too short (<20 chars)" };
+  if (/^(Significant|There were|Updated|Modified|Changed|Made|Added several|Removed several) /i.test(text))
+    return { pass: false, reason: "Generic description, not actionable knowledge" };
+  if (/^\d+ (files?|insertions?|deletions?|changes?)/i.test(text))
+    return { pass: false, reason: "Statistics, not knowledge" };
+  const words = text.toLowerCase().split(/\s+/).filter((w) => w.length > 0);
+  if (words.length > 10) {
+    const ttr = new Set(words).size / words.length;
+    if (ttr < 0.3) return { pass: false, reason: "Low lexical diversity (repetitive content)" };
+  }
+  return { pass: true, reason: "OK" };
+}
+function memorySave(text, title, tags, type, priority) {
+  ensureDbSchema();
+  ensureVaultDirs();
+  const project = getProjectName();
+  const platform = detectCurrentPlatform();
+  const autoTitle = title || text.slice(0, 60).replace(/\n/g, " ").trim();
+  const validTypes = ["pitfall", "pattern", "decision", "habit"];
+  const entryType = validTypes.includes(type || "") ? type : "decision";
+  const validPriorities = ["critical", "important", "reference"];
+  const entryPriority = validPriorities.includes(priority || "") ? priority : "important";
+  const qc = qualityCheck(text, autoTitle);
+  if (!qc.pass) {
+    return { id: "", message: `Rejected: ${qc.reason}`, saved: false, reason: qc.reason };
+  }
+  try {
+    const dedupResult = smartDedup(
+      { type: entryType, title: autoTitle, content: text, platform },
+      getDbPath()
+    );
+    if (dedupResult.action === "NOOP") {
+      return { id: "", message: `Duplicate: ${dedupResult.reason} (${dedupResult.method})`, saved: false, reason: `Duplicate: ${dedupResult.reason}` };
+    }
+  } catch {
+  }
+  const slug = generateSlug(autoTitle);
+  const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const id = generateId(entryType, autoTitle);
+  const typeDir = entryType === "habit" ? "habits" : `${entryType}s`;
+  const filePath = (0, import_path3.join)(getVaultPath(), typeDir, `${slug}.md`);
+  const frontmatter = generateFrontmatter({
+    type: entryType,
+    priority: entryPriority,
+    platform,
+    tags,
+    created: today,
+    access_count: 0
+  });
+  const mdContent = `${frontmatter}
+
+# ${autoTitle}
+
+${text}
+`;
+  (0, import_fs4.writeFileSync)(filePath, mdContent, "utf-8");
+  const entry = {
+    id,
+    type: entryType,
+    platform,
+    title: autoTitle,
+    problem: text,
+    solution: tags?.join(", ") || "",
+    sourceProject: project,
+    sourceSession: "manual",
+    createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+    filePath,
+    priority: entryPriority
+  };
+  dbInsertKnowledge(entry);
+  return { id, message: `Saved: ${autoTitle}`, saved: true, filePath };
+}
+function memorySearch(query, limit = 10, type) {
+  ensureDbSchema();
+  const dbPath = getDbPath();
+  if (!(0, import_fs4.existsSync)(dbPath)) return [];
+  const expandedQuery = expandQuery(query);
+  const typeFilter = type ? ` AND k.type = '${esc2(type)}'` : "";
+  const sql = `SELECT k.id, k.type, k.title, k.platform, k.created_at
+   FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid
+   WHERE knowledge_fts MATCH '${esc2(expandedQuery)}'${typeFilter}
+   ORDER BY rank * CASE COALESCE(k.priority, 'important') WHEN 'critical' THEN 3.0 WHEN 'important' THEN 2.0 ELSE 1.0 END * (1.0 / (1.0 + COALESCE(julianday('now') - julianday(COALESCE(k.last_accessed, k.created_at)), 0) / 30.0))
+   LIMIT ${limit};`;
+  try {
+    const result = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (!result) return [];
+    const entries = result.split("\n").map((line) => {
+      const [id, entryType, title, platform, createdAt] = line.split("|||");
+      return { id, type: entryType, title, platform, createdAt };
+    });
+    if (entries.length > 0) {
+      const idList = entries.map((e) => `'${esc2(e.id)}'`).join(",");
+      try {
+        (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "UPDATE knowledge SET access_count = COALESCE(access_count, 0) + 1, last_accessed = datetime('now') WHERE id IN (${idList});"`, {
+          encoding: "utf-8",
+          timeout: 2e3
+        });
+      } catch {
+      }
+    }
+    return entries;
+  } catch {
+    return [];
+  }
+}
+function memoryGet(ids) {
+  ensureDbSchema();
+  const dbPath = getDbPath();
+  if (!(0, import_fs4.existsSync)(dbPath) || ids.length === 0) return [];
+  const idList = ids.map((id) => `'${esc2(id)}'`).join(",");
+  const sql = `SELECT id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path FROM knowledge WHERE id IN (${idList});`;
+  try {
+    const result = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (!result) return [];
+    const vaultPrefix = getVaultPath();
+    return result.split("\n").map((line) => {
+      const [id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split("|||");
+      const entry = { id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
+      if (filePath && filePath.startsWith(vaultPrefix) && (0, import_fs4.existsSync)(filePath)) {
+        try {
+          const content = (0, import_fs4.readFileSync)(filePath, "utf-8");
+          const { body } = parseFrontmatter(content);
+          entry.problem = body.replace(/^#\s+.+\n+/, "").trim();
+        } catch {
+        }
+      }
+      return entry;
+    });
+  } catch {
+    return [];
+  }
+}
+function updateVaultFilePriority(filePath, newPriority) {
+  if (!filePath || !(0, import_fs4.existsSync)(filePath)) return;
+  try {
+    const content = (0, import_fs4.readFileSync)(filePath, "utf-8");
+    const updated = content.replace(/^priority:\s*.+$/m, `priority: ${newPriority}`);
+    if (updated !== content) (0, import_fs4.writeFileSync)(filePath, updated, "utf-8");
+  } catch {
+  }
+}
+function memoryPrune(dryRun = false) {
+  ensureDbSchema();
+  const dbPath = getDbPath();
+  if (!(0, import_fs4.existsSync)(dbPath)) return { pruned: 0, promoted: 0, demoted: 0, archived: 0, message: "No database" };
+  let promoted = 0, demoted = 0, archived = 0;
+  try {
+    const promoteQuery = `SELECT id, file_path FROM knowledge WHERE COALESCE(access_count, 0) >= 3 AND COALESCE(priority, 'important') != 'critical';`;
+    const promoteResult = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${promoteQuery}"`, { encoding: "utf-8", timeout: 3e3 }).trim();
+    if (promoteResult) {
+      for (const line of promoteResult.split("\n")) {
+        const [id, filePath] = line.split("|||");
+        if (!dryRun) {
+          (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "UPDATE knowledge SET priority = 'critical' WHERE id = '${esc2(id)}';"`, { encoding: "utf-8", timeout: 2e3 });
+          updateVaultFilePriority(filePath, "critical");
+        }
+        promoted++;
+      }
+    }
+  } catch {
+  }
+  try {
+    const demoteQuery = `SELECT id, file_path FROM knowledge WHERE COALESCE(priority, 'important') = 'important' AND COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;`;
+    const demoteResult = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${demoteQuery}"`, { encoding: "utf-8", timeout: 3e3 }).trim();
+    if (demoteResult) {
+      for (const line of demoteResult.split("\n")) {
+        const [id, filePath] = line.split("|||");
+        if (!dryRun) {
+          (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "UPDATE knowledge SET priority = 'reference' WHERE id = '${esc2(id)}';"`, { encoding: "utf-8", timeout: 2e3 });
+          updateVaultFilePriority(filePath, "reference");
+        }
+        demoted++;
+      }
+    }
+  } catch {
+  }
+  try {
+    const archiveQuery = `SELECT id, file_path FROM knowledge WHERE COALESCE(priority, 'important') = 'reference' AND COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;`;
+    const archiveResult = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${archiveQuery}"`, { encoding: "utf-8", timeout: 3e3 }).trim();
+    if (archiveResult) {
+      for (const line of archiveResult.split("\n")) {
+        const [id, filePath] = line.split("|||");
+        if (!dryRun) {
+          if (filePath && (0, import_fs4.existsSync)(filePath)) {
+            const archiveDir = (0, import_path3.join)(getVaultPath(), ".archive");
+            (0, import_fs4.mkdirSync)(archiveDir, { recursive: true });
+            const archivePath = (0, import_path3.join)(archiveDir, (0, import_path3.basename)(filePath));
+            (0, import_fs4.renameSync)(filePath, archivePath);
+          }
+          (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "DELETE FROM knowledge WHERE id = '${esc2(id)}';"`, { encoding: "utf-8", timeout: 2e3 });
+        }
+        archived++;
+      }
+    }
+  } catch {
+  }
+  const total = promoted + demoted + archived;
+  const parts = [];
+  if (promoted > 0) parts.push(`${promoted} promoted to critical`);
+  if (demoted > 0) parts.push(`${demoted} demoted to reference`);
+  if (archived > 0) parts.push(`${archived} archived`);
+  const prefix = dryRun ? "Would: " : "";
+  const msg = parts.length > 0 ? `${prefix}${parts.join(", ")}` : "No entries need maintenance";
+  return { pruned: total, promoted, demoted, archived, message: msg };
+}
+function extractKeyTerms(text) {
+  const stopWords = /* @__PURE__ */ new Set([
+    "the",
+    "a",
+    "an",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "have",
+    "has",
+    "had",
+    "do",
+    "does",
+    "did",
+    "will",
+    "would",
+    "could",
+    "should",
+    "and",
+    "or",
+    "but",
+    "in",
+    "on",
+    "at",
+    "to",
+    "for",
+    "of",
+    "with",
+    "by",
+    "from",
+    "as",
+    "it",
+    "this",
+    "that"
+  ]);
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !stopWords.has(w));
+}
+function tokenOverlap(textA, textB) {
+  const tokensA = new Set(extractKeyTerms(textA));
+  const tokensB = new Set(extractKeyTerms(textB));
+  if (tokensA.size === 0 || tokensB.size === 0) return 0;
+  const intersection2 = [...tokensA].filter((t) => tokensB.has(t)).length;
+  const union2 = (/* @__PURE__ */ new Set([...tokensA, ...tokensB])).size;
+  return intersection2 / union2;
+}
+function smartDedup(newEntry, dbPath) {
+  const keyTerms = extractKeyTerms(`${newEntry.title} ${newEntry.content}`);
+  if (keyTerms.length === 0) {
+    return { action: "ADD", reason: "No extractable terms", method: "fts5" };
+  }
+  const ftsQuery = keyTerms.slice(0, 8).join(" OR ");
+  let candidates = [];
+  try {
+    const sql = `SELECT k.id, k.title, k.problem || ' ' || k.solution as content FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc2(ftsQuery)}' ORDER BY rank LIMIT 5;`;
+    const result = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (result) {
+      candidates = result.split("\n").map((line) => {
+        const [id, title, content] = line.split("|||");
+        return { id, title, content };
+      });
+    }
+  } catch {
+    return { action: "ADD", reason: "FTS5 query failed", method: "fts5" };
+  }
+  if (candidates.length === 0) {
+    return { action: "ADD", reason: "No FTS5 matches", method: "fts5" };
+  }
+  const newText = `${newEntry.title} ${newEntry.content}`;
+  for (const candidate of candidates) {
+    const existingText = `${candidate.title} ${candidate.content}`;
+    const overlap = tokenOverlap(newText, existingText);
+    if (overlap > 0.7) {
+      return { action: "NOOP", targetId: candidate.id, reason: `Token overlap ${(overlap * 100).toFixed(0)}%`, method: "token-overlap" };
+    }
+    if (overlap > 0.3) {
+      const llmResult = llmCompare(
+        { type: newEntry.type, title: newEntry.title, content: newEntry.content },
+        { id: candidate.id, type: "knowledge", title: candidate.title, content: candidate.content }
+      );
+      if (llmResult) return llmResult;
+      return { action: "ADD", reason: `Overlap ${(overlap * 100).toFixed(0)}%, no API key for disambiguation`, method: "token-overlap" };
+    }
+  }
+  return { action: "ADD", reason: "Low similarity to all candidates", method: "fts5" };
+}
+function llmCompare(newEntry, existing) {
+  const apiKey = process.env.DEV_FLOW_API_KEY || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+  const apiUrl = process.env.DEV_FLOW_API_URL || "https://api.anthropic.com/v1/messages";
+  const model = process.env.DEV_FLOW_MODEL || "claude-haiku-4-5-20251001";
+  const isAnthropic = apiUrl.includes("api.anthropic.com");
+  const prompt = `Are these the same knowledge? Reply ONLY: SAME or DIFFERENT
+A: [${newEntry.type}] ${newEntry.title}: ${newEntry.content}
+B: [${existing.type}] ${existing.title}: ${existing.content}`;
+  try {
+    const https = require("https");
+    const url2 = new URL(apiUrl);
+    const headers = { "content-type": "application/json" };
+    if (isAnthropic) {
+      headers["x-api-key"] = apiKey;
+      headers["anthropic-version"] = "2023-06-01";
+    } else {
+      headers["authorization"] = `Bearer ${apiKey}`;
+    }
+    const body = JSON.stringify({
+      model,
+      max_tokens: 10,
+      messages: [{ role: "user", content: prompt }]
+    });
+    const opts = JSON.stringify({
+      hostname: url2.hostname,
+      port: Number(url2.port) || 443,
+      path: url2.pathname,
+      method: "POST",
+      headers,
+      timeout: 5e3
+    });
+    const script = `const https=require('https');const o=JSON.parse(process.env.OPTS);const r=https.request(o,res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>process.stdout.write(d))});r.on('error',()=>process.exit(1));r.write(process.env.BODY);r.end()`;
+    const result = (0, import_child_process10.execSync)(`node -e "${script}"`, {
+      encoding: "utf-8",
+      timeout: 8e3,
+      env: { ...process.env, OPTS: opts, BODY: body }
+    });
+    const text = (JSON.parse(result)?.content?.[0]?.text || "").trim().toUpperCase();
+    if (text.includes("SAME")) {
+      return { action: "NOOP", targetId: existing.id, reason: "LLM confirmed duplicate", method: "llm" };
+    }
+    return { action: "ADD", reason: "LLM confirmed different", method: "llm" };
+  } catch {
+    return null;
+  }
+}
+function reindexVault() {
+  ensureDbSchema();
+  ensureVaultDirs();
+  const vaultPath = getVaultPath();
+  const dbPath = getDbPath();
+  let indexed = 0;
+  try {
+    (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "DELETE FROM knowledge WHERE file_path LIKE '%${vaultPath.replace(/'/g, "''")}%';"`, {
+      encoding: "utf-8",
+      timeout: 5e3
+    });
+    (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "INSERT INTO knowledge_fts(knowledge_fts) VALUES('rebuild');"`, {
+      encoding: "utf-8",
+      timeout: 5e3
+    });
+  } catch {
+  }
+  for (const typeDir of ["pitfalls", "patterns", "decisions", "habits"]) {
+    const dirPath = (0, import_path3.join)(vaultPath, typeDir);
+    if (!(0, import_fs4.existsSync)(dirPath)) continue;
+    for (const file2 of (0, import_fs4.readdirSync)(dirPath)) {
+      if (!file2.endsWith(".md") || file2.startsWith("_")) continue;
+      const filePath = (0, import_path3.join)(dirPath, file2);
+      try {
+        const content = (0, import_fs4.readFileSync)(filePath, "utf-8");
+        const { data, body } = parseFrontmatter(content);
+        const entryType = data.type || typeDir.replace(/s$/, "");
+        const titleMatch = body.match(/^#\s+(.+)$/m);
+        const title = titleMatch?.[1] || file2.replace(".md", "");
+        const platform = data.platform || "general";
+        const id = generateId(entryType, title);
+        const entry = {
+          id,
+          type: entryType,
+          platform,
+          title,
+          problem: body.replace(/^#\s+.+\n+/, "").trim(),
+          solution: data.tags || "",
+          sourceProject: getProjectName(),
+          sourceSession: "vault",
+          createdAt: data.created || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
+          filePath
+        };
+        dbInsertKnowledge(entry);
+        indexed++;
+      } catch {
+      }
+    }
+  }
+  return { indexed, message: `Reindexed ${indexed} entries from vault` };
+}
+
 // src/continuity/context-injector.ts
-var import_child_process12 = require("child_process");
-var import_fs6 = require("fs");
-var import_path5 = require("path");
-var import_os2 = require("os");
+var import_child_process11 = require("child_process");
+var import_fs5 = require("fs");
+var import_path4 = require("path");
+var import_os = require("os");
 
 // src/coordination/coordinator.ts
 var TaskCoordinator = class {
@@ -23538,13 +23072,13 @@ ${handoff.open_questions.map((q) => `- [ ] ${q}`).join("\n")}
 };
 
 // src/git/commit.ts
-var import_child_process13 = require("child_process");
+var import_child_process12 = require("child_process");
 var import_crypto = require("crypto");
 var activeSession = null;
 var SESSION_TTL = 10 * 60 * 1e3;
 function execCommand4(cmd) {
   try {
-    return (0, import_child_process13.execSync)(cmd, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+    return (0, import_child_process12.execSync)(cmd, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
   } catch {
     return "";
   }
@@ -23557,7 +23091,7 @@ function getReviewLogMtime() {
   const branch = execCommand4("git branch --show-current");
   const logPath = `.git/claude/review-session-${branch}.md`;
   try {
-    const stat = (0, import_child_process13.execSync)(`/usr/bin/stat -f %m "${logPath}" 2>/dev/null`, {
+    const stat = (0, import_child_process12.execSync)(`/usr/bin/stat -f %m "${logPath}" 2>/dev/null`, {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"]
     }).trim();
@@ -23883,24 +23417,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       }
     },
     {
-      name: "dev_reasoning",
-      description: "[~30 tokens] Manage commit reasoning and decision history",
-      inputSchema: {
-        type: "object",
-        properties: {
-          action: {
-            type: "string",
-            enum: ["generate", "recall", "aggregate"],
-            description: "Action to perform"
-          },
-          commitHash: { type: "string", description: "Commit hash (for generate)" },
-          commitMessage: { type: "string", description: "Commit message (for generate)" },
-          keyword: { type: "string", description: "Search keyword (for recall)" },
-          baseBranch: { type: "string", description: "Base branch (for aggregate, default: master)" }
-        }
-      }
-    },
-    {
       name: "dev_branch",
       description: "[~30 tokens] Branch lifecycle management",
       inputSchema: {
@@ -23988,21 +23504,22 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "dev_memory",
-      description: "[~60 tokens] Manage knowledge consolidation (consolidate/status/query/list/extract/save/search/get)",
+      description: "[~60 tokens] Manage knowledge consolidation (status/save/search/get/list/prune/reindex)",
       inputSchema: {
         type: "object",
         properties: {
           action: {
             type: "string",
-            enum: ["consolidate", "status", "query", "list", "extract", "save", "search", "get", "prune"],
+            enum: ["status", "save", "search", "get", "list", "prune", "reindex"],
             description: "Action to perform"
           },
-          query: { type: "string", description: "Search query (for query action)" },
-          type: { type: "string", description: "Filter by type: pitfall|pattern|decision (for list action)" },
-          dryRun: { type: "boolean", description: "Preview only, no writes (for extract action)" },
+          query: { type: "string", description: "Search query (for search action)" },
+          type: { type: "string", description: "Filter by type: pitfall|pattern|decision|habit (for list action)" },
+          dryRun: { type: "boolean", description: "Preview only, no writes (for prune action)" },
           text: { type: "string", description: "Text content to save (for save action)" },
           title: { type: "string", description: "Title for saved entry (for save action, auto-generated if omitted)" },
           tags: { type: "string", description: "Comma-separated tags (for save action)" },
+          priority: { type: "string", enum: ["critical", "important", "reference"], description: "Priority level (for save action, default: important)" },
           ids: { type: "string", description: "Comma-separated entry IDs (for get action)" },
           limit: { type: "number", description: "Max results (for search action, default 10)" }
         }
@@ -24187,8 +23704,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Continuity tools
       case "dev_ledger":
         return ledgerTool(args?.action, args?.taskId, args?.branch, args?.keyword, args?.commitHash, args?.commitMessage);
-      case "dev_reasoning":
-        return reasoningTool(args?.action, args?.commitHash, args?.commitMessage, args?.keyword, args?.baseBranch);
       case "dev_branch":
         return branchTool(args?.action, args?.target, args?.days, args?.dryRun);
       case "dev_defaults":
@@ -24197,7 +23712,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return tasksTool(args?.action, args?.ledgerPath);
       // Memory tools
       case "dev_memory":
-        return memoryTool(args?.action, args?.query, args?.type, args?.dryRun, args?.text, args?.title, args?.tags, args?.ids, args?.limit);
+        return memoryTool(args?.action, args?.query, args?.type, args?.dryRun, args?.text, args?.title, args?.tags, args?.ids, args?.limit, args?.priority);
       // Coordination tools
       case "dev_coordinate":
         return coordinateTool(args?.action, args?.mode, args?.tasks, args?.taskId);
@@ -24629,31 +24144,6 @@ function ledgerTool(action, taskId, branch, keyword, commitHash, commitMessage) 
       return { content: [{ type: "text", text: "\u274C Action required: status|list|create|update|archive|search" }] };
   }
 }
-function reasoningTool(action, commitHash, commitMessage, keyword, baseBranch) {
-  switch (action) {
-    case "generate":
-      if (!commitHash || !commitMessage) {
-        return { content: [{ type: "text", text: "\u274C commitHash and commitMessage required" }] };
-      }
-      return { content: [{ type: "text", text: reasoningGenerate(commitHash, commitMessage).message }] };
-    case "recall":
-      if (!keyword) return { content: [{ type: "text", text: "\u274C Keyword required" }] };
-      const recall = reasoningRecall(keyword);
-      if (recall.data) {
-        const commits = recall.data.commits?.map((c) => `${c.commitHash}:${c.commitMessage}`).join("\n") || "";
-        const ledgers = recall.data.ledgers?.map((l) => l.name).join(",") || "";
-        return { content: [{ type: "text", text: `${recall.message}
-${commits}
-ledgers:${ledgers}` }] };
-      }
-      return { content: [{ type: "text", text: recall.message }] };
-    case "aggregate":
-      const agg = reasoningAggregate(baseBranch);
-      return { content: [{ type: "text", text: agg.data?.content || agg.message }] };
-    default:
-      return { content: [{ type: "text", text: "\u274C Action required: generate|recall|aggregate" }] };
-  }
-}
 function branchTool(action, target, days, dryRun) {
   switch (action) {
     case "merged":
@@ -24715,18 +24205,14 @@ function tasksTool(action, ledgerPath) {
       return { content: [{ type: "text", text: "\u274C Action required: summary|export|sync" }] };
   }
 }
-function memoryTool(action, query, type, dryRun, text, title, tags, ids, limit) {
+function memoryTool(action, query, type, dryRun, text, title, tags, ids, limit, priority) {
   switch (action) {
-    case "consolidate": {
-      const result = memoryConsolidate();
-      return { content: [{ type: "text", text: result.message }] };
-    }
     case "status": {
       const status = memoryStatus();
       return {
         content: [{
           type: "text",
-          text: `entries:${status.totalEntries}|pitfalls:${status.byType.pitfall}|patterns:${status.byType.pattern}|decisions:${status.byType.decision}|unprocessed_handoffs:${status.unprocessedHandoffs}|unprocessed_reasoning:${status.unprocessedReasoning}`
+          text: `entries:${status.totalEntries}|pitfalls:${status.byType.pitfall}|patterns:${status.byType.pattern}|decisions:${status.byType.decision}|habits:${status.byType.habit}|vault:${status.vaultPath}|vault_files:${status.vaultFiles}|unprocessed_handoffs:${status.unprocessedHandoffs}`
         }]
       };
     }
@@ -24749,15 +24235,12 @@ ${lines.join("\n")}` }] };
       return { content: [{ type: "text", text: `Total:${results.length}
 ${lines.join("\n")}` }] };
     }
-    case "extract": {
-      const result = extractFromProject(dryRun ?? false);
-      return { content: [{ type: "text", text: result.message }] };
-    }
     case "save": {
       if (!text) return { content: [{ type: "text", text: "\u274C text required for save" }] };
       const tagArray = tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : void 0;
-      const result = memorySave(text, title, tagArray, type);
-      return { content: [{ type: "text", text: `\u2705 ${result.message}` }] };
+      const result = memorySave(text, title, tagArray, type, priority);
+      const extra = result.filePath ? ` \u2192 ${result.filePath}` : "";
+      return { content: [{ type: "text", text: result.saved === false ? `\u23ED\uFE0F ${result.message}` : `\u2705 ${result.message}${extra}` }] };
     }
     case "search": {
       if (!query) return { content: [{ type: "text", text: "\u274C query required for search" }] };
@@ -24786,8 +24269,12 @@ Platform: ${r.platform} | Project: ${r.sourceProject}
       const result = memoryPrune(dryRun ?? false);
       return { content: [{ type: "text", text: result.message }] };
     }
+    case "reindex": {
+      const result = reindexVault();
+      return { content: [{ type: "text", text: result.message }] };
+    }
     default:
-      return { content: [{ type: "text", text: "\u274C Action required: consolidate|status|query|list|extract|save|search|get|prune" }] };
+      return { content: [{ type: "text", text: "\u274C Action required: status|save|search|get|list|prune|reindex" }] };
   }
 }
 var taskCoordinator = new TaskCoordinator();

@@ -8,7 +8,7 @@ lazyman-ian marketplace for Claude Code plugins. Contains 5 plugins in a single 
 
 | Plugin | Version | Purpose |
 |--------|---------|---------|
-| dev-flow | 6.1.0 | Development workflow: brainstorm → plan → implement (5-gate pipeline) → commit → PR → release + automated code review (P0-P3) + agent-team + cross-platform team + 4-tier memory with instinct system + Notion pipeline + product brain + rules distribution |
+| dev-flow | 6.1.0 | Development workflow: brainstorm → plan → implement (5-gate pipeline) → commit → PR → release + automated code review (P0-P3) + agent-team + cross-platform team + Markdown-first knowledge vault + Notion pipeline + product brain + rules distribution |
 | ios-swift-plugin | 1.2.0 | iOS/Swift toolkit: SwiftUI, Concurrency, WidgetKit, Performance, Migration |
 | android-kotlin-plugin | 1.0.0 | Android/Kotlin toolkit: Compose, Coroutines, Performance, Architecture, Build, Migration |
 | utils | 1.3.0 | Code quality: deslop, search-code, safety hooks |
@@ -85,7 +85,7 @@ Single-file bundle architecture (`mcp-server/src/index.ts` → `scripts/mcp-serv
 | `platforms/ios.ts` | SwiftLint, SwiftFormat commands |
 | `platforms/android.ts` | ktlint, ktfmt commands |
 | `notion.ts` | Notion integration: config, inbox filter, spec extraction |
-| `continuity/` | Ledgers, reasoning, task-sync, memory, instincts, product-brain, context-injector |
+| `continuity/` | Ledgers, task-sync, memory, product-brain, context-injector |
 | `coordination/` | Multi-agent coordination, handoffs |
 
 ## Installation

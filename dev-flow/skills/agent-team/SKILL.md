@@ -248,9 +248,9 @@ Verify results, aggregate, review, shutdown teammates, clean up.
    - Pass → proceed to aggregation
 5. Aggregate results for PR summary:
    dev_aggregate(action='pr_ready', taskId='TASK-{id}')
-6. Consolidate team knowledge into knowledge base:
-   dev_memory(action='consolidate')
-   # Handoffs → pitfalls, reasoning → patterns, ledgers → decisions
+6. Save team learnings to knowledge vault:
+   dev_memory(action='save', text='...', tags='team,learnings')
+   # Save key pitfalls, patterns, decisions discovered during team work
    # Available to next session via SessionStart injection
 7. All done → shutdown teammates:
    SendMessage({ type: "shutdown_request", recipient: "{name}" })

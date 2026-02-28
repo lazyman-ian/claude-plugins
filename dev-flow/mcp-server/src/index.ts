@@ -157,24 +157,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
-      name: 'dev_reasoning',
-      description: '[~30 tokens] Manage commit reasoning and decision history',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          action: {
-            type: 'string',
-            enum: ['generate', 'recall', 'aggregate'],
-            description: 'Action to perform',
-          },
-          commitHash: { type: 'string', description: 'Commit hash (for generate)' },
-          commitMessage: { type: 'string', description: 'Commit message (for generate)' },
-          keyword: { type: 'string', description: 'Search keyword (for recall)' },
-          baseBranch: { type: 'string', description: 'Base branch (for aggregate, default: master)' },
-        },
-      },
-    },
-    {
       name: 'dev_branch',
       description: '[~30 tokens] Branch lifecycle management',
       inputSchema: {
@@ -262,21 +244,22 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: 'dev_memory',
-      description: '[~60 tokens] Manage knowledge consolidation (consolidate/status/query/list/extract/save/search/get)',
+      description: '[~60 tokens] Manage knowledge consolidation (status/save/search/get/list/prune/reindex)',
       inputSchema: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            enum: ['consolidate', 'status', 'query', 'list', 'extract', 'save', 'search', 'get', 'prune'],
+            enum: ['status', 'save', 'search', 'get', 'list', 'prune', 'reindex'],
             description: 'Action to perform',
           },
-          query: { type: 'string', description: 'Search query (for query action)' },
-          type: { type: 'string', description: 'Filter by type: pitfall|pattern|decision (for list action)' },
-          dryRun: { type: 'boolean', description: 'Preview only, no writes (for extract action)' },
+          query: { type: 'string', description: 'Search query (for search action)' },
+          type: { type: 'string', description: 'Filter by type: pitfall|pattern|decision|habit (for list action)' },
+          dryRun: { type: 'boolean', description: 'Preview only, no writes (for prune action)' },
           text: { type: 'string', description: 'Text content to save (for save action)' },
           title: { type: 'string', description: 'Title for saved entry (for save action, auto-generated if omitted)' },
           tags: { type: 'string', description: 'Comma-separated tags (for save action)' },
+          priority: { type: 'string', enum: ['critical', 'important', 'reference'], description: 'Priority level (for save action, default: important)' },
           ids: { type: 'string', description: 'Comma-separated entry IDs (for get action)' },
           limit: { type: 'number', description: 'Max results (for search action, default 10)' },
         },
@@ -473,8 +456,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Continuity tools
       case 'dev_ledger':
         return ledgerTool(args?.action as string, args?.taskId as string, args?.branch as string, args?.keyword as string, args?.commitHash as string, args?.commitMessage as string);
-      case 'dev_reasoning':
-        return reasoningTool(args?.action as string, args?.commitHash as string, args?.commitMessage as string, args?.keyword as string, args?.baseBranch as string);
       case 'dev_branch':
         return branchTool(args?.action as string, args?.target as string, args?.days as number, args?.dryRun as boolean);
       case 'dev_defaults':
@@ -483,7 +464,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return tasksTool(args?.action as string, args?.ledgerPath as string);
       // Memory tools
       case 'dev_memory':
-        return memoryTool(args?.action as string, args?.query as string, args?.type as string, args?.dryRun as boolean, args?.text as string, args?.title as string, args?.tags as string, args?.ids as string, args?.limit as number);
+        return memoryTool(args?.action as string, args?.query as string, args?.type as string, args?.dryRun as boolean, args?.text as string, args?.title as string, args?.tags as string, args?.ids as string, args?.limit as number, args?.priority as string);
       // Coordination tools
       case 'dev_coordinate':
         return coordinateTool(args?.action as string, args?.mode as string, args?.tasks as string, args?.taskId as string);
@@ -1004,30 +985,6 @@ function ledgerTool(action?: string, taskId?: string, branch?: string, keyword?:
   }
 }
 
-function reasoningTool(action?: string, commitHash?: string, commitMessage?: string, keyword?: string, baseBranch?: string) {
-  switch (action) {
-    case 'generate':
-      if (!commitHash || !commitMessage) {
-        return { content: [{ type: 'text', text: '❌ commitHash and commitMessage required' }] };
-      }
-      return { content: [{ type: 'text', text: continuity.reasoningGenerate(commitHash, commitMessage).message }] };
-    case 'recall':
-      if (!keyword) return { content: [{ type: 'text', text: '❌ Keyword required' }] };
-      const recall = continuity.reasoningRecall(keyword);
-      if (recall.data) {
-        const commits = recall.data.commits?.map((c: any) => `${c.commitHash}:${c.commitMessage}`).join('\n') || '';
-        const ledgers = recall.data.ledgers?.map((l: any) => l.name).join(',') || '';
-        return { content: [{ type: 'text', text: `${recall.message}\n${commits}\nledgers:${ledgers}` }] };
-      }
-      return { content: [{ type: 'text', text: recall.message }] };
-    case 'aggregate':
-      const agg = continuity.reasoningAggregate(baseBranch);
-      return { content: [{ type: 'text', text: agg.data?.content || agg.message }] };
-    default:
-      return { content: [{ type: 'text', text: '❌ Action required: generate|recall|aggregate' }] };
-  }
-}
-
 function branchTool(action?: string, target?: string, days?: number, dryRun?: boolean) {
   switch (action) {
     case 'merged':
@@ -1097,18 +1054,14 @@ function tasksTool(action?: string, ledgerPath?: string) {
 }
 
 // Memory tool implementation
-function memoryTool(action?: string, query?: string, type?: string, dryRun?: boolean, text?: string, title?: string, tags?: string, ids?: string, limit?: number) {
+function memoryTool(action?: string, query?: string, type?: string, dryRun?: boolean, text?: string, title?: string, tags?: string, ids?: string, limit?: number, priority?: string) {
   switch (action) {
-    case 'consolidate': {
-      const result = continuity.memoryConsolidate();
-      return { content: [{ type: 'text', text: result.message }] };
-    }
     case 'status': {
       const status = continuity.memoryStatus();
       return {
         content: [{
           type: 'text',
-          text: `entries:${status.totalEntries}|pitfalls:${status.byType.pitfall}|patterns:${status.byType.pattern}|decisions:${status.byType.decision}|unprocessed_handoffs:${status.unprocessedHandoffs}|unprocessed_reasoning:${status.unprocessedReasoning}`
+          text: `entries:${status.totalEntries}|pitfalls:${status.byType.pitfall}|patterns:${status.byType.pattern}|decisions:${status.byType.decision}|habits:${status.byType.habit}|vault:${status.vaultPath}|vault_files:${status.vaultFiles}|unprocessed_handoffs:${status.unprocessedHandoffs}`
         }]
       };
     }
@@ -1129,15 +1082,12 @@ function memoryTool(action?: string, query?: string, type?: string, dryRun?: boo
       const lines = results.map(r => `[${r.type}] ${r.title} (${r.platform})`);
       return { content: [{ type: 'text', text: `Total:${results.length}\n${lines.join('\n')}` }] };
     }
-    case 'extract': {
-      const result = continuity.extractFromProject(dryRun ?? false);
-      return { content: [{ type: 'text', text: result.message }] };
-    }
     case 'save': {
       if (!text) return { content: [{ type: 'text', text: '❌ text required for save' }] };
       const tagArray = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : undefined;
-      const result = continuity.memorySave(text, title, tagArray, type);
-      return { content: [{ type: 'text', text: `✅ ${result.message}` }] };
+      const result = continuity.memorySave(text, title, tagArray, type, priority);
+      const extra = result.filePath ? ` → ${result.filePath}` : '';
+      return { content: [{ type: 'text', text: result.saved === false ? `⏭️ ${result.message}` : `✅ ${result.message}${extra}` }] };
     }
     case 'search': {
       if (!query) return { content: [{ type: 'text', text: '❌ query required for search' }] };
@@ -1162,8 +1112,12 @@ function memoryTool(action?: string, query?: string, type?: string, dryRun?: boo
       const result = continuity.memoryPrune(dryRun ?? false);
       return { content: [{ type: 'text', text: result.message }] };
     }
+    case 'reindex': {
+      const result = continuity.reindexVault();
+      return { content: [{ type: 'text', text: result.message }] };
+    }
     default:
-      return { content: [{ type: 'text', text: '❌ Action required: consolidate|status|query|list|extract|save|search|get|prune' }] };
+      return { content: [{ type: 'text', text: '❌ Action required: status|save|search|get|list|prune|reindex' }] };
   }
 }
 

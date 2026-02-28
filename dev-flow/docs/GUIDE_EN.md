@@ -188,8 +188,7 @@ STARTING|✅0|checkout
 3. `git diff --stat` - Analyze changes
 4. `dev_defaults` - Infer scope
 5. `git commit` - Generate message (no Claude attribution)
-6. `dev_reasoning` - Record decision history
-7. `dev_ledger` - Update state
+6. `dev_ledger` - Update state
 
 #### /dev-flow:pr - Create PR
 

@@ -5,16 +5,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/prompt-knowledge.sh",
-            "timeout": 3,
-            "statusMessage": "Checking knowledge..."
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/url-reader.sh",
             "timeout": 3,
             "statusMessage": "Detecting URLs..."

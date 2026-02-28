@@ -1,8 +1,8 @@
 /**
- * Memory module tests — dedup functions + prune + temporal decay
+ * Memory module tests — dedup functions + prune + quality gate + temporal decay
  */
 
-import { extractKeyTerms, tokenOverlap, memoryPrune } from './memory';
+import { extractKeyTerms, tokenOverlap, memoryPrune, qualityCheck } from './memory';
 
 describe('extractKeyTerms', () => {
   it('removes stop words', () => {
@@ -68,17 +68,73 @@ describe('tokenOverlap', () => {
   });
 });
 
+describe('qualityCheck', () => {
+  it('rejects text that is too short', () => {
+    const result = qualityCheck('X');
+    expect(result.pass).toBe(false);
+    expect(result.reason).toContain('Too short');
+  });
+
+  it('rejects empty text', () => {
+    const result = qualityCheck('');
+    expect(result.pass).toBe(false);
+  });
+
+  it('rejects generic descriptions', () => {
+    expect(qualityCheck('Significant changes were made to the system').pass).toBe(false);
+    expect(qualityCheck('Updated the configuration files').pass).toBe(false);
+    expect(qualityCheck('Modified several components in the project').pass).toBe(false);
+    expect(qualityCheck('Changed the build process').pass).toBe(false);
+    expect(qualityCheck('There were updates to the codebase').pass).toBe(false);
+    expect(qualityCheck('Added several new features to the app').pass).toBe(false);
+    expect(qualityCheck('Removed several deprecated functions').pass).toBe(false);
+    expect(qualityCheck('Made adjustments to the API layer').pass).toBe(false);
+  });
+
+  it('rejects pure statistics', () => {
+    expect(qualityCheck('5 files changed in this commit').pass).toBe(false);
+    expect(qualityCheck('12 insertions and 3 deletions').pass).toBe(false);
+    expect(qualityCheck('1 file modified').pass).toBe(false);
+  });
+
+  it('rejects repetitive content', () => {
+    const repetitive = 'test test test test test test test test test test test test';
+    const result = qualityCheck(repetitive);
+    expect(result.pass).toBe(false);
+    expect(result.reason).toContain('lexical diversity');
+  });
+
+  it('accepts valid knowledge', () => {
+    expect(qualityCheck('Use guard clauses at function entry to reduce nesting depth').pass).toBe(true);
+    expect(qualityCheck('SQLite FTS5 requires content= parameter for external content tables').pass).toBe(true);
+  });
+
+  it('accepts short but valid text (>= 20 chars)', () => {
+    expect(qualityCheck('Guard clause reduces nesting').pass).toBe(true);
+  });
+
+  it('ignores title parameter for now', () => {
+    const result = qualityCheck('X', 'Some Title');
+    expect(result.pass).toBe(false);
+  });
+});
+
 describe('memoryPrune', () => {
   it('returns no-database message when DB does not exist', () => {
     const result = memoryPrune(false);
-    // In test env without actual DB, either returns 'No database' or 'No stale entries'
     expect(result.pruned).toBe(0);
+    expect(result.promoted).toBe(0);
+    expect(result.demoted).toBe(0);
+    expect(result.archived).toBe(0);
     expect(result.message).toBeTruthy();
   });
 
   it('supports dry run mode', () => {
     const result = memoryPrune(true);
     expect(result.pruned).toBeGreaterThanOrEqual(0);
+    expect(typeof result.promoted).toBe('number');
+    expect(typeof result.demoted).toBe('number');
+    expect(typeof result.archived).toBe('number');
     expect(typeof result.message).toBe('string');
   });
 });

@@ -14,7 +14,6 @@ Apply approved changes with safety measures:
 2. Create backups of original files
 3. Apply changes via Edit tool
 4. Record iteration in ledger
-5. Update reasoning history
 
 ## Process
 
@@ -84,17 +83,7 @@ cp thoughts/backups/2026-01-10/plan-agent.md agents/plan-agent.md
 ```
 ```
 
-### 5. Update Reasoning
-
-Record the iteration decision:
-
-```bash
-# Use dev_reasoning to record
-mcp__plugin_dev-flow_dev-flow__dev_reasoning action=generate \
-  commitMessage="meta-iterate: Applied ITER-001 improvements to plan-agent"
-```
-
-### 6. Update Ledger (if exists)
+### 5. Update Ledger (if exists)
 
 If there's an active meta-iterate ledger, update it:
 

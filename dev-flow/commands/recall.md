@@ -1,14 +1,14 @@
 ---
-description: Search historical reasoning and decisions
+description: Search historical knowledge and decisions
 ---
 
-Search past commit reasoning and ledger decisions. Arguments: "keyword"
+Search past knowledge entries and ledger decisions. Arguments: "keyword"
 
 ## Instructions
 
-1. **Search reasoning**:
+1. **Search knowledge vault**:
    ```
-   dev_reasoning(action="recall", keyword="$ARGUMENTS")
+   dev_memory(action="search", query="$ARGUMENTS")
    ```
 
 2. **Search ledgers**:
@@ -20,12 +20,13 @@ Search past commit reasoning and ledger decisions. Arguments: "keyword"
    ```
    🔍 Searching for "$ARGUMENTS"...
 
-   ## Commit Reasoning
-   ### abc1234 (2 days ago)
-   feat(auth): add reCAPTCHA
+   ## Knowledge Vault
+   ### pitfall: MainActor isolation issue (critical)
+   Platform: ios | Tags: concurrency, MainActor
+   ...
 
-   Context: Chose RecaptchaEnterprise SDK because...
-   Failed attempts: 2
+   ### decision: RecaptchaEnterprise SDK choice
+   Platform: ios | Tags: auth, sdk
    ...
 
    ## Ledgers

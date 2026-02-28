@@ -110,16 +110,6 @@ Sync ledger state with Task Management.
 { "action": "sync" }     // Update ledger from tasks
 ```
 
-### dev_reasoning (~30 tokens)
-
-Manage commit reasoning and decision history.
-
-```json
-{ "action": "generate", "commitHash": "...", "commitMessage": "..." }
-{ "action": "recall", "keyword": "auth" }
-{ "action": "aggregate", "baseBranch": "master" }
-```
-
 ## Branch Tools
 
 ### dev_branch (~30 tokens)
@@ -153,18 +143,19 @@ python|fix:black .|check:ruff .|scopes:api,models|src:custom
 
 ### dev_memory (~60 tokens)
 
-Knowledge consolidation and cross-session learning.
+Markdown-first knowledge vault with SQLite FTS5 search index.
 
 ```json
-{ "action": "consolidate" }                // Scan handoffs/reasoning/ledgers → knowledge entries
-{ "action": "status" }                     // Knowledge base stats + unprocessed counts
-{ "action": "query", "query": "MainActor" } // FTS5 search across knowledge
+{ "action": "status" }                     // Vault stats + entry counts
+{ "action": "save", "text": "...", "tags": "ios,concurrency" }  // Save knowledge entry
+{ "action": "search", "query": "MainActor" } // FTS5 search across vault
+{ "action": "get", "ids": "1,2,3" }       // Get specific entries by ID
 { "action": "list", "type": "pitfall" }    // List entries by type (pitfall/pattern/decision)
-{ "action": "extract", "dryRun": true }    // Full project extraction (preview)
-{ "action": "prune" }                      // TTL cleanup: remove access_count=0 AND >90 days entries
+{ "action": "prune" }                      // Archive: reference + 0 access + >90 days
+{ "action": "reindex" }                    // Reindex vault .md files into SQLite FTS5
 ```
 
-Knowledge store: Per-project SQLite DB at `.claude/cache/artifact-index/context.db` (temporal decay scoring: `rank * 1/(1 + days/30)`)
+Knowledge vault: `thoughts/knowledge/{pitfalls,patterns,decisions,habits}/*.md` with YAML frontmatter (priority, tags, access_count). SQLite FTS5 index for fast search.
 
 ## Tool Selection Guide
 

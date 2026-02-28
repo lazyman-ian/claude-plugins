@@ -34,7 +34,7 @@ gh pr view {number} --json commits,baseRefName
 
 # MCP tools
 dev_commits(format="full")
-dev_reasoning(action="aggregate", baseBranch="master")
+dev_memory(action="search", query="decisions for current branch")
 dev_ledger(action="status")
 ```
 

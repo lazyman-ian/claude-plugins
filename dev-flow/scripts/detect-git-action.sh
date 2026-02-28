@@ -14,7 +14,7 @@ if echo "$TOOL_INPUT" | grep -qE 'git commit'; then
   # Extract commit hash from output
   HASH=$(echo "$TOOL_OUTPUT" | grep -oE '[a-f0-9]{7,40}' | head -1)
   if [ -n "$HASH" ]; then
-    output "Commit detected: $HASH. Consider: dev_reasoning(action='generate') to record reasoning."
+    output "Commit detected: $HASH. Consider: dev_memory(action='save') to record key decisions."
     exit 0
   fi
 fi

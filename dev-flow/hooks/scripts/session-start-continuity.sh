@@ -37,19 +37,7 @@ if (( _NOW - _LAST > 86400 )); then
     echo "$_NOW" > "$_STAMP"
 fi
 
-# Weekly knowledge prune (frequency-guarded: max once per 7 days)
-_PRUNE_STAMP="/tmp/claude-prune-$(echo "$PROJECT_DIR" | md5 -q 2>/dev/null || echo "$PROJECT_DIR" | md5sum | cut -d' ' -f1).txt"
-_PRUNE_LAST=$(cat "$_PRUNE_STAMP" 2>/dev/null || echo "0")
-if (( _NOW - _PRUNE_LAST > 604800 )); then
-    DB_PATH="$PROJECT_DIR/.claude/cache/artifact-index/context.db"
-    if [[ -f "$DB_PATH" ]]; then
-        PRUNED=$(sqlite3 "$DB_PATH" "DELETE FROM knowledge WHERE COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90; SELECT changes();" 2>/dev/null || echo "0")
-        if [[ "$PRUNED" -gt 0 ]]; then
-            echo "Pruned $PRUNED stale knowledge entries" >&2
-        fi
-    fi
-    echo "$_NOW" > "$_PRUNE_STAMP"
-fi
+# Knowledge pruning is now explicit via dev_memory(prune)
 
 # Run main continuity handler (self-contained)
 if [[ ! -f "$SCRIPT_DIR/dist/session-start-continuity.mjs" ]]; then

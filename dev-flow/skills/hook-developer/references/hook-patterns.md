@@ -153,10 +153,10 @@ echo '{"result": "continue"}'
 
 `last_assistant_message` (v2.1.47+) provides Claude's final response directly.
 
-### Session Summary (Tier 1 Memory)
+### Save Session Learnings (Knowledge Vault)
 
 ```bash
-# Generate session summary for knowledge system
+# Save session learnings to knowledge vault via Stop hook
 summary=$(echo "$input" | jq -r '.last_assistant_message // empty' 2>/dev/null | head -c 500)
 echo "$summary" > "/tmp/session-summary-$$.txt"
 echo '{"result": "continue"}'

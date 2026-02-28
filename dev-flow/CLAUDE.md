@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-dev-flow-plugin (v6.1.0) is a Claude Code plugin providing unified development workflow automation: brainstorm → plan → implement (5-gate pipeline) → review → commit → PR → release. Features VDD (Verification-Driven Development), 5-gate execution pipeline, multi-layer automated code review (P0-P3), instinct system (pattern extraction from observations), Notion pipeline (task triage → spec generation), product brain (architecture knowledge), 4-tier memory with Auto Memory sync, rules distribution system, multi-agent collaboration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
+dev-flow-plugin (v6.1.0) is a Claude Code plugin providing unified development workflow automation: brainstorm → plan → implement (5-gate pipeline) → review → commit → PR → release. Features VDD (Verification-Driven Development), 5-gate execution pipeline, multi-layer automated code review (P0-P3), Markdown-first knowledge vault with SQLite FTS5 search, Notion pipeline (task triage → spec generation), product brain (architecture knowledge), rules distribution system, multi-agent collaboration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
 
 ## Build & Development
 
@@ -94,8 +94,7 @@ export function getPythonCommands(): PlatformCommands {
 | `dev_handoff` | ~50 | Handoff document management |
 | `dev_aggregate` | ~60 | Aggregate results for PR |
 | `dev_commit` | ~30 | Server-enforced commit: prepare → review → finalize |
-| `dev_memory` | ~60 | Knowledge: consolidate/status/query/list/extract/save/search/get |
-| `dev_instinct` | ~40 | Pattern extraction: extract/list/prune from observations |
+| `dev_memory` | ~60 | Knowledge vault: save/search/get/list/prune/reindex |
 | `dev_product` | ~50 | Product brain: extract/query/save architecture knowledge |
 | `dev_inbox` | ~40 | Notion task triage with priority filtering |
 | `dev_spec` | ~50 | Spec generation from Notion tasks |
@@ -158,65 +157,54 @@ ls -l hooks/dist/*.mjs
 ### Continuity System
 
 - **Ledgers**: `thoughts/ledgers/CONTINUITY_CLAUDE-*.md` - Track task state across sessions
-- **Reasoning**: `.git/claude/commits/<hash>/reasoning.md` + `thoughts/reasoning/<hash>-reasoning.md` - Dual-write for persistence
 - **Task Sync**: Bridge ledger state with Claude Code Task Management tools
-- Both stored in git for persistence
+- Stored in git for persistence
 
-### Knowledge System (v6.1.0)
+### Knowledge System
 
-4-tier progressive memory with per-project SQLite as single source of truth. Tier selected interactively during `/dev-flow:init`, upgradeable via `--tier N`:
+Markdown-first knowledge vault with SQLite FTS5 search index.
 
 ```
-Session → [auto-handoff] → [dev_memory consolidate] → SQLite DB → [SessionStart inject] → Next Session
-                                                          ↑
-                                     UserPromptSubmit → auto-retrieval (every 3rd prompt)
-                                     Stop hook → session summary (Tier 1)
-                                     PostToolUse → observations (Tier 3)
+Obsidian Vault (.md files)  ← source of truth, human-editable
+        ↓ (auto-index)
+SQLite FTS5 (index)         ← fast search
+        ↓ (SessionStart)
+Auto Memory (MEMORY.md)     ← Claude session injection
 ```
 
-**Tier Architecture**:
+**Vault structure**: `thoughts/knowledge/{pitfalls,patterns,decisions,habits}/*.md`
 
-| Tier | Features | Cost | Dependencies |
-|------|----------|------|-------------|
-| 0 | FTS5 search, save/search/get, synonyms | 0 | None |
-| 1 | + Session summaries (Stop hook) | ~$0.001/sess | Optional API key |
-| 2 | + ChromaDB semantic search | Same | + chromadb |
-| 3 | + Periodic observation capture | ~$0.005/sess | Same as Tier 1 |
+**Each entry**: YAML frontmatter with type, priority (critical/important/reference), platform, tags, created, access_count.
 
-**Components**:
-- **Per-project SQLite DB**: `.claude/cache/artifact-index/context.db` (knowledge, reasoning, synonyms, session_summaries, observations) — no cross-project pollution
-- **Auto-Retrieval**: UserPromptSubmit hook queries relevant knowledge every 3rd prompt
-- **Temporal Decay**: `rank * 1/(1 + days/30)` scoring — recent knowledge ranks higher
-- **TTL Pruning**: Weekly cleanup of `access_count=0 AND >90 days` entries
-- **MEMORY.md Layered Trim**: Auto-trim by P0-P3 priority to keep MEMORY.md concise
-- **Smart Injection**: SessionStart injects pitfalls + task knowledge + last session summary (budget: ~2500 tokens)
-- **Synonym Expansion**: 8 default synonym groups for query enhancement
-- **ChromaDB**: Optional semantic search via dynamic import, graceful degradation
-- **Extract**: `/dev-flow:extract-knowledge` scans CLAUDE.md pitfalls, ledger decisions, reasoning patterns
+**Priority + decay**:
+- Score: `priority_weight × temporal_decay(30-day half-life)`
+- Auto-promote: `access_count >= 3` → critical
+- Auto-demote: `important + 0 access + >90 days` → reference
+- Auto-archive: `reference + 0 access + >90 days` → `.archive/`
+
+**Quality gate**: Rejects vague entries (regex + Type-Token Ratio, no LLM).
+
+**Write triggers**: Stop hook, commit time, AI proactive save, user manual — all through quality gate + smart dedup.
+
+**Read**: SessionStart injects critical + recent important. On-demand via `dev_memory(search)`.
 
 **Configuration** (`.dev-flow.json`):
 ```json
 {
   "memory": {
-    "tier": 3
+    "vault": "thoughts/knowledge"
   }
 }
 ```
-
-Feature flags are auto-derived from tier (explicit overrides still supported):
-- tier >= 1: `sessionSummary`
-- tier >= 2: `chromadb`
-- tier >= 3: `periodicCapture`
 
 ### Hook Integration
 
 - `PreToolUse(Bash(git commit*))`: Pre-commit knowledge pitfall check (FTS5 query, warns only)
 - `PreToolUse(Bash(*git commit*))`: Commit guard — blocks raw `git commit` (including chained), enforces `/dev commit` via `DEV_FLOW_COMMIT=1` prefix
-- `UserPromptSubmit`: Auto-retrieval — queries per-project SQLite every 3rd prompt, injects relevant knowledge with temporal decay scoring
-- `SessionStart`: Warn if not initialized + load active ledger + platform knowledge + last session summary + init review session log
+- `SessionStart`: Warn if not initialized + load active ledger + inject critical knowledge from vault + init review session log
 - `PreCompact`: Backup transcript before context compaction
-- `Stop`: Generate session summary via Haiku or heuristic (Tier 1+)
-- `PostToolUse`: Tool counter + dev reminders + periodic observation capture (Tier 3)
+- `Stop`: Save session learnings to knowledge vault (quality gate filtered)
+- `PostToolUse`: Tool counter + dev reminders
 
 ### Review System (v4.1.0)
 
@@ -261,7 +249,6 @@ Agents in `agents/` are spawned via Task tool for complex operations:
 - `evaluate/diagnose/propose/apply/verify-agent.md` - Meta-iterate cycle
 - `validate-agent.md` - Validate plan tech choices
 - `pr-describer.md` - Generate PR descriptions
-- `reasoning-generator.md` - Commit reasoning documentation
 
 ## Conventions
 
@@ -310,21 +297,17 @@ dev_config → python|fix:black .|check:ruff .|scopes:api,models|src:custom
 
 ## Recent Changes (v6.0.0)
 
-### Instinct System
-Pattern extraction from observations via DBSCAN-style clustering. Instincts accumulate confidence through repeated observation and can be evolved into skills/rules/commands via `/dev evolve`.
-
 ### Notion Pipeline
 Task triage (`/dev inbox`), spec generation (`/dev spec`), and post-merge Notion status update hook. Configured via `notion` section in `.dev-flow.json`.
 
 ### Product Brain
 Architecture knowledge extraction and query (`dev_product` tool). Post-impl hook reminds to capture product-level decisions after commits.
 
-### Memory Architecture Alignment
-- Per-project SQLite DB (`.claude/cache/artifact-index/context.db`) as single source of truth — no global `~/.claude/knowledge/` file writes
-- `syncToMemoryMd()`: Writes dev memory context to Auto Memory `MEMORY.md` between markers
-- Auto-retrieval via UserPromptSubmit hook (every 3rd prompt) with temporal decay scoring
-- TTL pruning: `access_count=0 AND >90 days` weekly cleanup
-- MEMORY.md layered auto-trim (P0-P3 priority)
+### Knowledge Vault (v6.2.0)
+- Markdown-first storage in `thoughts/knowledge/` — human-editable, git-tracked
+- SQLite FTS5 index for fast search with temporal decay scoring
+- Priority levels (critical/important/reference) with auto-promote/demote
+- Quality gate rejects vague entries (regex + Type-Token Ratio)
 - Path-scoped pitfall templates: `ios-pitfalls.md` (`**/*.swift`), `android-pitfalls.md` (`**/*.kt`)
 
 ### Rules Distribution

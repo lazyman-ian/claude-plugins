@@ -1,33 +1,35 @@
 ---
-description: Extract reusable knowledge from current project into per-project SQLite knowledge base
+description: Reindex knowledge vault Markdown files into SQLite FTS5 search index
 ---
 
-# /dev-flow:extract-knowledge - Knowledge Extraction
+# /dev-flow:extract-knowledge - Knowledge Vault Reindex
 
-Extract reusable knowledge from the current project into the per-project SQLite DB (`.claude/cache/artifact-index/context.db`).
+Reindex Markdown vault files (`thoughts/knowledge/**/*.md`) into the SQLite FTS5 search index.
 
 ## Usage
 
 ```
-/dev-flow:extract-knowledge              # Full extraction
+/dev-flow:extract-knowledge              # Full reindex
 /dev-flow:extract-knowledge --dry-run    # Preview only
 ```
 
 ## Workflow
 
-### Step 1: Preview what will be extracted
+### Step 1: Check vault status
 
 ```
-dev_memory(action:"extract", dryRun:true)
+dev_memory(action:"status")
 ```
 
-Show the counts to the user and confirm before proceeding.
+Show the current vault stats and entry counts to the user.
 
-### Step 2: Run extraction
+### Step 2: Run reindex
 
 ```
-dev_memory(action:"extract")
+dev_memory(action:"reindex")
 ```
+
+This scans all `.md` files in `thoughts/knowledge/{pitfalls,patterns,decisions,habits}/` and updates the SQLite FTS5 index.
 
 ### Step 3: Report results
 
@@ -35,49 +37,52 @@ dev_memory(action:"extract")
 dev_memory(action:"status")
 ```
 
-Show the knowledge base status after extraction.
+Show the updated knowledge base status after reindex.
 
 ### Step 4: Update MEMORY.md (optional)
 
-If the user's project memory file exists at the auto-memory path, append an `## Auto-extracted` section with today's date and counts.
+If the user's project memory file exists at the auto-memory path, append an `## Auto-indexed` section with today's date and counts.
 
-## Data Sources
+## Vault Structure
 
-| Source | Extracted Content | Knowledge Type |
-|--------|------------------|----------------|
-| CLAUDE.md "Known Pitfalls" | Platform-specific bugs | `pitfall` |
-| `thoughts/ledgers/*.md` resolved questions | Technical decisions | `decision` |
-| `.git/claude/commits/` failed attempts | Anti-patterns | `pattern` |
-| `thoughts/shared/handoffs/` errors | Platform pitfalls | `pitfall` |
+```
+thoughts/knowledge/
+├── pitfalls/     # Platform-specific bugs and gotchas
+├── patterns/     # Reusable code patterns
+├── decisions/    # Technical decisions and rationale
+└── habits/       # Development habits and preferences
+```
 
-## Knowledge Destinations
-
-All types are stored in the per-project SQLite DB (`context.db` → `knowledge` table):
-
-| Type | DB `type` Column | Description |
-|------|-----------------|-------------|
-| `pitfall` | `pitfall` | Platform-specific bugs and gotchas |
-| `pattern` | `pattern` | Reusable code patterns |
-| `decision` | `decision` | Technical decisions and their rationale |
+Each `.md` file has YAML frontmatter:
+```yaml
+---
+type: pitfall
+priority: critical    # critical | important | reference
+platform: ios
+tags: [concurrency, MainActor]
+created: 2026-02-28
+access_count: 3
+---
+```
 
 ## Output Format
 
 ```
-Knowledge Extraction Complete
+Knowledge Vault Reindex Complete
 
 Platform: ios
-Extracted:
-- 2 pitfalls → context.db (knowledge table)
-- 1 pattern → context.db (knowledge table)
-- 3 decisions → context.db (knowledge table)
-- 0 skipped (duplicates)
+Indexed:
+- 2 pitfalls
+- 1 pattern
+- 3 decisions
+- 0 habits
 
-Knowledge base: 12 entries total (per-project SQLite)
+Vault: 12 entries total (thoughts/knowledge/)
+FTS5 index: synchronized
 ```
 
 ## Arguments
 
 | Arg | Effect |
 |-----|--------|
-| `--dry-run` | Pass `dryRun: true` to `dev_memory(action:"extract")` |
-| `--type pitfalls` | Only extract pitfall type (future) |
+| `--dry-run` | Preview what would be reindexed without making changes |

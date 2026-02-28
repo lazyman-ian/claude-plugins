@@ -48,11 +48,6 @@ adb logcat -d | grep -i error | tail -50
 
 ### 3. Analyze Patterns
 
-**Search reasoning history**:
-```
-dev_reasoning(action="recall", keyword="<related-term>")
-```
-
 **Check similar past issues**:
 ```
 dev_ledger(action="search", keyword="<error-type>")
@@ -110,6 +105,5 @@ dev_memory(action="save", title="<brief-pattern>", text="<root-cause-and-fix>", 
 - `Grep` - Search code
 - `Read` - Read files
 - `Bash` - Run commands
-- `dev_reasoning(recall)` - Search past decisions
 - `dev_ledger(search)` - Search task history
 - `dev_memory(query/save)` - Search and save knowledge patterns

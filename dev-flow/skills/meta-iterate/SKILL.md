@@ -195,7 +195,7 @@ evaluate (Braintrust)   ─┘
 | dev-flow Component | Usage |
 |--------------------|-------|
 | `dev_ledger` | Track iteration tasks |
-| `dev_reasoning` | Record iteration decisions |
+| `dev_memory` | Save iteration learnings to knowledge vault |
 | Insights facets | 宏观数据: 摩擦、目标、结果 (always) |
 | `braintrust_analyze.py` | 微观数据: 工具调用、token (default) |
 | Task metrics (v2.1.31+) | Subagent 效率: token_count, tool_uses, duration |

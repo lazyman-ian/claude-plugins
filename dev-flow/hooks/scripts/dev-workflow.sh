@@ -63,7 +63,7 @@ has_ledger() {
 CONTEXT=""
 
 # =============================================================================
-# 1. git commit → Auto-generate reasoning
+# 1. git commit → Auto-update ledger
 # =============================================================================
 if [[ "$COMMAND" =~ git[[:space:]]+commit ]]; then
     # Extract commit hash from output
@@ -75,16 +75,10 @@ if [[ "$COMMAND" =~ git[[:space:]]+commit ]]; then
         COMMIT_MSG=$(git -C "$PROJECT_DIR" log -1 --format="%s" "$FULL_HASH" 2>/dev/null || echo "")
 
         if [[ -n "$FULL_HASH" && -n "$COMMIT_MSG" ]]; then
-            # Generate reasoning (run in background to not block)
-            if [[ -x "$SCRIPTS_DIR/generate-reasoning.sh" ]]; then
-                "$SCRIPTS_DIR/generate-reasoning.sh" "$FULL_HASH" "$COMMIT_MSG" >/dev/null 2>&1 &
-                CONTEXT="✅ Reasoning auto-generated for commit $COMMIT_HASH"
-            fi
-
             # Update ledger if exists
             if has_ledger && [[ -x "$SCRIPTS_DIR/ledger-manager.sh" ]]; then
                 "$SCRIPTS_DIR/ledger-manager.sh" update "$FULL_HASH" "$COMMIT_MSG" >/dev/null 2>&1 &
-                CONTEXT="$CONTEXT\n📚 Ledger updated"
+                CONTEXT="📚 Ledger updated"
             fi
         fi
     fi

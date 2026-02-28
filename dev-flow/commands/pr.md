@@ -31,7 +31,7 @@ git diff master...HEAD --stat
 
 ```
 dev_commits(format="full")
-dev_reasoning(action="aggregate", baseBranch="master")
+dev_memory(action="search", query="decisions for current branch")
 dev_ledger(action="status")
 ```
 

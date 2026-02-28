@@ -48,7 +48,7 @@
 | **Multi-Agent** | TaskCoordinator + HandoffHub for complex tasks |
 | **Cross-Platform Team** | Parallel multi-repo development (iOS/Android/Web) with Agent Teams |
 | **Quality Assurance** | Auto-run platform lint/format/test/verify |
-| **Knowledge Base** | 4-tier memory with instinct system and product brain |
+| **Knowledge Base** | Markdown-first knowledge vault with SQLite FTS5 search |
 | **Notion Pipeline** | Task triage, spec generation, and status sync with Notion |
 | **Rules Distribution** | Platform-aware rule templates for `.claude/rules/` |
 | **Multi-Platform** | iOS, Android built-in; extensible to Python, Go, Rust, Node |
@@ -340,7 +340,7 @@ Create `.dev-flow.json` in project root:
 | `dev_config` | ~50 | Platform config |
 | `dev_ready` | ~20 | PR status control |
 | `dev_ledger` | ~50 | Ledger management |
-| `dev_reasoning` | ~30 | Reasoning records |
+| `dev_memory` | ~60 | Knowledge vault |
 | `dev_branch` | ~30 | Branch lifecycle |
 | `dev_defaults` | ~20 | Smart defaults |
 | `dev_commits` | ~100 | Commit grouping |
@@ -361,12 +361,11 @@ Create `.dev-flow.json` in project root:
 </details>
 
 <details>
-<summary><strong>Knowledge & Memory Tools (4)</strong></summary>
+<summary><strong>Knowledge & Memory Tools (3)</strong></summary>
 
 | Tool | Tokens | Purpose |
 |------|--------|---------|
-| `dev_memory` | ~60 | Knowledge consolidation & cross-session learning |
-| `dev_instinct` | ~40 | Pattern extraction & instinct management |
+| `dev_memory` | ~60 | Knowledge vault: save/search/get/list/prune/reindex |
 | `dev_product` | ~50 | Product brain: architecture knowledge |
 | `dev_commit` | ~30 | Server-enforced commit pipeline |
 

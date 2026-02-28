@@ -7,6 +7,6 @@
   },
   "scopes": ["dev-flow", "research", "utils", "ios-swift", "docs", "hooks", "skills", "agents", "commands"],
   "memory": {
-    "tier": 3
+    "vault": "thoughts/knowledge"
   }
 }

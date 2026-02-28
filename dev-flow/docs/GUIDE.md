@@ -187,8 +187,7 @@ STARTING|✅0|checkout
 3. `git diff --stat` - 分析变更
 4. `dev_defaults` - 推断 scope
 5. `git commit` - 生成 message (无 Claude 署名)
-6. `dev_reasoning` - 记录决策历史
-7. `dev_ledger` - 更新状态
+6. `dev_ledger` - 更新状态
 
 #### /dev-flow:pr - 创建 PR
 

@@ -35,20 +35,13 @@ Detection priority: `.dev-flow.json` > file-based auto-detect.
 
 > **Mixed projects**: Use `.dev-flow.json` to explicitly set platform.
 
-### 3. Memory Tier Selection
+### 3. Knowledge Vault Setup
 
-Use `AskUserQuestion` to let the user choose memory tier:
-
-| Tier | Features | Cost | Requirements |
-|------|----------|------|-------------|
-| **0 (Recommended)** | FTS5 search, save/search/get | Free | sqlite3 (system) |
-| 1 | + Session summaries on stop | ~$0.001/sess | Optional: ANTHROPIC_API_KEY |
-| 2 | + ChromaDB semantic search | Same | + `npm install chromadb` |
-| 3 | + Periodic observation capture | ~$0.005/sess | Same as Tier 1 |
+The knowledge vault is automatically created under `thoughts/knowledge/` with subdirectories for different entry types.
 
 ### 4. Configuration File (.dev-flow.json)
 
-Write config using detected platform + selected tier:
+Write config using detected platform:
 
 ```json
 {
@@ -59,7 +52,7 @@ Write config using detected platform + selected tier:
   },
   "scopes": ["<auto-detected>"],
   "memory": {
-    "tier": "<user-selected>"
+    "vault": "thoughts/knowledge"
   }
 }
 ```
@@ -108,64 +101,31 @@ Run `/dev rules install` with detected platform. This creates `.claude/rules/dev
 
 Rules are namespaced under `.claude/rules/dev-flow/` to avoid conflicts with existing project rules.
 
-### 6. Memory Tier Setup (auto, based on Step 3 selection)
+### 6. Knowledge Vault Setup (auto)
 
 Immediately after writing `.dev-flow.json`:
 
-**Step 5a**: Initialize DB
+**Step 6a**: Create vault directories
+
+```bash
+mkdir -p thoughts/knowledge/{pitfalls,patterns,decisions,habits}
+```
+
+**Step 6b**: Initialize FTS5 index
 
 ```
 dev_memory(action="status")
 ```
 
-Triggers lazy `ensureDbSchema()` — creates sqlite3 DB + FTS5 tables.
-
-**Step 5b**: Tier-specific deps (only if tier >= 1)
-
-```bash
-# Tier 1+: Check API key (DEV_FLOW_API_KEY > ANTHROPIC_API_KEY)
-API_KEY="${DEV_FLOW_API_KEY:-$ANTHROPIC_API_KEY}"
-if [[ -z "$API_KEY" ]]; then
-    echo "⚠️ No API key — session summaries use heuristic fallback (git-log based)"
-    echo "   Set DEV_FLOW_API_KEY or ANTHROPIC_API_KEY for Haiku-powered summaries"
-fi
-
-# Tier 2+: Install ChromaDB
-if ! node -e "require('chromadb')" 2>/dev/null; then
-    npm install --prefix ${CLAUDE_PLUGIN_ROOT}/mcp-server chromadb
-    npm run --prefix ${CLAUDE_PLUGIN_ROOT}/mcp-server bundle
-fi
-```
-
-> Non-plugin install: `npm install -g chromadb`
-
-**Environment Variables** (Tier 1+):
-
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `DEV_FLOW_API_KEY` | API key (preferred, avoids OAuth conflict) | `$ANTHROPIC_API_KEY` |
-| `DEV_FLOW_API_URL` | Full messages endpoint URL | `https://api.anthropic.com/v1/messages` |
-| `DEV_FLOW_MODEL` | Model name for summaries/observations | `claude-haiku-4-5-20251001` |
-
-> **订阅用户**: 使用 `DEV_FLOW_API_KEY` 避免与 Claude Code OAuth 认证冲突。
-> **第三方 API**: 设置 `DEV_FLOW_API_URL` + `DEV_FLOW_MODEL` 指向兼容 Anthropic API 格式的服务。
->
-> 示例 (Moonshot):
-> ```bash
-> export DEV_FLOW_API_KEY="sk-xxx"
-> export DEV_FLOW_API_URL="https://api.moonshot.cn/anthropic/v1/messages"
-> export DEV_FLOW_MODEL="moonshot-v1-8k"
-> ```
+Triggers lazy DB schema creation — creates sqlite3 FTS5 index for vault search.
 
 **Output:**
 
 ```
-🧠 Memory: Tier <N>
+🧠 Knowledge vault initialized
 
-✅ sqlite3 + FTS5
-✅ Knowledge DB created
-[⚠️ No API key — heuristic fallback]
-[✅ ChromaDB installed]
+✅ Vault: thoughts/knowledge/
+✅ FTS5 search index created
 ```
 
 ### Already Initialized
@@ -188,29 +148,25 @@ Run `/dev-flow:init --force` to reinitialize
 | `--platform <name>` | Skip detection, use specified platform |
 | `--minimal` | Only create directories, no config |
 | `--force` | Reinitialize even if already exists |
-| `--tier <0-3>` | Update memory tier only (skip platform/directory setup) |
+| `--reindex` | Reindex knowledge vault only (skip platform/directory setup) |
 | `--with-keybindings` | Add keybindings to settings.json |
 
-### Tier Upgrade (`--tier`)
+### Vault Reindex (`--reindex`)
 
-Changes memory tier without touching other config. Reads existing `.dev-flow.json`, updates `memory.tier`, then runs Step 5 only.
+Reindexes knowledge vault files into FTS5 without touching other config.
 
 ```bash
-/dev-flow:init --tier 3
+/dev-flow:init --reindex
 ```
 
 Flow:
 1. Read existing `.dev-flow.json` (must exist, error if not)
-2. Update `memory.tier` to specified value
-3. Run Step 5a (DB init) + Step 5b (deps check/install)
+2. Run `dev_memory(action="reindex")` to sync vault → FTS5
 
 ```
-🧠 Memory: Tier 0 → 3
+🧠 Knowledge vault reindexed
 
-✅ sqlite3 + FTS5 (already initialized)
-⚠️ ANTHROPIC_API_KEY not set — heuristic fallback
-📦 Installing chromadb... done
-✅ Tier 3 active: session summaries + observations + semantic search
+✅ 12 entries indexed from thoughts/knowledge/
 ```
 
 ## Keybindings Setup
@@ -237,7 +193,7 @@ If you use `--with-keybindings`, adds to `~/.claude/settings.json`:
 
 Without initialization:
 - `dev_config` returns generic commands (no platform-specific lint/format)
-- `dev_memory` has no knowledge system (missing `memory.tier` config)
+- `dev_memory` has no knowledge vault (missing `memory.vault` config)
 - `dev_defaults` cannot infer scopes (no `scopes` array)
 - `/dev commit` quality checks use placeholder commands
 

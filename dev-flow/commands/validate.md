@@ -24,7 +24,7 @@ Identify from the plan:
 
 ```
 dev_ledger(action="search", keyword="<tech-choice>")
-dev_reasoning(action="recall", keyword="<tech-choice>")
+dev_memory(action="search", query="<tech-choice>")
 ```
 
 Look for:

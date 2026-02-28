@@ -117,29 +117,7 @@ dev_commit(action="finalize", token="<token>", message="...", skip_review=true)
 
 > Server 内部使用 `DEV_FLOW_COMMIT=1 git commit` 执行，commit-guard hook 自动放行。
 
-### Step 6: 生成 Reasoning
-```
-dev_reasoning(action="generate", commitHash="<hash>", commitMessage="<msg>")
-```
-
-自动保存到 `.git/claude/commits/<hash>/reasoning.md`:
-```markdown
-# Commit Reasoning
-
-## What Changed
-- [变更说明]
-
-## Why
-- [原因]
-
-## Alternatives Considered
-- [考虑过的方案]
-
-## Build Attempts
-- [构建历史，如果有]
-```
-
-### Step 7: 更新 Ledger
+### Step 6: 更新 Ledger
 ```
 dev_ledger(action="update", content="Committed: <hash-short>")
 ```
@@ -154,7 +132,6 @@ dev_ledger(action="update", content="Committed: <hash-short>")
 | Hash | abc1234 |
 | Message | feat(auth): add recaptcha validation |
 | Files | 3 changed |
-| Reasoning | .git/claude/commits/abc1234/reasoning.md |
 
 🎯 下一步: `git push` 或 继续开发
 ```
@@ -171,6 +148,6 @@ dev_ledger(action="update", content="Committed: <hash-short>")
 
 - ✅ 自动运行 `make fix` 和 `make check`
 - ✅ 自动推断 scope
-- ✅ 自动生成 reasoning
+- ✅ 自动更新 ledger
 - ❌ **不添加** Claude 署名
 - ❌ **不添加** Co-Authored-By

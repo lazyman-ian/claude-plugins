@@ -1,20 +1,20 @@
 /**
- * Knowledge Consolidation Engine
- * Scans session artifacts (auto-handoffs, reasoning, ledgers) and
- * consolidates them into persistent, searchable knowledge entries.
+ * Knowledge Storage Engine
+ * Provides persistent, searchable knowledge entries via per-project SQLite.
+ * Supports save, search (FTS5 with synonym expansion + temporal decay),
+ * dedup (token overlap + optional LLM), and TTL pruning.
  */
 
 import { execSync } from 'child_process';
-import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, mkdirSync, statSync, writeFileSync, renameSync } from 'fs';
 import { join, basename } from 'path';
-import { homedir } from 'os';
 import { detectPlatformSimple } from '../detector';
 
 // --- Types ---
 
 interface KnowledgeEntry {
   id: string;
-  type: 'pitfall' | 'pattern' | 'decision';
+  type: 'pitfall' | 'pattern' | 'decision' | 'habit';
   platform: string;
   title: string;
   problem: string;
@@ -25,23 +25,13 @@ interface KnowledgeEntry {
   filePath: string;
 }
 
-interface ConsolidationResult {
-  success: boolean;
-  message: string;
-  data?: {
-    pitfalls: number;
-    patterns: number;
-    decisions: number;
-    skippedDuplicates: number;
-  };
-}
-
 interface MemoryStatus {
   totalEntries: number;
   byType: Record<string, number>;
   unprocessedHandoffs: number;
-  unprocessedReasoning: number;
   knowledgeDir: string;
+  vaultPath: string;
+  vaultFiles: number;
 }
 
 // --- Helpers ---
@@ -106,65 +96,10 @@ CREATE TRIGGER IF NOT EXISTS knowledge_ad AFTER DELETE ON knowledge BEGIN
   INSERT INTO knowledge_fts(knowledge_fts, rowid, title, problem, solution) VALUES('delete', old.rowid, old.title, old.problem, old.solution);
 END;
 
-CREATE TABLE IF NOT EXISTS reasoning (
-  commit_hash TEXT PRIMARY KEY,
-  branch TEXT,
-  commit_message TEXT,
-  failed_attempts TEXT,
-  decisions TEXT,
-  created_at TEXT NOT NULL
-);
-
-CREATE VIRTUAL TABLE IF NOT EXISTS reasoning_fts USING fts5(
-  commit_message, failed_attempts, decisions, content=reasoning,
-  tokenize='porter unicode61'
-);
-
-CREATE TRIGGER IF NOT EXISTS reasoning_ai AFTER INSERT ON reasoning BEGIN
-  INSERT INTO reasoning_fts(rowid, commit_message, failed_attempts, decisions) VALUES (new.rowid, new.commit_message, new.failed_attempts, new.decisions);
-END;
-
-CREATE TRIGGER IF NOT EXISTS reasoning_ad AFTER DELETE ON reasoning BEGIN
-  INSERT INTO reasoning_fts(reasoning_fts, rowid, commit_message, failed_attempts, decisions) VALUES('delete', old.rowid, old.commit_message, old.failed_attempts, old.decisions);
-END;
-
 CREATE TABLE IF NOT EXISTS synonyms (
   term TEXT PRIMARY KEY,
   expansions TEXT NOT NULL
 );
-
-CREATE TABLE IF NOT EXISTS session_summaries (
-  id TEXT PRIMARY KEY,
-  session_id TEXT,
-  project TEXT NOT NULL,
-  request TEXT,
-  investigated TEXT,
-  learned TEXT,
-  completed TEXT,
-  next_steps TEXT,
-  files_modified TEXT,
-  created_at TEXT NOT NULL,
-  created_at_epoch INTEGER NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_session_summaries_project ON session_summaries(project);
-CREATE INDEX IF NOT EXISTS idx_session_summaries_epoch ON session_summaries(created_at_epoch DESC);
-
-CREATE VIRTUAL TABLE IF NOT EXISTS session_summaries_fts USING fts5(
-  request, investigated, learned, completed, next_steps,
-  content=session_summaries, content_rowid=rowid,
-  tokenize='porter unicode61'
-);
-
-CREATE TRIGGER IF NOT EXISTS session_summaries_ai AFTER INSERT ON session_summaries BEGIN
-  INSERT INTO session_summaries_fts(rowid, request, investigated, learned, completed, next_steps)
-  VALUES (new.rowid, new.request, new.investigated, new.learned, new.completed, new.next_steps);
-END;
-
-CREATE TRIGGER IF NOT EXISTS session_summaries_ad AFTER DELETE ON session_summaries BEGIN
-  INSERT INTO session_summaries_fts(session_summaries_fts, rowid, request, investigated, learned, completed, next_steps)
-  VALUES('delete', old.rowid, old.request, old.investigated, old.learned, old.completed, old.next_steps);
-END;
 
 `;
 
@@ -184,29 +119,19 @@ END;
   try {
     execSync(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN last_accessed TEXT;"`, { encoding: 'utf-8', timeout: 2000 });
   } catch { /* column already exists */ }
+  try {
+    execSync(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN priority TEXT DEFAULT 'important';"`, { encoding: 'utf-8', timeout: 2000 });
+  } catch { /* column already exists */ }
 
   seedSynonyms();
 }
 
-function dbInsertKnowledge(entry: KnowledgeEntry): boolean {
+function dbInsertKnowledge(entry: KnowledgeEntry & { priority?: string }): boolean {
   const dbPath = getDbPath();
   if (!existsSync(dbPath)) return false;
 
-  const sql = `INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed) VALUES ('${esc(entry.id)}', '${esc(entry.type)}', '${esc(entry.platform)}', '${esc(entry.title)}', '${esc(entry.problem)}', '${esc(entry.solution)}', '${esc(entry.sourceProject)}', '${esc(entry.sourceSession)}', '${esc(entry.createdAt)}', '${esc(entry.filePath)}', 0, NULL);`;
-
-  try {
-    execSync(`sqlite3 "${dbPath}" "${sql}"`, { encoding: 'utf-8', timeout: 3000 });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function dbInsertReasoning(commitHash: string, branch: string, commitMessage: string, failedAttempts: string, decisions: string): boolean {
-  const dbPath = getDbPath();
-  if (!existsSync(dbPath)) return false;
-
-  const sql = `INSERT OR REPLACE INTO reasoning (commit_hash, branch, commit_message, failed_attempts, decisions, created_at) VALUES ('${esc(commitHash)}', '${esc(branch)}', '${esc(commitMessage)}', '${esc(failedAttempts)}', '${esc(decisions)}', '${esc(new Date().toISOString())}');`;
+  const priority = entry.priority || 'important';
+  const sql = `INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed, priority) VALUES ('${esc(entry.id)}', '${esc(entry.type)}', '${esc(entry.platform)}', '${esc(entry.title)}', '${esc(entry.problem)}', '${esc(entry.solution)}', '${esc(entry.sourceProject)}', '${esc(entry.sourceSession)}', '${esc(entry.createdAt)}', '${esc(entry.filePath)}', 0, NULL, '${esc(priority)}');`;
 
   try {
     execSync(`sqlite3 "${dbPath}" "${sql}"`, { encoding: 'utf-8', timeout: 3000 });
@@ -232,28 +157,6 @@ function dbQueryKnowledge(query: string, limit: number = 10): KnowledgeEntry[] {
     return result.split('\n').map(line => {
       const [id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split('|||');
       return { id, type: type as any, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
-    });
-  } catch {
-    return [];
-  }
-}
-
-function dbQueryReasoning(query: string, limit: number = 10): Array<{ commitHash: string; branch: string; commitMessage: string; failedAttempts: string; decisions: string }> {
-  const dbPath = getDbPath();
-  if (!existsSync(dbPath)) return [];
-
-  const sql = `SELECT r.commit_hash, r.branch, r.commit_message, r.failed_attempts, r.decisions FROM reasoning r JOIN reasoning_fts f ON r.rowid = f.rowid WHERE reasoning_fts MATCH '${esc(query)}' ORDER BY rank LIMIT ${limit};`;
-
-  try {
-    const result = execSync(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-      encoding: 'utf-8',
-      timeout: 3000,
-    }).trim();
-    if (!result) return [];
-
-    return result.split('\n').map(line => {
-      const [commitHash, branch, commitMessage, failedAttempts, decisions] = line.split('|||');
-      return { commitHash, branch, commitMessage, failedAttempts, decisions };
     });
   } catch {
     return [];
@@ -308,261 +211,80 @@ function seedSynonyms(): void {
   }
 }
 
-// --- Source Scanners ---
-
-function scanHandoffs(): Array<{ title: string; problem: string; solution: string; session: string; platform: string }> {
-  const cwd = getCwd();
-  const entries: Array<{ title: string; problem: string; solution: string; session: string; platform: string }> = [];
-
-  // Scan both thoughts/handoffs/ and thoughts/shared/handoffs/*/
-  const searchDirs: string[] = [];
-  const handoffsDir = join(cwd, 'thoughts', 'handoffs');
-  if (existsSync(handoffsDir)) searchDirs.push(handoffsDir);
-  const sharedBase = join(cwd, 'thoughts', 'shared', 'handoffs');
-  if (existsSync(sharedBase)) {
-    for (const sub of readdirSync(sharedBase)) {
-      const subPath = join(sharedBase, sub);
-      if (existsSync(subPath) && statSync(subPath).isDirectory()) searchDirs.push(subPath);
-    }
-  }
-
-  for (const dir of searchDirs) {
-    for (const file of readdirSync(dir)) {
-      if (!file.endsWith('.md')) continue;
-
-      const content = readFileSync(join(dir, file), 'utf-8');
-
-      // Extract "Decisions Made" — the most valuable section in real handoffs
-      const decisionsMatch = content.match(/## Decisions Made\n([\s\S]*?)(?=\n## |$)/);
-      if (!decisionsMatch) continue;
-
-      const decisionsBlock = decisionsMatch[1].trim();
-      if (!decisionsBlock || decisionsBlock.length < 30) continue;
-
-      // Extract title from H1
-      const titleMatch = content.match(/^# (.+)/m);
-      const title = titleMatch ? titleMatch[1].slice(0, 80) : file.replace('.md', '');
-
-      // Extract "What Was Done" for context
-      const whatMatch = content.match(/## What Was Done\n([\s\S]*?)(?=\n## |$)/);
-      const context = whatMatch ? whatMatch[1].trim().slice(0, 300) : '';
-
-      entries.push({
-        title,
-        problem: context || title,
-        solution: decisionsBlock.slice(0, 500),
-        session: file.replace('.md', ''),
-        platform: detectPlatformFromContent(content),
-      });
-    }
-  }
-
-  return entries;
-}
-
-function scanReasoning(): Array<{ title: string; problem: string; solution: string; session: string }> {
-  const cwd = getCwd();
-  const reasoningDir = join(cwd, '.git', 'claude', 'commits');
-  if (!existsSync(reasoningDir)) return [];
-
-  const entries: Array<{ title: string; problem: string; solution: string; session: string }> = [];
-
-  for (const commitDir of readdirSync(reasoningDir)) {
-    const reasoningPath = join(reasoningDir, commitDir, 'reasoning.md');
-    if (!existsSync(reasoningPath)) continue;
-
-    const content = readFileSync(reasoningPath, 'utf-8');
-    const commitMatch = content.match(/## What was committed\n([\s\S]*?)(?=\n## |$)/);
-    const commitMsg = commitMatch ? commitMatch[1].trim().split('\n')[0] : commitDir.slice(0, 8);
-
-    // Only extract failed attempts — these contain real problem/solution knowledge
-    const failedMatch = content.match(/### Failed attempts\n([\s\S]*?)(?=### Summary|## |$)/);
-    if (!failedMatch) continue;
-
-    const failedText = failedMatch[1].trim();
-    if (!failedText || failedText.length < 20) continue;
-
-    // Try to extract what actually worked from Summary or "Why this approach"
-    const summaryMatch = content.match(/### (?:Summary|Why this approach)\n([\s\S]*?)(?=### |## |$)/);
-    const solution = summaryMatch ? summaryMatch[1].trim().slice(0, 500) : '';
-    if (!solution) continue;
-
-    entries.push({
-      title: `Failed approach: ${commitMsg.slice(0, 60)}`,
-      problem: failedText.slice(0, 500),
-      solution,
-      session: commitDir.slice(0, 8),
-    });
-  }
-
-  return entries;
-}
-
-function scanLedgers(): Array<{ title: string; problem: string; solution: string; session: string }> {
-  const cwd = getCwd();
-  const ledgersDir = join(cwd, 'thoughts', 'ledgers');
-  if (!existsSync(ledgersDir)) return [];
-
-  const entries: Array<{ title: string; problem: string; solution: string; session: string }> = [];
-
-  for (const file of readdirSync(ledgersDir)) {
-    if (!file.endsWith('.md')) continue;
-
-    const content = readFileSync(join(ledgersDir, file), 'utf-8');
-    const questionsMatch = content.match(/## Open Questions\n([\s\S]*?)(?=\n## |$)/);
-    if (!questionsMatch) continue;
-
-    const lines = questionsMatch[1].trim().split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      // Look for resolved questions: lines starting with - [x] or ~~
-      const resolvedMatch = line.match(/^-\s*\[x\]\s*(.+)/i) || line.match(/^-\s*~~(.+)~~/);
-      if (!resolvedMatch) continue;
-
-      const questionText = resolvedMatch[1].replace(/~~/g, '').trim();
-
-      // Extract answer from indented lines following the resolved question
-      const answerLines: string[] = [];
-      for (let j = i + 1; j < lines.length; j++) {
-        const nextLine = lines[j];
-        if (nextLine.match(/^\s{2,}/) || nextLine.match(/^\s*→/)) {
-          answerLines.push(nextLine.trim());
-        } else {
-          break;
-        }
-      }
-      const answer = answerLines.join(' ').trim();
-
-      // Skip entries without a real answer
-      if (!answer) continue;
-
-      entries.push({
-        title: `Decision: ${questionText.slice(0, 60)}`,
-        problem: questionText,
-        solution: answer.slice(0, 500),
-        session: file.replace('.md', ''),
-      });
-    }
-  }
-
-  return entries;
-}
-
-function detectPlatformFromContent(content: string): string {
-  const lower = content.toLowerCase();
-  if (lower.includes('.swift') || lower.includes('swiftui') || lower.includes('xcode')) return 'ios';
-  if (lower.includes('.kt') || lower.includes('kotlin') || lower.includes('gradle')) return 'android';
-  if (lower.includes('.tsx') || lower.includes('.jsx') || lower.includes('react')) return 'web';
-  return 'general';
-}
-
 function detectCurrentPlatform(): string {
   return detectPlatformSimple(getCwd());
 }
 
-// --- Public API ---
+// --- Vault helpers ---
 
-export function memoryConsolidate(): ConsolidationResult {
-  ensureDbSchema();
-
-  const project = getProjectName();
-  const platform = detectCurrentPlatform();
-  const now = new Date().toISOString();
-  let pitfalls = 0, patterns = 0, decisions = 0, skippedDuplicates = 0;
-
-  // Scan handoffs → pitfalls
-  const dbPath = getDbPath();
-  for (const item of scanHandoffs()) {
-    const entry: KnowledgeEntry = {
-      id: generateId('pitfall', item.title),
-      type: 'pitfall',
-      platform: item.platform || platform,
-      title: item.title,
-      problem: item.problem,
-      solution: item.solution,
-      sourceProject: project,
-      sourceSession: item.session,
-      createdAt: now,
-      filePath: '',
-    };
-
-    // Check for duplicates via SQLite-based smart dedup
-    try {
-      const dedupResult = smartDedup(
-        { type: entry.type, title: entry.title, content: entry.problem, platform: entry.platform },
-        dbPath
-      );
-      if (dedupResult.action === 'NOOP') {
-        skippedDuplicates++;
-        continue;
-      }
-    } catch { /* dedup failed, proceed with insert */ }
-
-    dbInsertKnowledge(entry);
-    pitfalls++;
-  }
-
-  // Scan reasoning → patterns
-  for (const item of scanReasoning()) {
-    const entry: KnowledgeEntry = {
-      id: generateId('pattern', item.title),
-      type: 'pattern',
-      platform,
-      title: item.title,
-      problem: item.problem,
-      solution: item.solution,
-      sourceProject: project,
-      sourceSession: item.session,
-      createdAt: now,
-      filePath: '',
-    };
-
-    dbInsertKnowledge(entry);
-    patterns++;
-  }
-
-  // Scan ledgers → decisions
-  for (const item of scanLedgers()) {
-    const entry: KnowledgeEntry = {
-      id: generateId('decision', item.title),
-      type: 'decision',
-      platform,
-      title: item.title,
-      problem: item.problem,
-      solution: item.solution,
-      sourceProject: project,
-      sourceSession: item.session,
-      createdAt: now,
-      filePath: '',
-    };
-
-    dbInsertKnowledge(entry);
-    decisions++;
-  }
-
-  const total = pitfalls + patterns + decisions;
-
-  // Write topic files to Auto Memory directory (graceful degradation if not present)
-  const autoMemDir = getAutoMemoryDir();
-  if (autoMemDir) {
-    writeTopicFiles(autoMemDir);
-  }
-
-  return {
-    success: true,
-    message: `Consolidated:${total}|pitfalls:${pitfalls}|patterns:${patterns}|decisions:${decisions}|skipped:${skippedDuplicates}`,
-    data: { pitfalls, patterns, decisions, skippedDuplicates },
-  };
+function getVaultPath(): string {
+  const cwd = getCwd();
+  const configPath = join(cwd, '.dev-flow.json');
+  try {
+    const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+    if (config?.memory?.vault) return join(cwd, config.memory.vault);
+  } catch {}
+  return join(cwd, 'thoughts', 'knowledge');
 }
+
+export function parseFrontmatter(content: string): { data: Record<string, string>; body: string } {
+  const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!match) return { data: {}, body: content };
+  const data: Record<string, string> = {};
+  for (const line of match[1].split('\n')) {
+    const kv = line.match(/^(\w[\w-]*):\s*(.+)$/);
+    if (kv) data[kv[1]] = kv[2].trim();
+  }
+  return { data, body: match[2] };
+}
+
+function generateFrontmatter(meta: { type: string; priority?: string; platform: string; tags?: string[]; created: string; access_count?: number }): string {
+  const lines = ['---'];
+  lines.push(`type: ${meta.type}`);
+  lines.push(`priority: ${meta.priority || 'important'}`);
+  lines.push(`platform: ${meta.platform}`);
+  if (meta.tags?.length) lines.push(`tags: [${meta.tags.join(', ')}]`);
+  lines.push(`created: ${meta.created}`);
+  lines.push(`access_count: ${meta.access_count || 0}`);
+  lines.push('---');
+  return lines.join('\n');
+}
+
+function ensureVaultDirs(): void {
+  const vault = getVaultPath();
+  for (const dir of ['pitfalls', 'patterns', 'decisions', 'habits']) {
+    mkdirSync(join(vault, dir), { recursive: true });
+  }
+}
+
+function generateSlug(title: string): string {
+  return title.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+}
+
+function countVaultFiles(): number {
+  const vaultPath = getVaultPath();
+  let count = 0;
+  for (const dir of ['pitfalls', 'patterns', 'decisions', 'habits']) {
+    const dirPath = join(vaultPath, dir);
+    if (!existsSync(dirPath)) continue;
+    for (const file of readdirSync(dirPath)) {
+      if (file.endsWith('.md') && !file.startsWith('_')) count++;
+    }
+  }
+  return count;
+}
+
+// --- Public API ---
 
 export function memoryStatus(): MemoryStatus {
   const cwd = getCwd();
   const status: MemoryStatus = {
     totalEntries: 0,
-    byType: { pitfall: 0, pattern: 0, decision: 0 },
+    byType: { pitfall: 0, pattern: 0, decision: 0, habit: 0 },
     unprocessedHandoffs: 0,
-    unprocessedReasoning: 0,
     knowledgeDir: getDbPath(),
+    vaultPath: getVaultPath(),
+    vaultFiles: countVaultFiles(),
   };
 
   // Count knowledge entries from SQLite
@@ -603,18 +325,6 @@ export function memoryStatus(): MemoryStatus {
     }
   }
 
-  const reasoningDir = join(cwd, '.git', 'claude', 'commits');
-  if (existsSync(reasoningDir)) {
-    for (const commitDir of readdirSync(reasoningDir)) {
-      const reasoningPath = join(reasoningDir, commitDir, 'reasoning.md');
-      if (!existsSync(reasoningPath)) continue;
-      const content = readFileSync(reasoningPath, 'utf-8');
-      if (content.includes('### Failed attempts')) {
-        status.unprocessedReasoning++;
-      }
-    }
-  }
-
   return status;
 }
 
@@ -646,47 +356,80 @@ export function memoryList(type?: string): KnowledgeEntry[] {
   }
 }
 
-// --- Memory Config ---
+// --- Quality Gate ---
 
-function getMemoryConfig(): { tier: number; sessionSummary: boolean } {
-  const configPath = join(getCwd(), '.dev-flow.json');
-  try {
-    if (existsSync(configPath)) {
-      const config = JSON.parse(readFileSync(configPath, 'utf-8'));
-      const tier = config?.memory?.tier ?? 0;
-      return {
-        tier,
-        sessionSummary: config?.memory?.sessionSummary ?? (tier >= 1),
-      };
-    }
-  } catch { /* ignore */ }
-  return { tier: 0, sessionSummary: false };
+export function qualityCheck(text: string, title?: string): { pass: boolean; reason: string } {
+  if (text.length < 20) return { pass: false, reason: 'Too short (<20 chars)' };
+
+  if (/^(Significant|There were|Updated|Modified|Changed|Made|Added several|Removed several) /i.test(text))
+    return { pass: false, reason: 'Generic description, not actionable knowledge' };
+
+  if (/^\d+ (files?|insertions?|deletions?|changes?)/i.test(text))
+    return { pass: false, reason: 'Statistics, not knowledge' };
+
+  const words = text.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+  if (words.length > 10) {
+    const ttr = new Set(words).size / words.length;
+    if (ttr < 0.3) return { pass: false, reason: 'Low lexical diversity (repetitive content)' };
+  }
+
+  return { pass: true, reason: 'OK' };
 }
 
 // --- Ad-hoc Memory Storage ---
 
-export function memorySave(text: string, title?: string, tags?: string[], type?: string): { id: string; message: string; saved?: boolean; reason?: string } {
+export function memorySave(text: string, title?: string, tags?: string[], type?: string, priority?: string): { id: string; message: string; saved?: boolean; reason?: string; filePath?: string } {
   ensureDbSchema();
+  ensureVaultDirs();
+
   const project = getProjectName();
   const platform = detectCurrentPlatform();
-  const autoTitle = title || text.slice(0, 60).replace(/\n/g, ' ');
-  const entryType = (type === 'pitfall' || type === 'pattern' || type === 'decision') ? type : 'decision';
+  const autoTitle = title || text.slice(0, 60).replace(/\n/g, ' ').trim();
+  const validTypes = ['pitfall', 'pattern', 'decision', 'habit'];
+  const entryType = validTypes.includes(type || '') ? type! : 'decision';
+  const validPriorities = ['critical', 'important', 'reference'];
+  const entryPriority = validPriorities.includes(priority || '') ? priority! : 'important';
 
+  // Quality gate
+  const qc = qualityCheck(text, autoTitle);
+  if (!qc.pass) {
+    return { id: '', message: `Rejected: ${qc.reason}`, saved: false, reason: qc.reason };
+  }
+
+  // Smart dedup
   try {
     const dedupResult = smartDedup(
       { type: entryType, title: autoTitle, content: text, platform },
       getDbPath()
     );
     if (dedupResult.action === 'NOOP') {
-      return { id: '', message: `Duplicate: ${dedupResult.reason} (${dedupResult.method})`, saved: false, reason: `Duplicate: ${dedupResult.reason} (${dedupResult.method})` };
+      return { id: '', message: `Duplicate: ${dedupResult.reason} (${dedupResult.method})`, saved: false, reason: `Duplicate: ${dedupResult.reason}` };
     }
-  } catch {
-    // Dedup failed (e.g., no knowledge_fts table), proceed with save
-  }
+  } catch {}
 
-  const entry: KnowledgeEntry = {
-    id: generateId(entryType, autoTitle),
-    type: entryType as 'pitfall' | 'pattern' | 'decision',
+  // Generate vault file
+  const slug = generateSlug(autoTitle);
+  const today = new Date().toISOString().slice(0, 10);
+  const id = generateId(entryType, autoTitle);
+  const typeDir = entryType === 'habit' ? 'habits' : `${entryType}s`;
+  const filePath = join(getVaultPath(), typeDir, `${slug}.md`);
+
+  const frontmatter = generateFrontmatter({
+    type: entryType,
+    priority: entryPriority,
+    platform,
+    tags,
+    created: today,
+    access_count: 0,
+  });
+
+  const mdContent = `${frontmatter}\n\n# ${autoTitle}\n\n${text}\n`;
+  writeFileSync(filePath, mdContent, 'utf-8');
+
+  // Also index in SQLite for fast search
+  const entry: KnowledgeEntry & { priority?: string } = {
+    id,
+    type: entryType as any,
     platform,
     title: autoTitle,
     problem: text,
@@ -694,11 +437,12 @@ export function memorySave(text: string, title?: string, tags?: string[], type?:
     sourceProject: project,
     sourceSession: 'manual',
     createdAt: new Date().toISOString(),
-    filePath: '',
+    filePath,
+    priority: entryPriority,
   };
   dbInsertKnowledge(entry);
 
-  return { id: entry.id, message: `Saved: ${autoTitle}` };
+  return { id, message: `Saved: ${autoTitle}`, saved: true, filePath };
 }
 
 // --- Lightweight Search (3-layer index) ---
@@ -712,12 +456,13 @@ export function memorySearch(query: string, limit: number = 10, type?: string): 
 
   const expandedQuery = expandQuery(query);
   const typeFilter = type ? ` AND k.type = '${esc(type)}'` : '';
-  // Temporal decay: rank * 1/(1 + days_since_last_access/30)
-  // Entries accessed recently score higher; untouched entries decay
+  // Scoring: FTS rank * priority weight * temporal decay
+  // Priority: critical=3x, important=2x, reference=1x
+  // Temporal decay: 1/(1 + days_since_last_access/30)
   const sql = `SELECT k.id, k.type, k.title, k.platform, k.created_at
    FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid
    WHERE knowledge_fts MATCH '${esc(expandedQuery)}'${typeFilter}
-   ORDER BY rank * (1.0 / (1.0 + COALESCE(julianday('now') - julianday(COALESCE(k.last_accessed, k.created_at)), 0) / 30.0))
+   ORDER BY rank * CASE COALESCE(k.priority, 'important') WHEN 'critical' THEN 3.0 WHEN 'important' THEN 2.0 ELSE 1.0 END * (1.0 / (1.0 + COALESCE(julianday('now') - julianday(COALESCE(k.last_accessed, k.created_at)), 0) / 30.0))
    LIMIT ${limit};`;
 
   try {
@@ -765,204 +510,110 @@ export function memoryGet(ids: string[]): KnowledgeEntry[] {
     }).trim();
     if (!result) return [];
 
+    const vaultPrefix = getVaultPath();
     return result.split('\n').map(line => {
       const [id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split('|||');
-      return { id, type: type as any, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
+      const entry: KnowledgeEntry = { id, type: type as any, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
+
+      // If entry has a vault file, read full content from the .md file
+      if (filePath && filePath.startsWith(vaultPrefix) && existsSync(filePath)) {
+        try {
+          const content = readFileSync(filePath, 'utf-8');
+          const { body } = parseFrontmatter(content);
+          entry.problem = body.replace(/^#\s+.+\n+/, '').trim();
+        } catch {}
+      }
+
+      return entry;
     });
   } catch {
     return [];
   }
 }
 
-// --- TTL Pruning ---
+// --- Vault File Priority Update ---
 
-export function memoryPrune(dryRun: boolean = false): { pruned: number; message: string } {
+function updateVaultFilePriority(filePath: string, newPriority: string): void {
+  if (!filePath || !existsSync(filePath)) return;
+  try {
+    const content = readFileSync(filePath, 'utf-8');
+    const updated = content.replace(/^priority:\s*.+$/m, `priority: ${newPriority}`);
+    if (updated !== content) writeFileSync(filePath, updated, 'utf-8');
+  } catch {}
+}
+
+// --- Decay-based Pruning ---
+
+export function memoryPrune(dryRun: boolean = false): { pruned: number; promoted: number; demoted: number; archived: number; message: string } {
   ensureDbSchema();
   const dbPath = getDbPath();
-  if (!existsSync(dbPath)) return { pruned: 0, message: 'No database' };
+  if (!existsSync(dbPath)) return { pruned: 0, promoted: 0, demoted: 0, archived: 0, message: 'No database' };
 
-  // Find stale entries: access_count = 0 AND older than 90 days
-  const countSql = `SELECT COUNT(*) FROM knowledge WHERE COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;`;
-  let count = 0;
+  let promoted = 0, demoted = 0, archived = 0;
+
+  // 1. Promote: access_count >= 3 AND priority != 'critical'
   try {
-    count = parseInt(execSync(`sqlite3 "${dbPath}" "${countSql}"`, { encoding: 'utf-8', timeout: 3000 }).trim(), 10) || 0;
-  } catch { return { pruned: 0, message: 'Query failed' }; }
-
-  if (count === 0) return { pruned: 0, message: 'No stale entries' };
-  if (dryRun) return { pruned: count, message: `Would prune ${count} stale entries (access_count=0, >90 days)` };
-
-  // Delete from FTS first, then main table
-  try {
-    execSync(`sqlite3 "${dbPath}" "DELETE FROM knowledge WHERE COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;"`, {
-      encoding: 'utf-8', timeout: 5000,
-    });
-  } catch { return { pruned: 0, message: 'Delete failed' }; }
-
-  // Clean up orphaned knowledge files
-  try {
-    const orphans = execSync(`sqlite3 "${dbPath}" "SELECT file_path FROM knowledge WHERE COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;"`, {
-      encoding: 'utf-8', timeout: 3000,
-    }).trim();
-    // Files already deleted from DB above; only need to clean filesystem
-  } catch { /* non-critical */ }
-
-  return { pruned: count, message: `Pruned ${count} stale entries` };
-}
-
-// --- Extract knowledge from session summaries (batch backfill) ---
-
-/**
- * Extract knowledge from recent session summaries (batch).
- * Called via dev_memory(action="extract") for retrospective processing.
- * Primary extraction already happens in session-summary.sh Stop hook.
- */
-export function extractFromProject(dryRun: boolean = false): ConsolidationResult {
-  ensureDbSchema();
-
-  const dbPath = getDbPath();
-  if (!existsSync(dbPath)) {
-    return { success: false, message: 'NO_DB', data: { pitfalls: 0, patterns: 0, decisions: 0, skippedDuplicates: 0 } };
-  }
-
-  const project = getProjectName();
-  const now = new Date().toISOString();
-  let added = 0;
-  let skippedDuplicates = 0;
-
-  // Query session_summaries with non-empty learned field
-  // that don't already have corresponding knowledge entries
-  const sql = `SELECT id, session_id, project, learned FROM session_summaries
-    WHERE learned IS NOT NULL AND learned != '' AND learned != 'null'
-    AND id NOT IN (SELECT source_session FROM knowledge WHERE source_session LIKE 'summary-%')
-    ORDER BY created_at_epoch DESC LIMIT 50;`;
-
-  try {
-    const result = execSync(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-      encoding: 'utf-8',
-      timeout: 5000,
-    }).trim();
-
-    if (!result) {
-      return { success: true, message: 'EXTRACTED:0|no unprocessed summaries', data: { pitfalls: 0, patterns: 0, decisions: 0, skippedDuplicates: 0 } };
-    }
-
-    for (const line of result.split('\n')) {
-      const [summaryId, sessionId, summaryProject, learned] = line.split('|||');
-      if (!learned || learned === 'null') {
-        skippedDuplicates++;
-        continue;
+    const promoteQuery = `SELECT id, file_path FROM knowledge WHERE COALESCE(access_count, 0) >= 3 AND COALESCE(priority, 'important') != 'critical';`;
+    const promoteResult = execSync(`sqlite3 -separator '|||' "${dbPath}" "${promoteQuery}"`, { encoding: 'utf-8', timeout: 3000 }).trim();
+    if (promoteResult) {
+      for (const line of promoteResult.split('\n')) {
+        const [id, filePath] = line.split('|||');
+        if (!dryRun) {
+          execSync(`sqlite3 "${dbPath}" "UPDATE knowledge SET priority = 'critical' WHERE id = '${esc(id)}';"`, { encoding: 'utf-8', timeout: 2000 });
+          updateVaultFilePriority(filePath, 'critical');
+        }
+        promoted++;
       }
+    }
+  } catch {}
 
-      const entryId = generateId('discovery', learned.slice(0, 40));
-      const entry: KnowledgeEntry = {
-        id: entryId,
-        type: 'decision',
-        platform: 'general',
-        title: learned.slice(0, 80),
-        problem: learned,
-        solution: '',
-        sourceProject: summaryProject || project,
-        sourceSession: summaryId,
-        createdAt: now,
-        filePath: '',
-      };
-
-      if (!dryRun) {
-        dbInsertKnowledge(entry);
+  // 2. Demote: important + 0 access + >90 days → reference
+  try {
+    const demoteQuery = `SELECT id, file_path FROM knowledge WHERE COALESCE(priority, 'important') = 'important' AND COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;`;
+    const demoteResult = execSync(`sqlite3 -separator '|||' "${dbPath}" "${demoteQuery}"`, { encoding: 'utf-8', timeout: 3000 }).trim();
+    if (demoteResult) {
+      for (const line of demoteResult.split('\n')) {
+        const [id, filePath] = line.split('|||');
+        if (!dryRun) {
+          execSync(`sqlite3 "${dbPath}" "UPDATE knowledge SET priority = 'reference' WHERE id = '${esc(id)}';"`, { encoding: 'utf-8', timeout: 2000 });
+          updateVaultFilePriority(filePath, 'reference');
+        }
+        demoted++;
       }
-      added++;
     }
-  } catch {
-    // Query failed, return what we have
-  }
+  } catch {}
 
-  const mode = dryRun ? 'DRY_RUN' : 'EXTRACTED';
-  return {
-    success: true,
-    message: `${mode}:${added}|discoveries:${added}|skipped:${skippedDuplicates}`,
-    data: { pitfalls: 0, patterns: 0, decisions: added, skippedDuplicates },
-  };
-}
-
-// --- Auto Memory Topic File Writer ---
-
-/**
- * Derive the ~/.claude/projects/<hash>/memory/ directory for the current project.
- * Returns null if the directory does not exist (graceful degradation).
- */
-function getAutoMemoryDir(): string | null {
-  const projectDir = getCwd();
-  // Claude's Auto Memory uses the path with slashes replaced by dashes
-  const escapedPath = projectDir.replace(/\//g, '-').replace(/^-/, '');
-  const memDir = join(homedir(), '.claude', 'projects', escapedPath, 'memory');
-  return existsSync(memDir) ? memDir : null;
-}
-
-/**
- * After consolidation, write pitfalls.md / patterns.md / decisions.md
- * into the Auto Memory directory so Claude's built-in system can read them.
- */
-function writeTopicFiles(memDir: string): void {
-  const dbPath = getDbPath();
-  if (!existsSync(dbPath)) return;
-
-  const now = new Date().toISOString();
-  const types: Array<'pitfall' | 'pattern' | 'decision'> = ['pitfall', 'pattern', 'decision'];
-  const fileNames: Record<string, string> = {
-    pitfall: 'pitfalls.md',
-    pattern: 'patterns.md',
-    decision: 'decisions.md',
-  };
-  const headings: Record<string, string> = {
-    pitfall: 'Pitfalls',
-    pattern: 'Patterns',
-    decision: 'Decisions',
-  };
-
-  for (const type of types) {
-    const sql = `SELECT platform, title, problem, solution, source_project, created_at, file_path FROM knowledge WHERE type = '${esc(type)}' ORDER BY created_at DESC LIMIT 50;`;
-    let rows: Array<{ platform: string; title: string; problem: string; solution: string; sourceProject: string; createdAt: string; filePath: string }> = [];
-
-    try {
-      const result = execSync(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-        encoding: 'utf-8',
-        timeout: 3000,
-      }).trim();
-
-      if (result) {
-        rows = result.split('\n').map(line => {
-          const [platform, title, problem, solution, sourceProject, createdAt, filePath] = line.split('|||');
-          return { platform, title, problem, solution, sourceProject, createdAt, filePath };
-        });
+  // 3. Archive: reference + 0 access + >90 days → move to .archive/
+  try {
+    const archiveQuery = `SELECT id, file_path FROM knowledge WHERE COALESCE(priority, 'important') = 'reference' AND COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;`;
+    const archiveResult = execSync(`sqlite3 -separator '|||' "${dbPath}" "${archiveQuery}"`, { encoding: 'utf-8', timeout: 3000 }).trim();
+    if (archiveResult) {
+      for (const line of archiveResult.split('\n')) {
+        const [id, filePath] = line.split('|||');
+        if (!dryRun) {
+          if (filePath && existsSync(filePath)) {
+            const archiveDir = join(getVaultPath(), '.archive');
+            mkdirSync(archiveDir, { recursive: true });
+            const archivePath = join(archiveDir, basename(filePath));
+            renameSync(filePath, archivePath);
+          }
+          execSync(`sqlite3 "${dbPath}" "DELETE FROM knowledge WHERE id = '${esc(id)}';"`, { encoding: 'utf-8', timeout: 2000 });
+        }
+        archived++;
       }
-    } catch {
-      continue;
     }
+  } catch {}
 
-    if (rows.length === 0) continue;
+  const total = promoted + demoted + archived;
+  const parts: string[] = [];
+  if (promoted > 0) parts.push(`${promoted} promoted to critical`);
+  if (demoted > 0) parts.push(`${demoted} demoted to reference`);
+  if (archived > 0) parts.push(`${archived} archived`);
 
-    const header = `# ${headings[type]}\n\nLast updated: ${now}\n\n`;
-    const entries = rows.map(r => {
-      const lines = [
-        `## ${r.platform ? r.platform + ' — ' : ''}${r.title}`,
-      ];
-      if (r.problem) lines.push(r.problem.trim());
-      const meta: string[] = [];
-      if (r.sourceProject) meta.push(`Source: ${r.sourceProject}`);
-      if (r.solution) meta.push(`Tags: ${r.solution.slice(0, 80)}`);
-      if (meta.length > 0) lines.push(meta.join(' | '));
-      lines.push('---');
-      return lines.join('\n');
-    });
+  const prefix = dryRun ? 'Would: ' : '';
+  const msg = parts.length > 0 ? `${prefix}${parts.join(', ')}` : 'No entries need maintenance';
 
-    const content = header + entries.join('\n\n');
-    const outPath = join(memDir, fileNames[type]);
-    try {
-      writeFileSync(outPath, content, 'utf-8');
-    } catch {
-      // Ignore write errors — graceful degradation
-    }
-  }
+  return { pruned: total, promoted, demoted, archived, message: msg };
 }
 
 // --- Smart Dedup ---
@@ -1098,5 +749,65 @@ B: [${existing.type}] ${existing.title}: ${existing.content}`;
   }
 }
 
-// Exposed for reasoning module and other modules to use
-export { dbInsertReasoning, dbQueryReasoning, ensureDbSchema, getMemoryConfig, extractKeyTerms, tokenOverlap, smartDedup };
+// --- Vault Reindex ---
+
+export function reindexVault(): { indexed: number; message: string } {
+  ensureDbSchema();
+  ensureVaultDirs();
+
+  const vaultPath = getVaultPath();
+  const dbPath = getDbPath();
+  let indexed = 0;
+
+  // Clear existing knowledge entries that came from vault
+  try {
+    execSync(`sqlite3 "${dbPath}" "DELETE FROM knowledge WHERE file_path LIKE '%${vaultPath.replace(/'/g, "''")}%';"`, {
+      encoding: 'utf-8', timeout: 5000,
+    });
+    // Rebuild FTS index
+    execSync(`sqlite3 "${dbPath}" "INSERT INTO knowledge_fts(knowledge_fts) VALUES('rebuild');"`, {
+      encoding: 'utf-8', timeout: 5000,
+    });
+  } catch {}
+
+  // Scan vault directories
+  for (const typeDir of ['pitfalls', 'patterns', 'decisions', 'habits']) {
+    const dirPath = join(vaultPath, typeDir);
+    if (!existsSync(dirPath)) continue;
+
+    for (const file of readdirSync(dirPath)) {
+      if (!file.endsWith('.md') || file.startsWith('_')) continue;
+      const filePath = join(dirPath, file);
+      try {
+        const content = readFileSync(filePath, 'utf-8');
+        const { data, body } = parseFrontmatter(content);
+
+        const entryType = data.type || typeDir.replace(/s$/, '');
+        const titleMatch = body.match(/^#\s+(.+)$/m);
+        const title = titleMatch?.[1] || file.replace('.md', '');
+        const platform = data.platform || 'general';
+
+        const id = generateId(entryType, title);
+        const entry: KnowledgeEntry = {
+          id,
+          type: entryType as any,
+          platform,
+          title,
+          problem: body.replace(/^#\s+.+\n+/, '').trim(),
+          solution: data.tags || '',
+          sourceProject: getProjectName(),
+          sourceSession: 'vault',
+          createdAt: data.created || new Date().toISOString().slice(0, 10),
+          filePath,
+        };
+        dbInsertKnowledge(entry);
+        indexed++;
+      } catch {}
+    }
+  }
+
+  return { indexed, message: `Reindexed ${indexed} entries from vault` };
+}
+
+// Exposed for other modules to use
+export { ensureDbSchema, extractKeyTerms, tokenOverlap, smartDedup };
