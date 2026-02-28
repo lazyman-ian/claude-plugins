@@ -3,6 +3,7 @@ name: verify-agent
 description: Verification agent that verifies improvement effects after changes are applied. Triggers on "verify the improvements worked", "check if changes are effective", "验证改进效果", "检查优化结果".
 model: sonnet
 memory: user
+allowed-tools: [Read, Bash, Glob]
 color: teal
 ---
 
@@ -33,13 +34,17 @@ Extract:
 
 ### 2. Gather Post-Change Data
 
-Query Braintrust for sessions after the change:
+Query Braintrust if available:
 
 ```bash
-uv run python ~/.claude/scripts/braintrust_analyze.py \
-  --since "YYYY-MM-DD" \
-  --component "agents/plan-agent.md" \
-  --json
+BRAINTRUST_SCRIPT="$HOME/.claude/scripts/braintrust_analyze.py"
+if [[ -f "$BRAINTRUST_SCRIPT" ]]; then
+  uv run python "$BRAINTRUST_SCRIPT" --since "YYYY-MM-DD" --component "agents/plan-agent.md" --json
+else
+  # Fallback: read pre/post evaluation files directly
+  # Read thoughts/evaluations/EVAL-*.json for component score history
+  echo "Braintrust not available — using evaluation JSON files for comparison"
+fi
 ```
 
 Minimum requirement: 5 sessions for meaningful comparison.
@@ -144,7 +149,23 @@ The applied changes achieved the expected improvements:
 | `--min-sessions N` | 5 | Minimum sessions required |
 | `--force` | false | Verify even with few sessions |
 
-## Verification Outcomes
+## Output Format
+
+Append a "## Verification Results" section to the iteration file at
+`thoughts/iterations/ITER-NNN.md` with this structure:
+
+```
+## Verification Results
+
+Verification Date: YYYY-MM-DD
+Sessions Analyzed: N (post-change)
+Confidence: Low (<10 sessions) | Medium (10-20) | High (20+)
+Status: SUCCESS | PARTIAL | FAILED | INCONCLUSIVE
+Summary: [1-2 sentences for user]
+Recommended Action: Keep Changes | Rollback | Wait for more data
+```
+
+### Outcome Definitions
 
 ### SUCCESS
 - Metrics improved as expected
@@ -198,3 +219,10 @@ If FAILED:
 - Claiming success without evidence
 - Ignoring new issues
 - Deleting iteration records (keep for learning)
+
+## Boundaries (DO NOT)
+
+- DO NOT verify with fewer than 5 sessions unless `--force` flag is explicitly provided
+- DO NOT execute rollback without explicit user confirmation
+- DO NOT delete or overwrite iteration records — only append Verification Results section
+- DO NOT call Braintrust script without first checking it exists with `[[ -f path ]]`

@@ -2,6 +2,7 @@
 name: pr-describer
 description: Generate comprehensive PR descriptions with bilingual support. Triggers on "generate PR description", "write PR body", "生成 PR 描述", "写 PR 说明".
 model: haiku
+allowed-tools: [Bash, Read]
 color: cyan
 ---
 
@@ -29,47 +30,56 @@ Generate a comprehensive PR description based on the commits and changes in the 
    dev_ledger(action="status")
    ```
 
-4. **Generate PR description**:
+4. **Generate PR description** using the template in ## Output Format below.
 
-   ```markdown
-   ## Summary / 概要
+5. **Output the description** ready for copy-paste or direct use with `gh pr create`.
 
-   Brief description of what this PR does.
-   简要描述此 PR 的目的。
+## Output Format
 
-   ## Changes / 变更
+Generate a PR description using exactly this template:
 
-   ### Features / 功能
-   - Feature 1 / 功能 1
-   - Feature 2 / 功能 2
+```markdown
+## Summary / 概要
 
-   ### Bug Fixes / 修复
-   - Fix 1 / 修复 1
+Brief description of what this PR does.
+简要描述此 PR 的目的。
 
-   ### Refactoring / 重构
-   - Refactor 1 / 重构 1
+## Changes / 变更
 
-   ## Technical Details / 技术细节
+### Features / 功能
+- Feature 1 / 功能 1
 
-   - Architecture decisions
-   - 架构决策
+### Bug Fixes / 修复
+- Fix 1 / 修复 1
 
-   ## Test Plan / 测试计划
+### Refactoring / 重构
+- Refactor 1 / 重构 1
 
-   - [ ] Unit tests pass
-   - [ ] Manual testing completed
-   - [ ] Edge cases verified
+## Technical Details / 技术细节
 
-   ## Screenshots / 截图
+- Architecture decisions / 架构决策
 
-   (If applicable)
+## Test Plan / 测试计划
 
-   ## Approaches Tried / 尝试的方案
+- [ ] Unit tests pass
+- [ ] Manual testing completed
+- [ ] Edge cases verified
 
-   (From reasoning aggregate - what worked and what didn't)
+## Screenshots / 截图
 
-   ---
-   Task: TASK-XXX
-   ```
+(If applicable)
 
-5. **Output the description** ready for copy-paste or direct use with `gh pr create`
+## Approaches Tried / 尝试的方案
+
+(From reasoning aggregate - what worked and what didn't)
+
+---
+Task: TASK-XXX
+```
+
+## Boundaries (DO NOT)
+
+- DO NOT push the PR or run `gh pr create` — only generate the description text
+- DO NOT modify branch, commits, or any source files
+- DO NOT include information not present in `git log` or `git diff` output
+- DO NOT invent task IDs — use actual ledger data or omit the Task line
