@@ -213,43 +213,17 @@ if [ -n "$SUMMARY_TEXT" ]; then
   NUM_POINTS=$(echo "$KNOWLEDGE" | jq 'length' 2>/dev/null || echo "0")
 
   if [ "$NUM_POINTS" -gt 0 ] && [ "$NUM_POINTS" != "null" ]; then
-    KNOWLEDGE_DIR="$HOME/.claude/knowledge"
     for i in $(seq 0 $((NUM_POINTS - 1))); do
       KP_TYPE=$(echo "$KNOWLEDGE" | jq -r ".[$i].type" 2>/dev/null)
       KP_TITLE=$(echo "$KNOWLEDGE" | jq -r ".[$i].title" 2>/dev/null)
       KP_CONTENT=$(echo "$KNOWLEDGE" | jq -r ".[$i].content" 2>/dev/null)
       KP_PLATFORM=$(echo "$KNOWLEDGE" | jq -r ".[$i].platform // \"general\"" 2>/dev/null)
 
-      case "$KP_TYPE" in
-        pitfall)  KP_DIR="$KNOWLEDGE_DIR/platforms/${KP_PLATFORM}" ;;
-        pattern)  KP_DIR="$KNOWLEDGE_DIR/patterns" ;;
-        decision) KP_DIR="$KNOWLEDGE_DIR/discoveries" ;;
-        *)        KP_DIR="$KNOWLEDGE_DIR/discoveries" ;;
-      esac
-      mkdir -p "$KP_DIR" 2>/dev/null
-
-      SAFE_TITLE=$(echo "$KP_TITLE" | /usr/bin/sed 's/[^a-zA-Z0-9 _-]//g' | head -c 60)
-      KP_FILE="$KP_DIR/${SAFE_TITLE}.md"
-      if [ ! -f "$KP_FILE" ]; then
-        {
-          echo "---"
-          echo "type: ${KP_TYPE}"
-          echo "platform: ${KP_PLATFORM}"
-          echo "tags: [auto-extracted]"
-          echo "created: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-          echo "---"
-          echo ""
-          echo "# ${KP_TITLE}"
-          echo ""
-          printf '%s\n' "$KP_CONTENT"
-        } > "$KP_FILE"
-      fi
-
-      # SQLite FTS5 — use existing knowledge table schema from memory.ts
+      # Write to SQLite knowledge table (per-project DB)
       if [ -n "$DB_PATH" ] && [ -f "$DB_PATH" ]; then
         KP_ID="kp-$(date +%s)-$i"
         sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path)
-          VALUES ('$(esc "$KP_ID")', '$(esc "$KP_TYPE")', '$(esc "$KP_PLATFORM")', '$(esc "$KP_TITLE")', '$(esc "$KP_CONTENT")', '', '$(esc "$PROJECT")', '$(esc "$SESSION_ID")', '${NOW}', '$(esc "$KP_FILE")');" 2>/dev/null
+          VALUES ('$(esc "$KP_ID")', '$(esc "$KP_TYPE")', '$(esc "$KP_PLATFORM")', '$(esc "$KP_TITLE")', '$(esc "$KP_CONTENT")', '', '$(esc "$PROJECT")', '$(esc "$SESSION_ID")', '${NOW}', '');" 2>/dev/null
       fi
     done
   fi
@@ -286,16 +260,48 @@ if [ -n "$NEXT_STEPS" ] || [ -n "$LEARNED" ] || [ -n "$COMPLETED" ]; then
       printf '\n<!-- LAST-SESSION-START -->\n%s\n<!-- LAST-SESSION-END -->\n' "$NEW_BLOCK" >> "$MEMORY_MD" 2>/dev/null
     fi
 
-    # Enforce 200-line limit: if over, truncate LAST-SESSION section to fit
-    # Never trim from top — that destroys MEMORY.md structure (headers, metadata)
+    # --- MEMORY.md Priority-Based Trimming ---
+    # P0: Key Patterns, Architecture, Lessons (never trim)
+    # P1: Other sections (trim tables to header+5 rows, skip P0 sections)
+    # P2: Last Session (minimize to 1-line)
+    # P3: Compact State (remove entirely)
+
     LINE_COUNT=$(wc -l < "$MEMORY_MD" 2>/dev/null | tr -d ' ')
-    if [ "$LINE_COUNT" -gt 200 ]; then
-      # Truncate the Last Session block to just the essentials (3 lines)
-      MINIMAL_BLOCK="## Last Session\n- Next: $(echo "$NEXT_STEPS" | head -1)"
-      awk -v block="$MINIMAL_BLOCK" '
-        /<!-- LAST-SESSION-START -->/{found=1; print; print block; next}
+
+    # Step 1: trim P1 sections — trim tables to header+5 rows, but SKIP P0 sections
+    if [ "$LINE_COUNT" -gt 160 ]; then
+      awk '
+        /^## Key Patterns/    { p0=1 }
+        /^## Architecture/    { p0=1 }
+        /^## Lessons/         { p0=1 }
+        /^## / && !/Key Patterns|Architecture|Lessons/ { p0=0; table=0 }
+        /^\|/ && !p0 { table++; if (table > 7) next }
+        !/^\|/ { table=0 }
+        { print }
+      ' "$MEMORY_MD" > "${MEMORY_MD}.tmp" 2>/dev/null && mv "${MEMORY_MD}.tmp" "$MEMORY_MD" 2>/dev/null
+      LINE_COUNT=$(wc -l < "$MEMORY_MD" 2>/dev/null | tr -d ' ')
+    fi
+
+    # Step 2: trim P2 (Last Session → minimal 1-line)
+    if [ "$LINE_COUNT" -gt 180 ]; then
+      # Extract first "Next:" line from Last Session block (macOS-safe, no grep -P)
+      FIRST_NEXT=$(awk '/^## Last Session/,/<!-- LAST-SESSION-END -->/' "$MEMORY_MD" 2>/dev/null \
+        | grep -o 'Next: .*' 2>/dev/null | head -1 | /usr/bin/sed 's/^Next: //' 2>/dev/null)
+      [ -z "$FIRST_NEXT" ] && FIRST_NEXT="(trimmed)"
+      awk -v next_step="$FIRST_NEXT" '
+        /<!-- LAST-SESSION-START -->/{found=1; print; print "## Last Session"; print "- Next: " next_step; next}
         /<!-- LAST-SESSION-END -->/{found=0}
         !found
+      ' "$MEMORY_MD" > "${MEMORY_MD}.tmp" 2>/dev/null && mv "${MEMORY_MD}.tmp" "$MEMORY_MD" 2>/dev/null
+      LINE_COUNT=$(wc -l < "$MEMORY_MD" 2>/dev/null | tr -d ' ')
+    fi
+
+    # Step 3: remove P3 (COMPACT-STATE) if still over
+    if [ "$LINE_COUNT" -gt 200 ]; then
+      awk '
+        /<!-- COMPACT-STATE-START -->/{skip=1; next}
+        /<!-- COMPACT-STATE-END -->/{skip=0; next}
+        !skip
       ' "$MEMORY_MD" > "${MEMORY_MD}.tmp" 2>/dev/null && mv "${MEMORY_MD}.tmp" "$MEMORY_MD" 2>/dev/null
     fi
   fi

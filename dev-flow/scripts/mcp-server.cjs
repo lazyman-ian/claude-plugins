@@ -21708,18 +21708,9 @@ function getCwd2() {
     return process.cwd();
   }
 }
-function getKnowledgeDir() {
-  return (0, import_path2.join)((0, import_os.homedir)(), ".claude", "knowledge");
-}
 function getDbPath() {
   const projectDir = getCwd2();
   return (0, import_path2.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
-}
-function ensureKnowledgeDirs() {
-  const base = getKnowledgeDir();
-  (0, import_fs2.mkdirSync)((0, import_path2.join)(base, "platforms"), { recursive: true });
-  (0, import_fs2.mkdirSync)((0, import_path2.join)(base, "patterns"), { recursive: true });
-  (0, import_fs2.mkdirSync)((0, import_path2.join)(base, "discoveries"), { recursive: true });
 }
 function getProjectName() {
   const cwd = getCwd2();
@@ -21729,14 +21720,6 @@ function generateId(type, title) {
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
   const ts = Date.now().toString(36);
   return `${type}-${slug}-${ts}`;
-}
-function isDuplicate(existingContent, title, problem) {
-  const lower = existingContent.toLowerCase();
-  const titleLower = title.toLowerCase();
-  const problemLower = problem.toLowerCase();
-  if (lower.includes(titleLower) && titleLower.length > 10) return true;
-  if (problemLower.length > 20 && lower.includes(problemLower.slice(0, 50))) return true;
-  return false;
 }
 function ensureDbSchema() {
   const dbPath = getDbPath();
@@ -21753,7 +21736,9 @@ CREATE TABLE IF NOT EXISTS knowledge (
   source_project TEXT,
   source_session TEXT,
   created_at TEXT NOT NULL,
-  file_path TEXT NOT NULL
+  file_path TEXT NOT NULL,
+  access_count INTEGER DEFAULT 0,
+  last_accessed TEXT
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
@@ -21837,12 +21822,20 @@ END;
     });
   } catch {
   }
+  try {
+    (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN access_count INTEGER DEFAULT 0;"`, { encoding: "utf-8", timeout: 2e3 });
+  } catch {
+  }
+  try {
+    (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN last_accessed TEXT;"`, { encoding: "utf-8", timeout: 2e3 });
+  } catch {
+  }
   seedSynonyms();
 }
 function dbInsertKnowledge(entry) {
   const dbPath = getDbPath();
   if (!(0, import_fs2.existsSync)(dbPath)) return false;
-  const sql = `INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path) VALUES ('${esc2(entry.id)}', '${esc2(entry.type)}', '${esc2(entry.platform)}', '${esc2(entry.title)}', '${esc2(entry.problem)}', '${esc2(entry.solution)}', '${esc2(entry.sourceProject)}', '${esc2(entry.sourceSession)}', '${esc2(entry.createdAt)}', '${esc2(entry.filePath)}');`;
+  const sql = `INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed) VALUES ('${esc2(entry.id)}', '${esc2(entry.type)}', '${esc2(entry.platform)}', '${esc2(entry.title)}', '${esc2(entry.problem)}', '${esc2(entry.solution)}', '${esc2(entry.sourceProject)}', '${esc2(entry.sourceSession)}', '${esc2(entry.createdAt)}', '${esc2(entry.filePath)}', 0, NULL);`;
   try {
     (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 3e3 });
     return true;
@@ -22049,97 +22042,13 @@ function detectPlatformFromContent(content) {
 function detectCurrentPlatform() {
   return detectPlatformSimple(getCwd2());
 }
-function writeKnowledgeEntry(entry) {
-  ensureKnowledgeDirs();
-  let filePath;
-  let content;
-  const date4 = entry.createdAt.slice(0, 10);
-  const platformLink = entry.platform === "ios" ? "[[iOS \u5E38\u89C1\u9677\u9631]]" : entry.platform === "android" ? "[[Android \u5E38\u89C1\u9677\u9631]]" : "";
-  switch (entry.type) {
-    case "pitfall": {
-      const platformDir = (0, import_path2.join)(getKnowledgeDir(), "platforms", entry.platform);
-      (0, import_fs2.mkdirSync)(platformDir, { recursive: true });
-      filePath = (0, import_path2.join)(platformDir, "pitfalls.md");
-      const newEntry = `
-### ${entry.title}
-**Source**: ${entry.sourceProject}, ${date4}
-**Problem**: ${entry.problem}
-**Solution**: ${entry.solution}
-`;
-      if ((0, import_fs2.existsSync)(filePath)) {
-        const existing = (0, import_fs2.readFileSync)(filePath, "utf-8");
-        if (isDuplicate(existing, entry.title, entry.problem)) return;
-        content = existing + newEntry;
-      } else {
-        content = `---
-type: pitfall
-platform: ${entry.platform}
-updated: ${date4}
----
-
-# ${entry.platform.toUpperCase()} Pitfalls
-` + newEntry;
-      }
-      break;
-    }
-    case "pattern": {
-      const slug = entry.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 50);
-      filePath = (0, import_path2.join)(getKnowledgeDir(), "patterns", `${slug}.md`);
-      content = `---
-type: pattern
-platform: ${entry.platform}
-tags: [${entry.type}]
-project: ${entry.sourceProject}
-date: ${date4}
----
-
-# ${entry.title}
-
-## Problem
-${entry.problem}
-
-## Solution
-${entry.solution}
-
-${platformLink ? `Related: ${platformLink}` : ""}
-`;
-      break;
-    }
-    case "decision": {
-      const slug = entry.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 50);
-      filePath = (0, import_path2.join)(getKnowledgeDir(), "discoveries", `${date4}-${slug}.md`);
-      content = `---
-type: decision
-platform: ${entry.platform}
-tags: [decision]
-project: ${entry.sourceProject}
-date: ${date4}
----
-
-# ${entry.title}
-
-## Question
-${entry.problem}
-
-## Answer
-${entry.solution}
-
-${platformLink ? `Related: ${platformLink}` : ""}
-`;
-      break;
-    }
-    default:
-      return;
-  }
-  entry.filePath = filePath;
-  (0, import_fs2.writeFileSync)(filePath, content);
-}
 function memoryConsolidate() {
   ensureDbSchema();
   const project = getProjectName();
   const platform = detectCurrentPlatform();
   const now = (/* @__PURE__ */ new Date()).toISOString();
   let pitfalls = 0, patterns = 0, decisions = 0, skippedDuplicates = 0;
+  const dbPath = getDbPath();
   for (const item of scanHandoffs()) {
     const entry = {
       id: generateId("pitfall", item.title),
@@ -22153,12 +22062,17 @@ function memoryConsolidate() {
       createdAt: now,
       filePath: ""
     };
-    const pitfallsPath = (0, import_path2.join)(getKnowledgeDir(), "platforms", entry.platform, "pitfalls.md");
-    if ((0, import_fs2.existsSync)(pitfallsPath) && isDuplicate((0, import_fs2.readFileSync)(pitfallsPath, "utf-8"), entry.title, entry.problem)) {
-      skippedDuplicates++;
-      continue;
+    try {
+      const dedupResult = smartDedup(
+        { type: entry.type, title: entry.title, content: entry.problem, platform: entry.platform },
+        dbPath
+      );
+      if (dedupResult.action === "NOOP") {
+        skippedDuplicates++;
+        continue;
+      }
+    } catch {
     }
-    writeKnowledgeEntry(entry);
     dbInsertKnowledge(entry);
     pitfalls++;
   }
@@ -22175,7 +22089,6 @@ function memoryConsolidate() {
       createdAt: now,
       filePath: ""
     };
-    writeKnowledgeEntry(entry);
     dbInsertKnowledge(entry);
     patterns++;
   }
@@ -22192,7 +22105,6 @@ function memoryConsolidate() {
       createdAt: now,
       filePath: ""
     };
-    writeKnowledgeEntry(entry);
     dbInsertKnowledge(entry);
     decisions++;
   }
@@ -22208,38 +22120,33 @@ function memoryConsolidate() {
   };
 }
 function memoryStatus() {
-  const knowledgeDir = getKnowledgeDir();
   const cwd = getCwd2();
   const status = {
     totalEntries: 0,
     byType: { pitfall: 0, pattern: 0, decision: 0 },
     unprocessedHandoffs: 0,
     unprocessedReasoning: 0,
-    knowledgeDir
+    knowledgeDir: getDbPath()
   };
-  const platformsDir = (0, import_path2.join)(knowledgeDir, "platforms");
-  if ((0, import_fs2.existsSync)(platformsDir)) {
-    for (const platform of (0, import_fs2.readdirSync)(platformsDir)) {
-      const pitfallsPath = (0, import_path2.join)(platformsDir, platform, "pitfalls.md");
-      if ((0, import_fs2.existsSync)(pitfallsPath)) {
-        const content = (0, import_fs2.readFileSync)(pitfallsPath, "utf-8");
-        const count = (content.match(/^### /gm) || []).length;
-        status.byType.pitfall += count;
-        status.totalEntries += count;
+  const dbPath = getDbPath();
+  if ((0, import_fs2.existsSync)(dbPath)) {
+    try {
+      const countResult = (0, import_child_process8.execSync)(
+        `sqlite3 "${dbPath}" "SELECT type, COUNT(*) FROM knowledge GROUP BY type;"`,
+        { encoding: "utf-8", timeout: 3e3 }
+      ).trim();
+      if (countResult) {
+        for (const line of countResult.split("\n")) {
+          const [type, countStr] = line.split("|");
+          const count = parseInt(countStr, 10) || 0;
+          if (type in status.byType) {
+            status.byType[type] = count;
+          }
+          status.totalEntries += count;
+        }
       }
+    } catch {
     }
-  }
-  const patternsDir = (0, import_path2.join)(knowledgeDir, "patterns");
-  if ((0, import_fs2.existsSync)(patternsDir)) {
-    const count = (0, import_fs2.readdirSync)(patternsDir).filter((f) => f.endsWith(".md")).length;
-    status.byType.pattern = count;
-    status.totalEntries += count;
-  }
-  const discoveriesDir = (0, import_path2.join)(knowledgeDir, "discoveries");
-  if ((0, import_fs2.existsSync)(discoveriesDir)) {
-    const count = (0, import_fs2.readdirSync)(discoveriesDir).filter((f) => f.endsWith(".md")).length;
-    status.byType.decision = count;
-    status.totalEntries += count;
   }
   const handoffsBase = (0, import_path2.join)(cwd, "thoughts", "shared", "handoffs");
   if ((0, import_fs2.existsSync)(handoffsBase)) {
@@ -22320,7 +22227,6 @@ function memorySave(text, title, tags, type) {
     createdAt: (/* @__PURE__ */ new Date()).toISOString(),
     filePath: ""
   };
-  writeKnowledgeEntry(entry);
   dbInsertKnowledge(entry);
   return { id: entry.id, message: `Saved: ${autoTitle}` };
 }
@@ -22330,17 +22236,32 @@ function memorySearch(query, limit = 10, type) {
   if (!(0, import_fs2.existsSync)(dbPath)) return [];
   const expandedQuery = expandQuery(query);
   const typeFilter = type ? ` AND k.type = '${esc2(type)}'` : "";
-  const sql = `SELECT k.id, k.type, k.title, k.platform, k.created_at FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc2(expandedQuery)}'${typeFilter} ORDER BY rank LIMIT ${limit};`;
+  const sql = `SELECT k.id, k.type, k.title, k.platform, k.created_at
+   FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid
+   WHERE knowledge_fts MATCH '${esc2(expandedQuery)}'${typeFilter}
+   ORDER BY rank * (1.0 / (1.0 + COALESCE(julianday('now') - julianday(COALESCE(k.last_accessed, k.created_at)), 0) / 30.0))
+   LIMIT ${limit};`;
   try {
     const result = (0, import_child_process8.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
       encoding: "utf-8",
       timeout: 3e3
     }).trim();
     if (!result) return [];
-    return result.split("\n").map((line) => {
+    const entries = result.split("\n").map((line) => {
       const [id, entryType, title, platform, createdAt] = line.split("|||");
       return { id, type: entryType, title, platform, createdAt };
     });
+    if (entries.length > 0) {
+      const idList = entries.map((e) => `'${esc2(e.id)}'`).join(",");
+      try {
+        (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "UPDATE knowledge SET access_count = COALESCE(access_count, 0) + 1, last_accessed = datetime('now') WHERE id IN (${idList});"`, {
+          encoding: "utf-8",
+          timeout: 2e3
+        });
+      } catch {
+      }
+    }
+    return entries;
   } catch {
     return [];
   }
@@ -22364,6 +22285,36 @@ function memoryGet(ids) {
   } catch {
     return [];
   }
+}
+function memoryPrune(dryRun = false) {
+  ensureDbSchema();
+  const dbPath = getDbPath();
+  if (!(0, import_fs2.existsSync)(dbPath)) return { pruned: 0, message: "No database" };
+  const countSql = `SELECT COUNT(*) FROM knowledge WHERE COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;`;
+  let count = 0;
+  try {
+    count = parseInt((0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "${countSql}"`, { encoding: "utf-8", timeout: 3e3 }).trim(), 10) || 0;
+  } catch {
+    return { pruned: 0, message: "Query failed" };
+  }
+  if (count === 0) return { pruned: 0, message: "No stale entries" };
+  if (dryRun) return { pruned: count, message: `Would prune ${count} stale entries (access_count=0, >90 days)` };
+  try {
+    (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "DELETE FROM knowledge WHERE COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;"`, {
+      encoding: "utf-8",
+      timeout: 5e3
+    });
+  } catch {
+    return { pruned: 0, message: "Delete failed" };
+  }
+  try {
+    const orphans = (0, import_child_process8.execSync)(`sqlite3 "${dbPath}" "SELECT file_path FROM knowledge WHERE COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+  } catch {
+  }
+  return { pruned: count, message: `Pruned ${count} stale entries` };
 }
 function extractFromProject(dryRun = false) {
   ensureDbSchema();
@@ -22407,7 +22358,6 @@ function extractFromProject(dryRun = false) {
         filePath: ""
       };
       if (!dryRun) {
-        writeKnowledgeEntry(entry);
         dbInsertKnowledge(entry);
       }
       added++;
@@ -22600,10 +22550,20 @@ B: [${existing.type}] ${existing.title}: ${existing.content}`;
       max_tokens: 10,
       messages: [{ role: "user", content: prompt }]
     });
-    const result = (0, import_child_process8.execSync)(
-      `node -e "const https=require('https');const o={hostname:'${url2.hostname}',port:${url2.port || 443},path:'${url2.pathname}',method:'POST',headers:${JSON.stringify(headers)},timeout:5000};const r=https.request(o,res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>process.stdout.write(d))});r.on('error',()=>process.exit(1));r.write(${JSON.stringify(body)});r.end()"`,
-      { encoding: "utf-8", timeout: 8e3 }
-    );
+    const opts = JSON.stringify({
+      hostname: url2.hostname,
+      port: Number(url2.port) || 443,
+      path: url2.pathname,
+      method: "POST",
+      headers,
+      timeout: 5e3
+    });
+    const script = `const https=require('https');const o=JSON.parse(process.env.OPTS);const r=https.request(o,res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>process.stdout.write(d))});r.on('error',()=>process.exit(1));r.write(process.env.BODY);r.end()`;
+    const result = (0, import_child_process8.execSync)(`node -e "${script}"`, {
+      encoding: "utf-8",
+      timeout: 8e3,
+      env: { ...process.env, OPTS: opts, BODY: body }
+    });
     const text = (JSON.parse(result)?.content?.[0]?.text || "").trim().toUpperCase();
     if (text.includes("SAME")) {
       return { action: "NOOP", targetId: existing.id, reason: "LLM confirmed duplicate", method: "llm" };
@@ -24034,7 +23994,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           action: {
             type: "string",
-            enum: ["consolidate", "status", "query", "list", "extract", "save", "search", "get"],
+            enum: ["consolidate", "status", "query", "list", "extract", "save", "search", "get", "prune"],
             description: "Action to perform"
           },
           query: { type: "string", description: "Search query (for query action)" },
@@ -24822,8 +24782,12 @@ Platform: ${r.platform} | Project: ${r.sourceProject}
 **Solution**: ${r.solution}`);
       return { content: [{ type: "text", text: entries.join("\n\n") }] };
     }
+    case "prune": {
+      const result = memoryPrune(dryRun ?? false);
+      return { content: [{ type: "text", text: result.message }] };
+    }
     default:
-      return { content: [{ type: "text", text: "\u274C Action required: consolidate|status|query|list|extract|save|search|get" }] };
+      return { content: [{ type: "text", text: "\u274C Action required: consolidate|status|query|list|extract|save|search|get|prune" }] };
   }
 }
 var taskCoordinator = new TaskCoordinator();

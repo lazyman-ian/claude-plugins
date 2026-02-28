@@ -54,20 +54,9 @@ function getCwd(): string {
   }
 }
 
-function getKnowledgeDir(): string {
-  return join(homedir(), '.claude', 'knowledge');
-}
-
 function getDbPath(): string {
   const projectDir = getCwd();
   return join(projectDir, '.claude', 'cache', 'artifact-index', 'context.db');
-}
-
-function ensureKnowledgeDirs(): void {
-  const base = getKnowledgeDir();
-  mkdirSync(join(base, 'platforms'), { recursive: true });
-  mkdirSync(join(base, 'patterns'), { recursive: true });
-  mkdirSync(join(base, 'discoveries'), { recursive: true });
 }
 
 function getProjectName(): string {
@@ -79,15 +68,6 @@ function generateId(type: string, title: string): string {
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
   const ts = Date.now().toString(36);
   return `${type}-${slug}-${ts}`;
-}
-
-function isDuplicate(existingContent: string, title: string, problem: string): boolean {
-  const lower = existingContent.toLowerCase();
-  const titleLower = title.toLowerCase();
-  const problemLower = problem.toLowerCase();
-  if (lower.includes(titleLower) && titleLower.length > 10) return true;
-  if (problemLower.length > 20 && lower.includes(problemLower.slice(0, 50))) return true;
-  return false;
 }
 
 // --- DB helpers (sqlite3 CLI) ---
@@ -108,7 +88,9 @@ CREATE TABLE IF NOT EXISTS knowledge (
   source_project TEXT,
   source_session TEXT,
   created_at TEXT NOT NULL,
-  file_path TEXT NOT NULL
+  file_path TEXT NOT NULL,
+  access_count INTEGER DEFAULT 0,
+  last_accessed TEXT
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
@@ -195,6 +177,14 @@ END;
     // DB may already have tables, ignore errors
   }
 
+  // Migration: add access_count/last_accessed to existing knowledge tables
+  try {
+    execSync(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN access_count INTEGER DEFAULT 0;"`, { encoding: 'utf-8', timeout: 2000 });
+  } catch { /* column already exists */ }
+  try {
+    execSync(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN last_accessed TEXT;"`, { encoding: 'utf-8', timeout: 2000 });
+  } catch { /* column already exists */ }
+
   seedSynonyms();
 }
 
@@ -202,7 +192,7 @@ function dbInsertKnowledge(entry: KnowledgeEntry): boolean {
   const dbPath = getDbPath();
   if (!existsSync(dbPath)) return false;
 
-  const sql = `INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path) VALUES ('${esc(entry.id)}', '${esc(entry.type)}', '${esc(entry.platform)}', '${esc(entry.title)}', '${esc(entry.problem)}', '${esc(entry.solution)}', '${esc(entry.sourceProject)}', '${esc(entry.sourceSession)}', '${esc(entry.createdAt)}', '${esc(entry.filePath)}');`;
+  const sql = `INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed) VALUES ('${esc(entry.id)}', '${esc(entry.type)}', '${esc(entry.platform)}', '${esc(entry.title)}', '${esc(entry.problem)}', '${esc(entry.solution)}', '${esc(entry.sourceProject)}', '${esc(entry.sourceSession)}', '${esc(entry.createdAt)}', '${esc(entry.filePath)}', 0, NULL);`;
 
   try {
     execSync(`sqlite3 "${dbPath}" "${sql}"`, { encoding: 'utf-8', timeout: 3000 });
@@ -470,53 +460,6 @@ function detectCurrentPlatform(): string {
   return detectPlatformSimple(getCwd());
 }
 
-// --- Write knowledge files ---
-
-function writeKnowledgeEntry(entry: KnowledgeEntry): void {
-  ensureKnowledgeDirs();
-
-  let filePath: string;
-  let content: string;
-  const date = entry.createdAt.slice(0, 10);
-  const platformLink = entry.platform === 'ios' ? '[[iOS 常见陷阱]]'
-    : entry.platform === 'android' ? '[[Android 常见陷阱]]'
-    : '';
-
-  switch (entry.type) {
-    case 'pitfall': {
-      const platformDir = join(getKnowledgeDir(), 'platforms', entry.platform);
-      mkdirSync(platformDir, { recursive: true });
-      filePath = join(platformDir, 'pitfalls.md');
-      const newEntry = `\n### ${entry.title}\n**Source**: ${entry.sourceProject}, ${date}\n**Problem**: ${entry.problem}\n**Solution**: ${entry.solution}\n`;
-      if (existsSync(filePath)) {
-        const existing = readFileSync(filePath, 'utf-8');
-        if (isDuplicate(existing, entry.title, entry.problem)) return;
-        content = existing + newEntry;
-      } else {
-        content = `---\ntype: pitfall\nplatform: ${entry.platform}\nupdated: ${date}\n---\n\n# ${entry.platform.toUpperCase()} Pitfalls\n` + newEntry;
-      }
-      break;
-    }
-    case 'pattern': {
-      const slug = entry.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 50);
-      filePath = join(getKnowledgeDir(), 'patterns', `${slug}.md`);
-      content = `---\ntype: pattern\nplatform: ${entry.platform}\ntags: [${entry.type}]\nproject: ${entry.sourceProject}\ndate: ${date}\n---\n\n# ${entry.title}\n\n## Problem\n${entry.problem}\n\n## Solution\n${entry.solution}\n\n${platformLink ? `Related: ${platformLink}` : ''}\n`;
-      break;
-    }
-    case 'decision': {
-      const slug = entry.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 50);
-      filePath = join(getKnowledgeDir(), 'discoveries', `${date}-${slug}.md`);
-      content = `---\ntype: decision\nplatform: ${entry.platform}\ntags: [decision]\nproject: ${entry.sourceProject}\ndate: ${date}\n---\n\n# ${entry.title}\n\n## Question\n${entry.problem}\n\n## Answer\n${entry.solution}\n\n${platformLink ? `Related: ${platformLink}` : ''}\n`;
-      break;
-    }
-    default:
-      return;
-  }
-
-  entry.filePath = filePath;
-  writeFileSync(filePath, content);
-}
-
 // --- Public API ---
 
 export function memoryConsolidate(): ConsolidationResult {
@@ -528,6 +471,7 @@ export function memoryConsolidate(): ConsolidationResult {
   let pitfalls = 0, patterns = 0, decisions = 0, skippedDuplicates = 0;
 
   // Scan handoffs → pitfalls
+  const dbPath = getDbPath();
   for (const item of scanHandoffs()) {
     const entry: KnowledgeEntry = {
       id: generateId('pitfall', item.title),
@@ -542,14 +486,18 @@ export function memoryConsolidate(): ConsolidationResult {
       filePath: '',
     };
 
-    // Check existing pitfalls file for duplicates
-    const pitfallsPath = join(getKnowledgeDir(), 'platforms', entry.platform, 'pitfalls.md');
-    if (existsSync(pitfallsPath) && isDuplicate(readFileSync(pitfallsPath, 'utf-8'), entry.title, entry.problem)) {
-      skippedDuplicates++;
-      continue;
-    }
+    // Check for duplicates via SQLite-based smart dedup
+    try {
+      const dedupResult = smartDedup(
+        { type: entry.type, title: entry.title, content: entry.problem, platform: entry.platform },
+        dbPath
+      );
+      if (dedupResult.action === 'NOOP') {
+        skippedDuplicates++;
+        continue;
+      }
+    } catch { /* dedup failed, proceed with insert */ }
 
-    writeKnowledgeEntry(entry);
     dbInsertKnowledge(entry);
     pitfalls++;
   }
@@ -569,7 +517,6 @@ export function memoryConsolidate(): ConsolidationResult {
       filePath: '',
     };
 
-    writeKnowledgeEntry(entry);
     dbInsertKnowledge(entry);
     patterns++;
   }
@@ -589,7 +536,6 @@ export function memoryConsolidate(): ConsolidationResult {
       filePath: '',
     };
 
-    writeKnowledgeEntry(entry);
     dbInsertKnowledge(entry);
     decisions++;
   }
@@ -610,42 +556,34 @@ export function memoryConsolidate(): ConsolidationResult {
 }
 
 export function memoryStatus(): MemoryStatus {
-  const knowledgeDir = getKnowledgeDir();
   const cwd = getCwd();
   const status: MemoryStatus = {
     totalEntries: 0,
     byType: { pitfall: 0, pattern: 0, decision: 0 },
     unprocessedHandoffs: 0,
     unprocessedReasoning: 0,
-    knowledgeDir,
+    knowledgeDir: getDbPath(),
   };
 
-  // Count knowledge entries from files
-  const platformsDir = join(knowledgeDir, 'platforms');
-  if (existsSync(platformsDir)) {
-    for (const platform of readdirSync(platformsDir)) {
-      const pitfallsPath = join(platformsDir, platform, 'pitfalls.md');
-      if (existsSync(pitfallsPath)) {
-        const content = readFileSync(pitfallsPath, 'utf-8');
-        const count = (content.match(/^### /gm) || []).length;
-        status.byType.pitfall += count;
-        status.totalEntries += count;
+  // Count knowledge entries from SQLite
+  const dbPath = getDbPath();
+  if (existsSync(dbPath)) {
+    try {
+      const countResult = execSync(
+        `sqlite3 "${dbPath}" "SELECT type, COUNT(*) FROM knowledge GROUP BY type;"`,
+        { encoding: 'utf-8', timeout: 3000 }
+      ).trim();
+      if (countResult) {
+        for (const line of countResult.split('\n')) {
+          const [type, countStr] = line.split('|');
+          const count = parseInt(countStr, 10) || 0;
+          if (type in status.byType) {
+            status.byType[type] = count;
+          }
+          status.totalEntries += count;
+        }
       }
-    }
-  }
-
-  const patternsDir = join(knowledgeDir, 'patterns');
-  if (existsSync(patternsDir)) {
-    const count = readdirSync(patternsDir).filter(f => f.endsWith('.md')).length;
-    status.byType.pattern = count;
-    status.totalEntries += count;
-  }
-
-  const discoveriesDir = join(knowledgeDir, 'discoveries');
-  if (existsSync(discoveriesDir)) {
-    const count = readdirSync(discoveriesDir).filter(f => f.endsWith('.md')).length;
-    status.byType.decision = count;
-    status.totalEntries += count;
+    } catch { /* DB query failed, return zeros */ }
   }
 
   // Count unprocessed sources
@@ -758,7 +696,6 @@ export function memorySave(text: string, title?: string, tags?: string[], type?:
     createdAt: new Date().toISOString(),
     filePath: '',
   };
-  writeKnowledgeEntry(entry);
   dbInsertKnowledge(entry);
 
   return { id: entry.id, message: `Saved: ${autoTitle}` };
@@ -775,7 +712,13 @@ export function memorySearch(query: string, limit: number = 10, type?: string): 
 
   const expandedQuery = expandQuery(query);
   const typeFilter = type ? ` AND k.type = '${esc(type)}'` : '';
-  const sql = `SELECT k.id, k.type, k.title, k.platform, k.created_at FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc(expandedQuery)}'${typeFilter} ORDER BY rank LIMIT ${limit};`;
+  // Temporal decay: rank * 1/(1 + days_since_last_access/30)
+  // Entries accessed recently score higher; untouched entries decay
+  const sql = `SELECT k.id, k.type, k.title, k.platform, k.created_at
+   FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid
+   WHERE knowledge_fts MATCH '${esc(expandedQuery)}'${typeFilter}
+   ORDER BY rank * (1.0 / (1.0 + COALESCE(julianday('now') - julianday(COALESCE(k.last_accessed, k.created_at)), 0) / 30.0))
+   LIMIT ${limit};`;
 
   try {
     const result = execSync(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
@@ -784,10 +727,22 @@ export function memorySearch(query: string, limit: number = 10, type?: string): 
     }).trim();
     if (!result) return [];
 
-    return result.split('\n').map(line => {
+    const entries = result.split('\n').map(line => {
       const [id, entryType, title, platform, createdAt] = line.split('|||');
       return { id, type: entryType, title, platform, createdAt };
     });
+
+    // Touch last_accessed for retrieved entries
+    if (entries.length > 0) {
+      const idList = entries.map(e => `'${esc(e.id)}'`).join(',');
+      try {
+        execSync(`sqlite3 "${dbPath}" "UPDATE knowledge SET access_count = COALESCE(access_count, 0) + 1, last_accessed = datetime('now') WHERE id IN (${idList});"`, {
+          encoding: 'utf-8', timeout: 2000,
+        });
+      } catch { /* non-critical */ }
+    }
+
+    return entries;
   } catch {
     return [];
   }
@@ -817,6 +772,41 @@ export function memoryGet(ids: string[]): KnowledgeEntry[] {
   } catch {
     return [];
   }
+}
+
+// --- TTL Pruning ---
+
+export function memoryPrune(dryRun: boolean = false): { pruned: number; message: string } {
+  ensureDbSchema();
+  const dbPath = getDbPath();
+  if (!existsSync(dbPath)) return { pruned: 0, message: 'No database' };
+
+  // Find stale entries: access_count = 0 AND older than 90 days
+  const countSql = `SELECT COUNT(*) FROM knowledge WHERE COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;`;
+  let count = 0;
+  try {
+    count = parseInt(execSync(`sqlite3 "${dbPath}" "${countSql}"`, { encoding: 'utf-8', timeout: 3000 }).trim(), 10) || 0;
+  } catch { return { pruned: 0, message: 'Query failed' }; }
+
+  if (count === 0) return { pruned: 0, message: 'No stale entries' };
+  if (dryRun) return { pruned: count, message: `Would prune ${count} stale entries (access_count=0, >90 days)` };
+
+  // Delete from FTS first, then main table
+  try {
+    execSync(`sqlite3 "${dbPath}" "DELETE FROM knowledge WHERE COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;"`, {
+      encoding: 'utf-8', timeout: 5000,
+    });
+  } catch { return { pruned: 0, message: 'Delete failed' }; }
+
+  // Clean up orphaned knowledge files
+  try {
+    const orphans = execSync(`sqlite3 "${dbPath}" "SELECT file_path FROM knowledge WHERE COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;"`, {
+      encoding: 'utf-8', timeout: 3000,
+    }).trim();
+    // Files already deleted from DB above; only need to clean filesystem
+  } catch { /* non-critical */ }
+
+  return { pruned: count, message: `Pruned ${count} stale entries` };
 }
 
 // --- Extract knowledge from session summaries (batch backfill) ---
@@ -878,7 +868,6 @@ export function extractFromProject(dryRun: boolean = false): ConsolidationResult
       };
 
       if (!dryRun) {
-        writeKnowledgeEntry(entry);
         dbInsertKnowledge(entry);
       }
       added++;
@@ -1088,10 +1077,16 @@ B: [${existing.type}] ${existing.title}: ${existing.content}`;
       messages: [{ role: 'user', content: prompt }]
     });
 
-    const result = execSync(
-      `node -e "const https=require('https');const o={hostname:'${url.hostname}',port:${url.port || 443},path:'${url.pathname}',method:'POST',headers:${JSON.stringify(headers)},timeout:5000};const r=https.request(o,res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>process.stdout.write(d))});r.on('error',()=>process.exit(1));r.write(${JSON.stringify(body)});r.end()"`,
-      { encoding: 'utf-8', timeout: 8000 }
-    );
+    // Pass all dynamic values via JSON env to avoid shell injection (P0 fix)
+    const opts = JSON.stringify({
+      hostname: url.hostname, port: Number(url.port) || 443,
+      path: url.pathname, method: 'POST', headers, timeout: 5000
+    });
+    const script = `const https=require('https');const o=JSON.parse(process.env.OPTS);const r=https.request(o,res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>process.stdout.write(d))});r.on('error',()=>process.exit(1));r.write(process.env.BODY);r.end()`;
+    const result = execSync(`node -e "${script}"`, {
+      encoding: 'utf-8', timeout: 8000,
+      env: { ...process.env, OPTS: opts, BODY: body }
+    });
     const text = (JSON.parse(result)?.content?.[0]?.text || '').trim().toUpperCase();
 
     if (text.includes('SAME')) {

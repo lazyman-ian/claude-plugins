@@ -37,6 +37,20 @@ if (( _NOW - _LAST > 86400 )); then
     echo "$_NOW" > "$_STAMP"
 fi
 
+# Weekly knowledge prune (frequency-guarded: max once per 7 days)
+_PRUNE_STAMP="/tmp/claude-prune-$(echo "$PROJECT_DIR" | md5 -q 2>/dev/null || echo "$PROJECT_DIR" | md5sum | cut -d' ' -f1).txt"
+_PRUNE_LAST=$(cat "$_PRUNE_STAMP" 2>/dev/null || echo "0")
+if (( _NOW - _PRUNE_LAST > 604800 )); then
+    DB_PATH="$PROJECT_DIR/.claude/cache/artifact-index/context.db"
+    if [[ -f "$DB_PATH" ]]; then
+        PRUNED=$(sqlite3 "$DB_PATH" "DELETE FROM knowledge WHERE COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90; SELECT changes();" 2>/dev/null || echo "0")
+        if [[ "$PRUNED" -gt 0 ]]; then
+            echo "Pruned $PRUNED stale knowledge entries" >&2
+        fi
+    fi
+    echo "$_NOW" > "$_PRUNE_STAMP"
+fi
+
 # Run main continuity handler (self-contained)
 if [[ ! -f "$SCRIPT_DIR/dist/session-start-continuity.mjs" ]]; then
     echo '{"result": "continue"}'
@@ -188,9 +202,8 @@ if [[ "$SESSION_TYPE" == "startup" ]]; then
 fi
 
 # Smart Knowledge Injection (Phase 3)
-# Inject relevant knowledge from ~/.claude/knowledge/ into additionalContext
+# Inject relevant knowledge from per-project SQLite into additionalContext
 if [[ "$SESSION_TYPE" == "clear" || "$SESSION_TYPE" == "compact" ]]; then
-    KNOWLEDGE_DIR="${HOME}/.claude/knowledge"
     KNOWLEDGE_CONTEXT=""
 
     # Detect platform (unified: .dev-flow.json > file-based)
@@ -207,18 +220,26 @@ if [[ "$SESSION_TYPE" == "clear" || "$SESSION_TYPE" == "compact" ]]; then
         PLATFORM="web"
     fi
 
-    # 1. Platform pitfalls (max 800 chars)
-    PITFALLS_FILE="$KNOWLEDGE_DIR/platforms/$PLATFORM/pitfalls.md"
-    if [[ -f "$PITFALLS_FILE" ]]; then
-        PITFALLS_CONTENT=$(head -c 800 "$PITFALLS_FILE" 2>/dev/null || true)
-        if [[ -n "$PITFALLS_CONTENT" ]]; then
+    # Query per-project SQLite for pitfalls and discoveries
+    DB_PATH="$PROJECT_DIR/.claude/cache/artifact-index/context.db"
+    # Sanitize PLATFORM for SQL (escape single quotes to prevent injection)
+    SAFE_PLATFORM=$(echo "$PLATFORM" | /usr/bin/sed "s/'/''/g")
+    if [[ -f "$DB_PATH" ]]; then
+        # 1. Platform pitfalls from SQLite
+        PITFALLS=$(sqlite3 "$DB_PATH" "SELECT '[' || type || '] ' || title || ': ' || substr(problem,1,80) FROM knowledge WHERE type='pitfall' AND platform='$SAFE_PLATFORM' ORDER BY created_at DESC LIMIT 3;" 2>/dev/null)
+        if [[ -n "$PITFALLS" ]]; then
             PLATFORM_UPPER=$(echo "$PLATFORM" | tr '[:lower:]' '[:upper:]')
-            KNOWLEDGE_CONTEXT="### ${PLATFORM_UPPER} Pitfalls\n${PITFALLS_CONTENT}"
+            KNOWLEDGE_CONTEXT="### ${PLATFORM_UPPER} Pitfalls\n${PITFALLS}"
+        fi
+
+        # 3. Recent discoveries (7 days) from SQLite
+        DISCOVERIES=$(sqlite3 "$DB_PATH" "SELECT '[' || type || '] ' || title || ': ' || substr(problem,1,80) FROM knowledge WHERE julianday('now') - julianday(created_at) <= 7 ORDER BY created_at DESC LIMIT 3;" 2>/dev/null)
+        if [[ -n "$DISCOVERIES" ]]; then
+            KNOWLEDGE_CONTEXT="${KNOWLEDGE_CONTEXT}\n\n### Recent Discoveries\n${DISCOVERIES}"
         fi
     fi
 
     # 2. Task-related knowledge via FTS5 (max 600 chars)
-    DB_PATH="$PROJECT_DIR/.claude/cache/artifact-index/context.db"
     if [[ -f "$DB_PATH" && -n "$CURRENT_BRANCH" ]]; then
         # Extract keywords from branch name
         BRANCH_KEYWORDS=$(echo "$CURRENT_BRANCH" | /usr/bin/sed 's/^feature\///' | /usr/bin/sed 's/^bugfix\///' | /usr/bin/sed 's/TASK-[0-9]*-*//' | tr '[-_/]' ' ' | tr -s ' ')
@@ -235,25 +256,6 @@ if [[ "$SESSION_TYPE" == "clear" || "$SESSION_TYPE" == "compact" ]]; then
                 if [[ -n "$TASK_KNOWLEDGE" ]]; then
                     KNOWLEDGE_CONTEXT="${KNOWLEDGE_CONTEXT}\n\n### Related Knowledge\nKeywords: ${BRANCH_KEYWORDS}\n${TASK_KNOWLEDGE}"
                 fi
-            fi
-        fi
-    fi
-
-    # 3. Recent discoveries (7 days, max 600 chars)
-    DISCOVERIES_DIR="$KNOWLEDGE_DIR/discoveries"
-    if [[ -d "$DISCOVERIES_DIR" ]]; then
-        SEVEN_DAYS_AGO=$(date -v-7d +%Y-%m-%d 2>/dev/null || date -d "7 days ago" +%Y-%m-%d 2>/dev/null || true)
-        if [[ -n "$SEVEN_DAYS_AGO" ]]; then
-            RECENT_DISCOVERIES=""
-            for f in $(ls -t "$DISCOVERIES_DIR"/*.md 2>/dev/null | head -3); do
-                FILE_DATE=$(basename "$f" | grep -oE '^[0-9]{4}-[0-9]{2}-[0-9]{2}' || true)
-                if [[ -n "$FILE_DATE" && "$FILE_DATE" > "$SEVEN_DAYS_AGO" ]]; then
-                    TITLE=$(head -1 "$f" | /usr/bin/sed 's/^# Discovery: //')
-                    RECENT_DISCOVERIES="${RECENT_DISCOVERIES}\n- ${TITLE}"
-                fi
-            done
-            if [[ -n "$RECENT_DISCOVERIES" ]]; then
-                KNOWLEDGE_CONTEXT="${KNOWLEDGE_CONTEXT}\n\n### Recent Discoveries${RECENT_DISCOVERIES}"
             fi
         fi
     fi

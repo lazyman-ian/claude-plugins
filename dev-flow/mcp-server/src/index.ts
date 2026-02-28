@@ -268,7 +268,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           action: {
             type: 'string',
-            enum: ['consolidate', 'status', 'query', 'list', 'extract', 'save', 'search', 'get'],
+            enum: ['consolidate', 'status', 'query', 'list', 'extract', 'save', 'search', 'get', 'prune'],
             description: 'Action to perform',
           },
           query: { type: 'string', description: 'Search query (for query action)' },
@@ -1158,8 +1158,12 @@ function memoryTool(action?: string, query?: string, type?: string, dryRun?: boo
       const entries = results.map(r => `## [${r.type}] ${r.title}\nPlatform: ${r.platform} | Project: ${r.sourceProject}\n**Problem**: ${r.problem}\n**Solution**: ${r.solution}`);
       return { content: [{ type: 'text', text: entries.join('\n\n') }] };
     }
+    case 'prune': {
+      const result = continuity.memoryPrune(dryRun ?? false);
+      return { content: [{ type: 'text', text: result.message }] };
+    }
     default:
-      return { content: [{ type: 'text', text: '❌ Action required: consolidate|status|query|list|extract|save|search|get' }] };
+      return { content: [{ type: 'text', text: '❌ Action required: consolidate|status|query|list|extract|save|search|get|prune' }] };
   }
 }
 

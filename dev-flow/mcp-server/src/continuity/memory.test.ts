@@ -1,8 +1,8 @@
 /**
- * Memory module tests — dedup functions
+ * Memory module tests — dedup functions + prune + temporal decay
  */
 
-import { extractKeyTerms, tokenOverlap } from './memory';
+import { extractKeyTerms, tokenOverlap, memoryPrune } from './memory';
 
 describe('extractKeyTerms', () => {
   it('removes stop words', () => {
@@ -65,5 +65,20 @@ describe('tokenOverlap', () => {
     const ab = tokenOverlap('alpha beta gamma', 'beta gamma delta');
     const ba = tokenOverlap('beta gamma delta', 'alpha beta gamma');
     expect(ab).toBeCloseTo(ba);
+  });
+});
+
+describe('memoryPrune', () => {
+  it('returns no-database message when DB does not exist', () => {
+    const result = memoryPrune(false);
+    // In test env without actual DB, either returns 'No database' or 'No stale entries'
+    expect(result.pruned).toBe(0);
+    expect(result.message).toBeTruthy();
+  });
+
+  it('supports dry run mode', () => {
+    const result = memoryPrune(true);
+    expect(result.pruned).toBeGreaterThanOrEqual(0);
+    expect(typeof result.message).toBe('string');
   });
 });

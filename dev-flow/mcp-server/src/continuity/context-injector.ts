@@ -11,7 +11,7 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, basename } from 'path';
 import { homedir } from 'os';
 import { detectPlatformSimple } from '../detector';
@@ -34,10 +34,6 @@ function getCwd(): string {
   } catch {
     return process.cwd();
   }
-}
-
-function getKnowledgeDir(): string {
-  return join(homedir(), '.claude', 'knowledge');
 }
 
 function getDbPath(): string {
@@ -92,16 +88,28 @@ function getRecentFileKeywords(): string[] {
 // --- Knowledge Loading ---
 
 function loadPlatformPitfalls(platform: string, maxChars: number): string {
-  const pitfallsPath = join(getKnowledgeDir(), 'platforms', platform, 'pitfalls.md');
-  if (!existsSync(pitfallsPath)) return '';
-
-  const content = readFileSync(pitfallsPath, 'utf-8');
-  if (content.length <= maxChars) return content;
-
-  // Truncate at last complete entry
-  const truncated = content.slice(0, maxChars);
-  const lastHeader = truncated.lastIndexOf('\n### ');
-  return lastHeader > 0 ? truncated.slice(0, lastHeader) : truncated;
+  const dbPath = getDbPath();
+  if (!existsSync(dbPath)) return '';
+  // SQL injection prevention: double single quotes (sqlite3 CLI has no parameterized queries)
+  const safePlatform = platform.replace(/'/g, "''");
+  const sql = `SELECT title, substr(problem,1,100) FROM knowledge WHERE type='pitfall' AND platform='${safePlatform}' ORDER BY created_at DESC LIMIT 5;`;
+  try {
+    const result = execSync(`sqlite3 -separator $'\\t' "${dbPath}" "${sql}"`, {
+      encoding: 'utf-8', timeout: 3000,
+    }).trim();
+    if (!result) return '';
+    let output = '';
+    for (const line of result.split('\n')) {
+      const sep = line.indexOf('\t');
+      if (sep === -1) continue;
+      const title = line.slice(0, sep);
+      const problem = line.slice(sep + 1);
+      const entry = `### ${title}\n${problem}\n`;
+      if (output.length + entry.length > maxChars) break;
+      output += entry;
+    }
+    return output;
+  } catch { return ''; }
 }
 
 function queryKnowledgeFts(keywords: string[], maxChars: number): string {
@@ -132,35 +140,29 @@ function queryKnowledgeFts(keywords: string[], maxChars: number): string {
 }
 
 function loadRecentDiscoveries(maxChars: number): string {
-  const discoveriesDir = join(getKnowledgeDir(), 'discoveries');
-  if (!existsSync(discoveriesDir)) return '';
-
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const files = readdirSync(discoveriesDir)
-    .filter(f => f.endsWith('.md'))
-    .filter(f => {
-      try {
-        return statSync(join(discoveriesDir, f)).mtime.getTime() > sevenDaysAgo;
-      } catch {
-        return false;
-      }
-    })
-    .sort()
-    .reverse()
-    .slice(0, 3);
-
-  let output = '';
-  for (const file of files) {
-    const content = readFileSync(join(discoveriesDir, file), 'utf-8');
-    const titleMatch = content.match(/^# Discovery: (.+)/m);
-    const whatMatch = content.match(/## What\n([\s\S]*?)(?=\n## |$)/);
-    const title = titleMatch ? titleMatch[1] : file;
-    const what = whatMatch ? whatMatch[1].trim().split('\n')[0] : '';
-    const entry = `- ${title}: ${what.slice(0, 80)}\n`;
-    if (output.length + entry.length > maxChars) break;
-    output += entry;
-  }
-  return output;
+  const dbPath = getDbPath();
+  if (!existsSync(dbPath)) return '';
+  const sql = `SELECT type, title, substr(problem,1,80) FROM knowledge WHERE julianday('now') - julianday(created_at) <= 7 ORDER BY created_at DESC LIMIT 3;`;
+  try {
+    const result = execSync(`sqlite3 -separator $'\\t' "${dbPath}" "${sql}"`, {
+      encoding: 'utf-8', timeout: 3000,
+    }).trim();
+    if (!result) return '';
+    let output = '';
+    for (const line of result.split('\n')) {
+      const sep = line.indexOf('\t');
+      if (sep === -1) continue;
+      const type = line.slice(0, sep);
+      const rest = line.slice(sep + 1);
+      const sep2 = rest.indexOf('\t');
+      const title = sep2 === -1 ? rest : rest.slice(0, sep2);
+      const problem = sep2 === -1 ? '' : rest.slice(sep2 + 1);
+      const entry = `- [${type}] ${title}: ${problem}\n`;
+      if (output.length + entry.length > maxChars) break;
+      output += entry;
+    }
+    return output;
+  } catch { return ''; }
 }
 
 function esc(s: string): string {
@@ -218,9 +220,7 @@ export function syncToMemoryMd(memoryMdPath: string): void {
   // 1. Platform pitfalls (always)
   const pitfalls = loadPlatformPitfalls(platform, BUDGET_PITFALLS);
   if (pitfalls) {
-    // Convert to concise bullet points
-    const bulletPitfalls = pitfallsToBullets(pitfalls, platform);
-    if (bulletPitfalls) lines.push(bulletPitfalls);
+    lines.push(`**${platform.toUpperCase()} Pitfalls:**\n${pitfalls.trimEnd()}`);
   }
 
   // 2. Task-related knowledge (FTS match)
@@ -279,26 +279,6 @@ export function syncToMemoryMd(memoryMdPath: string): void {
   }
 
   writeFileSync(memoryMdPath, updated, 'utf-8');
-}
-
-/**
- * Convert the pitfalls.md content (### headers) into concise bullet points.
- */
-function pitfallsToBullets(content: string, platform: string): string {
-  const entries: string[] = [];
-  // Match ### Title blocks
-  const headerRe = /^### (.+)$/gm;
-  let match: RegExpExecArray | null;
-  while ((match = headerRe.exec(content)) !== null) {
-    const title = match[1].trim();
-    // Find the next line after the header that is non-empty for a brief snippet
-    const afterHeader = content.slice(match.index + match[0].length);
-    const firstLine = afterHeader.split('\n').find(l => l.trim().length > 0) || '';
-    const snippet = firstLine.replace(/^\*\*(Problem|Solution|Source)\*\*:\s*/i, '').slice(0, 80);
-    entries.push(`- [pitfall] ${title}${snippet ? ': ' + snippet : ''}`);
-  }
-  if (entries.length === 0) return '';
-  return `**${platform.toUpperCase()} Pitfalls:**\n${entries.join('\n')}`;
 }
 
 export function injectKnowledgeContext(): InjectionResult {
