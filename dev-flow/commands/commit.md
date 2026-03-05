@@ -36,6 +36,44 @@ Server 自动检查 staged changes、计算 diff hash、记录 review log 时间
 ❌ No staged changes. Run `git add` first.
 ```
 
+### Step 2.3: Code Simplification (optional, `--simplify`)
+
+当使用 `--simplify` 时，AI 根据改动规模自动选择工具：
+
+| 信号 | 选择 | 原因 |
+|------|------|------|
+| staged lines < 100 | `Skill("simplify")` — CC 内置 | light 足够 |
+| staged lines >= 100 且已安装 | `Task(subagent_type="code-simplifier:code-simplifier")` | 大改动需要 opus |
+| staged lines >= 100 未安装 | `Skill("simplify")` + 提示安装 | fallback + hint |
+
+然后验证行为不变：
+```
+dev_config() → 获取 verify 命令 → 执行
+```
+
+| 结果 | 行为 |
+|------|------|
+| simplify + verify PASS | 重新 stage (`git add -u`)，继续 review |
+| simplify 无改动 | 继续 review |
+| verify FAIL | 提示用户 review 简化改动，不自动继续 |
+
+> dev-flow 不维护简化逻辑，两个工具各跟随上游更新。
+
+### Step 2.4: UI Verification (AI 自主决策)
+
+检测 staged changes 中是否包含 UI 文件：
+
+```bash
+UI_FILES=$(git diff --cached --name-only | grep -iE '\.(css|scss|less|styled|vue|tsx|jsx|swift|kt)$' | head -5)
+HAS_FIGMA_CONTEXT=$(git log -1 --format=%B | grep -qi 'figma' && echo 1)
+```
+
+| 信号 | 行为 |
+|------|------|
+| UI 文件改动 + 当前 session 有 Figma URL | 自动调用 `Skill("ui-verify")` |
+| UI 文件改动 + 无 Figma context | 提示: "检测到 UI 改动，有 Figma 设计稿可对比吗？" |
+| 无 UI 文件改动 | 跳过 |
+
 ### Step 2.5: Code Review Gate
 
 **无条件 spawn code-reviewer agent**（深度由 agent 自行判定，主流程不参与决策）：
@@ -142,6 +180,7 @@ dev_ledger(action="update", content="Committed: <hash-short>")
 |------|------|
 | `/dev-flow:commit` | 自动生成 message |
 | `/dev-flow:commit "message"` | 使用指定 message |
+| `/dev-flow:commit --simplify` | 提交前简化 (AI 自动选 light/deep) |
 | `/dev-flow:commit --amend` | 修改上次提交 (谨慎) |
 
 ## 重要

@@ -3,7 +3,7 @@ name: cross-platform-team
 description: Orchestrates cross-platform development teams that build the same feature across iOS, Android, and Web simultaneously in multiple repositories. This skill should be used when the user needs coordinated multi-repo implementation with shared contracts, platform-specific plan review, and convention sync. Extends agent-team with multi-repo platform resolution. Triggers on "cross-platform", "cross platform team", "multi-repo team", "iOS Android Web", "three platforms", "跨平台开发", "多仓库协作", "iOS Android Web 同时", "三端同步", "多端同步", "iOS+Android", "跨平台团队". Do NOT use for single-repo parallel agent work — use "agent-team" instead.
 memory: user
 context: fork
-allowed-tools: [Read, Glob, Grep, Bash, Skill, Task, TeamCreate, TeamDelete, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet, AskUserQuestion, mcp__Framelink_MCP_for_Figma__get_figma_data, mcp__plugin_dev-flow_dev-flow__*, mcp__apple-docs__*, mcp__sosumi__*, mcp__plugin_context7_context7__*]
+allowed-tools: [Read, Glob, Grep, Bash, Skill, Task, TeamCreate, TeamDelete, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet, AskUserQuestion, mcp__figma__get_design_context, mcp__figma__get_screenshot, mcp__figma__get_metadata, mcp__plugin_dev-flow_dev-flow__*, mcp__apple-docs__*, mcp__sosumi__*, mcp__plugin_context7_context7__*]
 ---
 
 # Cross-Platform Team

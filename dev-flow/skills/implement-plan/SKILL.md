@@ -4,7 +4,7 @@ description: Executes approved implementation plans from thoughts/shared/plans/ 
 model: opus
 memory: project
 context: fork
-allowed-tools: [Read, Glob, Grep, Edit, Write, Bash, Task, TaskCreate, TaskUpdate, TaskList, TaskGet, mcp__plugin_dev-flow_dev-flow__*]
+allowed-tools: [Read, Glob, Grep, Edit, Write, Bash, Task, TaskCreate, TaskUpdate, TaskList, TaskGet, mcp__plugin_dev-flow_dev-flow__*, mcp__figma__get_design_context, mcp__figma__get_screenshot, mcp__figma__get_metadata]
 ---
 
 # Implement Plan
@@ -32,14 +32,16 @@ Execute approved technical plans from `thoughts/shared/plans/` with optional TDD
 When a plan phase has `tasks` array in frontmatter, each task goes through 5 quality gates:
 
 ```
-Task → Fresh Subagent → Self-Review → Spec Review → Quality Review → Complete
+Task → [Figma Pre-fetch] → Fresh Subagent → Self-Review → Spec Review → [UI Verify] → Quality Review → Complete
 ```
 
 | Gate | Mechanism | Blocker? |
 |------|-----------|----------|
+| 0. Figma Pre-fetch | Orchestrator fetches design specs via Figma MCP (ui-task only) | — |
 | 1. Fresh Context | New subagent per task (context isolation) | — |
 | 2. Self-Review | 11-point checklist in implement-agent | Fix before reporting |
 | 3. Spec Review | spec-reviewer agent checks requirement match | REQUEST CHANGES → retry (max 2) |
+| 3.5 UI Verify | ui-verify measures rendered CSS vs Figma specs (ui-task only) | ❌ delta > 2px → auto-correct |
 | 4. Quality Review | code-reviewer agent P0-P3 | P0/P1 → block, P2/P3 → note |
 | 5. Verification | verify skill (run verify command) | Fail → stay in_progress |
 

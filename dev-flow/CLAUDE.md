@@ -211,11 +211,16 @@ Auto Memory (MEMORY.md)     ← Claude session injection
 Multi-layer automated code review with P0-P3 severity, integrated at 4 workflow points:
 
 ```
-/dev commit  → code-reviewer agent (commit-gate: P0/P1 blocks)
-/dev review  → code-reviewer agent (standalone: P0-P3 full)
-/dev pr      → code-reviewer agent (PR: P0-P3 full)
-Agent Team   → reviewer teammate (persistent, cross-module)
+/dev simplify         → AI auto: /simplify (light) or code-simplifier@anthropics (deep)
+/dev commit           → code-reviewer (commit-gate: P0/P1 blocks)
+/dev commit --simplify → AI auto: simplify → code-reviewer → commit
+/dev review           → dev-flow reviewer + AI auto: 官方专项 agents (按信号触发)
+/dev pr               → dev-flow reviewer + AI auto: 专项 agents + GH comment (按信号触发)
+Agent Team            → reviewer teammate (persistent, cross-module)
 ```
+
+AI 根据变更信号（文件类型、改动规模、error patterns）自主决策调用哪些官方 plugin agents。
+未安装的 plugin 静默跳过。详见各 command 定义中的信号表。
 
 **Key design**: Review depth decided by code-reviewer agent in isolated context (not by main agent), preventing skip-bias. Agent auto-classifies risk from diff signals (sensitive files, change size, pitfall matches).
 
@@ -228,14 +233,16 @@ Agent Team   → reviewer teammate (persistent, cross-module)
 Per-task quality gates in implement-plan:
 
 ```
-Plan Task → Fresh Subagent → Self-Review (11-point) → Spec Review → Quality Review
+Plan Task → [Figma Pre-fetch] → Fresh Subagent → Self-Review → Spec Review → [UI Verify] → Quality Review
 ```
 
-| Gate | Agent | Purpose |
-|------|-------|---------|
+| Gate | Agent/Skill | Purpose |
+|------|-------------|---------|
+| 0. Figma Pre-fetch | Figma MCP (orchestrator) | Fetch design specs for ui-task (inject into subagent prompt) |
 | 1. Fresh Subagent | implement-agent | Context isolation, anti-corruption |
 | 2. Self-Review | (built-in) | 11-point checklist before reporting done |
 | 3. Spec Review | spec-reviewer | Implementation matches plan exactly |
+| 3.5 UI Verify | ui-verify skill | Measure rendered CSS vs Figma specs (ui-task only) |
 | 4. Quality Review | code-reviewer | P0-P3 code quality |
 | 5. Batch Checkpoint | (orchestrator) | Pause every N tasks for coherence check |
 

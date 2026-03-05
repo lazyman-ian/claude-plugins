@@ -5,14 +5,29 @@ Per-task execution with 5-gate quality pipeline.
 ## Process
 
 ```
-PREPARE → IMPLEMENT → SELF-REVIEW → SPEC REVIEW → QUALITY REVIEW → COMPLETE
+PREPARE → IMPLEMENT → SELF-REVIEW → SPEC REVIEW → [UI VERIFY] → QUALITY REVIEW → COMPLETE
 ```
+
+`[UI VERIFY]` gate only runs for `ui-task` type with `figma` field.
 
 ### Step 1: Prepare Context
 
 - Read plan task (embed full text, not file reference)
 - Read prev handoff summary: `dev_handoff(action='chain', taskId='...')`
 - Query knowledge: `dev_memory(action="query", query="<task-keywords> pitfalls")`
+- **If `ui-task` with `figma` field**: Pre-fetch design data from Figma MCP (orchestrator does this, not subagent):
+
+```python
+# Orchestrator fetches design specs BEFORE spawning implementer
+if task.type == "ui-task" and task.figma:
+    figma_context = get_design_context(fileKey, nodeId)  # from task.figma URL
+    # Parse into spec object for implementer
+    design_specs = extract_specs(figma_context)
+    # Also get screenshot for visual reference
+    design_screenshot = get_screenshot(fileKey, nodeId)
+```
+
+This ensures the implementer receives structured design data, not just a URL it can't access.
 
 ### Step 2: Spawn Fresh Implementer
 
@@ -37,6 +52,13 @@ Task(
   {task.files}
 
   Verify command: {task.verify}
+
+  {# Only for ui-task with figma field — injected by orchestrator from Step 1 #}
+  Design specs (from Figma):
+  {design_specs_json}
+
+  Design screenshot attached for visual reference.
+  Key measurements: {design_specs_summary}
   """
 )
 ```
@@ -80,6 +102,24 @@ Task(
 - APPROVED → proceed to Step 5
 - REQUEST CHANGES → back to Step 2 (fresh implementer with feedback)
 - Max 2 iterations → escalate to user if still failing
+
+### Step 4.5: UI Verification (ui-task only)
+
+If the task has `type: ui-task` and a `figma` field in the plan frontmatter:
+
+```python
+Skill("ui-verify")
+# Input: figma URL from task.figma + dev server URL from dev_config
+# Measures rendered CSS vs Figma specs, auto-corrects deltas > 2px
+```
+
+| Result | Action |
+|--------|--------|
+| All ✅/⚠️ | Proceed to Quality Review |
+| ❌ failures found | Auto-correct → re-measure → proceed if fixed |
+| Auto-correct fails | Escalate to user with delta report |
+
+Skip this step for `logic-task` type or tasks without `figma` field.
 
 ### Step 5: Quality Review
 
