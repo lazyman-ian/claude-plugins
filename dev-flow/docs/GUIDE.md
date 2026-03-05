@@ -1,6 +1,6 @@
 # dev-flow Plugin 完整指南
 
-> Claude Code 开发工作流自动化插件 | v6.0.0
+> Claude Code 开发工作流自动化插件 | v6.2.0
 
 ## 目录
 
@@ -11,7 +11,6 @@
   - [Ledger 状态管理](#ledger-状态管理)
   - [Knowledge Base 知识库](#knowledge-base-知识库)
   - [Memory System 记忆系统](#memory-system-记忆系统)
-  - [Instinct 系统](#instinct-系统) *(v6.0.0)*
   - [Notion Pipeline](#notion-pipeline) *(v6.0.0)*
   - [Product Brain](#product-brain) *(v6.0.0)*
   - [Rules 分发系统](#rules-分发系统) *(v6.0.0)*
@@ -599,69 +598,6 @@ dev_memory(action='status')
 | session_summaries + _fts | Session 总结 | 1 |
 | observations + _fts | 观察记录 | 3 |
 
-### Instinct 系统
-
-从工作观察中自动提取可复用模式，积累到一定置信度后可进化为 skill/rule/command。
-
-#### 前提
-
-需要 Tier 3 记忆（`.dev-flow.json` 中 `"memory": { "tier": 3 }`），因为 instinct 从 `observations` 表中提取。
-
-#### 工作原理
-
-```
-Sessions (Tier 3 观察) → observations 表
-    → dev_instinct(extract) → 聚类为 instinct
-    → dev_instinct(list) → 查看高置信度 instinct
-    → /dev evolve → 进化为 skill/rule/command
-```
-
-#### 使用方式
-
-```bash
-# 从观察数据中提取 instinct（DBSCAN 风格聚类）
-dev_instinct(action='extract')
-
-# 查看所有 instinct（按置信度降序）
-dev_instinct(action='list')
-
-# 按领域过滤
-dev_instinct(action='list', domain='swift-style')
-```
-
-#### 置信度机制
-
-| 置信度 | 含义 | 可进化？ |
-|--------|------|---------|
-| 0.3 | 初始（首次从 3+ 观察聚类） | ❌ |
-| 0.5-0.7 | 中等（多次提取增强） | ❌ |
-| 0.8-0.89 | 较高（需确认后进化） | ⚠️ 需确认 |
-| >= 0.9 | 高（充分验证） | ✅ 直接进化 |
-
-每次 `extract` 遇到已有聚类时置信度 +0.1（上限 1.0）。
-
-#### 自动领域分类
-
-| 领域 | 关键词 |
-|------|--------|
-| swift-style | swift, guard, optional, closure, protocol |
-| android-kotlin | kotlin, android, compose, coroutine, flow |
-| typescript | typescript, type, interface, generic, async |
-| git-workflow | commit, branch, merge, rebase, push |
-| testing | test, mock, assert, spec, unit |
-| performance | performance, memory, optimize, cache, slow |
-
-#### 进化（/dev evolve）
-
-将高置信度 instinct 转化为持久化资产：
-
-| Instinct 类型 | 进化目标 | 注册方式 |
-|---------------|---------|---------|
-| 模式/规则 | `.claude/rules/pattern-*.md` | 自动发现 |
-| 操作/动作 | `skills/new-skill/SKILL.md` | plugin.json |
-| 工作流 | `commands/new-command.md` | 自动发现 |
-| 防御/预防 | `.claude/rules/anti-pattern-*.md` | 自动发现 |
-
 ### Notion Pipeline
 
 从 Notion 数据库拉取任务、生成规格说明，实现需求到实现的自动化流水线。
@@ -807,7 +743,7 @@ Spec → 实现 → commit
 /dev rules sync
 ```
 
-#### 可用模板（11 个）
+#### 可用模板（12 个）
 
 | 模板 | 作用域 | 说明 |
 |------|--------|------|
@@ -1122,11 +1058,10 @@ Tasks: 2/5 (40%) | → 1 active | 2 pending
 
 ### v6.0.0 (2026-02-27)
 
-- **Instinct 系统**: 从观察数据中自动提取模式，聚类为可进化的 instinct（`dev_instinct` 工具）
 - **Notion Pipeline**: 任务分拣（`/dev inbox`）、规格生成（`/dev spec`）、合并后状态更新 hook
 - **Product Brain**: 产品知识抽取与查询（`dev_product` 工具），commit 后自动提取架构知识
 - **Memory 架构对齐**: Auto Memory 双向同步（`syncToMemoryMd`）、topic 文件输出、path-scoped pitfalls
-- **Rules 分发系统**: 9 个平台感知规则模板 + `/dev rules` 命令，`/dev init` 自动安装
+- **Rules 分发系统**: 12 个平台感知规则模板 + `/dev rules` 命令，`/dev init` 自动安装
 - **结构一致性**: 全部 5 个插件统一 hooks/scripts/ 路径、补齐 CLAUDE.md
 - **测试基础设施**: vitest 配置 + 6 个测试文件 98 个测试 + validate-plugins.sh + CI workflow
 - **Hook 系统升级**: post-edit-format 多格式化器分发、context-warning 策略压缩、session-end 清理

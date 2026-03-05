@@ -208,6 +208,28 @@
             "async": true
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/docs-lint.sh",
+            "timeout": 3,
+            "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/docs-reminder.sh",
+            "timeout": 3,
+            "async": true
+          }
+        ]
       }
     ]
   }

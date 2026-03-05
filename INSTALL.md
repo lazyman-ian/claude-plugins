@@ -9,7 +9,7 @@
 claude --version
 
 # 检查 Node.js 版本（某些插件需要）
-node --version   # v16+ 推荐
+node --version   # v20+ 推荐
 
 # 检查 npm
 npm --version

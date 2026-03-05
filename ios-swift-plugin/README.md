@@ -92,19 +92,25 @@ See [INSTALL.md](../INSTALL.md) for detailed installation guide.
 
 ## Skills
 
-### Core Development (10)
+### Skills (16)
 
 | Skill | Description | Trigger Keywords |
 |-------|-------------|------------------|
 | **swiftui-expert** | View composition, state management, modern APIs | SwiftUI, @State, NavigationStack |
 | **swift-concurrency** | async/await, actors, Sendable, Swift 6 | async, actor, Sendable, concurrency |
+| **swift-6-guide** | Swift 6 strict concurrency migration | Swift 6, strict concurrency |
+| **swift-testing** | Swift Testing framework patterns | @Test, #expect, Swift Testing |
 | **ios-build-test** | Token-efficient build and test | build, test, xcodebuild |
 | **ios-api-helper** | Apple documentation lookup | iOS API, how to implement |
 | **ios-widget-developer** | WidgetKit, Live Activities | widget, Timeline, Live Activity |
 | **ios-debugger** | Simulator debugging, UI interaction | run app, simulator, debug |
 | **ios-ui-docs** | UIKit components, Auto Layout | UIButton, UITableView, Auto Layout |
+| **ios-modern-apis** | iOS 17+/18+ new APIs adoption | iOS 17, iOS 18, new API |
+| **ios-migration-advisor** | SDK/API migration guidance | migrate, deprecation, upgrade |
+| **ios-performance-guide** | Performance diagnosis and optimization | performance, slow, battery |
+| **xcode-build-config** | Build settings and configuration | build config, scheme, target |
 | **swiftui-liquid-glass** | iOS 26+ Liquid Glass API | Liquid Glass, glassEffect |
-| **swiftui-performance-audit** | Performance diagnosis | performance, slow, janky |
+| **swiftui-performance-audit** | SwiftUI performance audit | janky, laggy, SwiftUI perf |
 | **macos-spm-app-packaging** | SwiftPM app bundling | SwiftPM app, notarize |
 
 <details>
@@ -149,6 +155,8 @@ See [INSTALL.md](../INSTALL.md) for detailed installation guide.
 |-------|---------|-------------|
 | **concurrency-reviewer** | PostToolUse (Swift files) | Auto-analyzes for concurrency issues |
 | **performance-auditor** | PostToolUse (SwiftUI files) | Auto-checks performance patterns |
+| **migration-scanner** | On request | Finds deprecated APIs and migration paths |
+| **swift-testing-reviewer** | PostToolUse (test files) | Reviews Swift Testing patterns |
 
 ## Hooks
 
@@ -173,7 +181,7 @@ See [INSTALL.md](../INSTALL.md) for detailed installation guide.
 ```
 ios-swift-plugin/
 ├── .claude-plugin/plugin.json   # Plugin manifest
-├── skills/                      # 10 skills
+├── skills/                      # 16 skills
 │   ├── swiftui-expert/          # SwiftUI best practices
 │   │   ├── SKILL.md
 │   │   └── references/          # 30+ reference docs
@@ -192,7 +200,7 @@ ios-swift-plugin/
 │   ├── swiftui-performance-audit/
 │   └── macos-spm-app-packaging/
 ├── commands/                    # 4 commands
-├── agents/                      # 2 agents
+├── agents/                      # 4 agents
 ├── hooks/                       # 2 hooks
 └── tools/
     └── ConcurrencyGuard/        # SwiftSyntax analyzer

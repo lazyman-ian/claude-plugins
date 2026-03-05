@@ -5,6 +5,26 @@ All notable changes to dev-flow plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.2.0] - 2026-03-05
+
+### Added
+
+- **Markdown-First Knowledge Vault**: Replaced SQLite-only storage with human-editable Markdown files in `thoughts/knowledge/` as source of truth, with SQLite FTS5 as search index
+- **Project Documentation Scaffolding**: `/dev init` Step 6 creates `docs/` with 5 templates (glossary, toolbox, skills, memory, decisions) using `@docs/` imports for progressive loading
+- **CLAUDE.md Optimization**: `/dev init` Step 7 audits and trims CLAUDE.md (target 50-80 lines), moves verbose content to `docs/` files
+- **docs-maintenance rule template**: Auto-recording rules for when to update each doc file, loaded silently via `.claude/rules/`
+- **docs-lint hook**: PostToolUse async hook warns when CLAUDE.md exceeds 200 lines
+- **docs-reminder hook**: PostToolUse async hook reminds to update `docs/toolbox.md` when new API/service files are created
+- **CLAUDE.md.template**: Minimal template targeting 50-80 lines with Quick Reference table and `@docs/` imports
+- **MADR minimal format**: Decisions template uses [MADR](https://adr.github.io/madr/) Context → Options → Decision format
+
+### Changed
+
+- **init command**: Simplified from 308 to 147 lines; merged duplicate Knowledge Vault steps; trimmed examples, keybindings, and motivation sections
+- **Rule templates**: Added `docs-maintenance` (12th template) to always-install list
+- **Hook count**: 15 → 17 (added docs-lint, docs-reminder)
+- **Knowledge vault config**: `memory.vault` now points to `thoughts/knowledge/` with Markdown files as source of truth
+
 ## [6.1.0] - 2026-02-28
 
 ### Added

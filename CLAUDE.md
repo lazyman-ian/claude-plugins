@@ -9,7 +9,7 @@ lazyman-ian marketplace for Claude Code plugins. Contains 5 plugins in a single 
 | Plugin | Version | Purpose |
 |--------|---------|---------|
 | dev-flow | 6.2.0 | Development workflow: brainstorm → plan → implement (5-gate pipeline) → commit → PR → release + automated code review (P0-P3) + agent-team + cross-platform team + Markdown-first knowledge vault + Notion pipeline + product brain + rules distribution |
-| ios-swift-plugin | 1.2.0 | iOS/Swift toolkit: SwiftUI, Concurrency, WidgetKit, Performance, Migration |
+| ios-swift-plugin | 1.3.0 | iOS/Swift toolkit: SwiftUI, Concurrency, WidgetKit, Performance, Migration |
 | android-kotlin-plugin | 1.0.0 | Android/Kotlin toolkit: Compose, Coroutines, Performance, Architecture, Build, Migration |
 | utils | 1.3.0 | Code quality: deslop, search-code, safety hooks |
 | research | 1.3.0 | Research: Perplexity AI, Braintrust, RepoPrompt |

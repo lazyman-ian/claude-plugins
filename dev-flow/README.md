@@ -124,13 +124,12 @@ See [INSTALL.md](../INSTALL.md) for detailed installation guide.
 | `/dev-flow:meta-iterate` | Self-improvement cycle |
 | `/dev-flow:inbox` | Notion task triage |
 | `/dev-flow:spec` | Generate spec from Notion task |
-| `/dev-flow:evolve` | Convert instincts to skills/rules |
 | `/dev-flow:rules` | Install rule templates |
 | `/dev-flow:checkpoint` | Manual checkpoint creation |
 | `/dev-flow:finish` | Branch completion workflow |
 
 <details>
-<summary><strong>All 29 Commands</strong></summary>
+<summary><strong>All 28 Commands</strong></summary>
 
 | Command | Description |
 |---------|-------------|
@@ -157,7 +156,6 @@ See [INSTALL.md](../INSTALL.md) for detailed installation guide.
 | `init` | Initialize project |
 | `inbox` | Notion task triage |
 | `spec` | Generate spec from task |
-| `evolve` | Convert instincts to skills |
 | `rules` | Install rule templates |
 | `checkpoint` | Manual checkpoint |
 | `finish` | Branch completion |
@@ -416,10 +414,10 @@ dev-flow-plugin/
 │       ├── continuity/          # Memory, instincts, product brain
 │       └── coordination/        # Multi-Agent
 ├── skills/                      # 22 skills
-├── commands/                    # 29 commands
+├── commands/                    # 28 commands
 ├── agents/                      # 14 agents
-├── hooks/                       # 15 hooks (6 types)
-├── templates/rules/             # 11 rule templates
+├── hooks/                       # 17 hooks
+├── templates/rules/             # 12 rule templates
 └── docs/                        # Documentation
 ```
 
@@ -439,12 +437,10 @@ Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelin
 ```bash
 # Clone
 git clone https://github.com/lazyman-ian/dev-flow.git
-cd dev-flow
 
 # Build MCP server
-cd mcp-server
-npm install
-npm run bundle
+npm install --prefix dev-flow/mcp-server
+npm run --prefix dev-flow/mcp-server bundle
 
 # Test locally
 claude plugins add /path/to/dev-flow

@@ -1,0 +1,37 @@
+# CLAUDE.md
+
+<!-- 项目名 — 一句话描述 -->
+
+## Quick Reference
+
+| Action | Command |
+|--------|---------|
+| 开发 | `<!-- dev server command -->` |
+| 构建 | `<!-- build command -->` |
+| 检查 | `<!-- lint/typecheck command -->` |
+| 提交 | `/dev commit` |
+| PR | `/dev pr` |
+
+## Structure
+
+```
+<!-- 标注每个模块用途的目录树 -->
+```
+
+## Standards
+
+<!-- 只放 Claude 无法从代码推断的规则。代码风格由 linter/formatter 执行，不要写在这里 -->
+
+## Docs (按需加载)
+
+查术语读 @docs/glossary.md，查接口读 @docs/toolbox.md。
+
+- @docs/glossary.md — 术语表
+- @docs/toolbox.md — 接口与工具
+- @docs/skills.md — 技能清单
+- @docs/memory.md — 任务记录
+- @docs/decisions.md — 决策日志 (ADR)
+
+## Notes
+
+<!-- 环境配置、特殊依赖、已知陷阱 -->

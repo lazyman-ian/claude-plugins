@@ -1,6 +1,6 @@
 # dev-flow Plugin Complete Guide
 
-> Claude Code Development Workflow Automation | v6.0.0
+> Claude Code Development Workflow Automation | v6.2.0
 
 ## Table of Contents
 
@@ -11,7 +11,6 @@
   - [Ledger State Management](#ledger-state-management)
   - [Knowledge Base](#knowledge-base)
   - [Memory System](#memory-system)
-  - [Instinct System](#instinct-system) *(v6.0.0)*
   - [Notion Pipeline](#notion-pipeline) *(v6.0.0)*
   - [Product Brain](#product-brain) *(v6.0.0)*
   - [Rules Distribution](#rules-distribution) *(v6.0.0)*
@@ -601,69 +600,6 @@ All data in `.claude/cache/artifact-index/context.db`:
 | session_summaries + _fts | Session summaries | 1 |
 | observations + _fts | Observation records | 3 |
 
-### Instinct System
-
-Automatically extract reusable patterns from work observations. Once confidence reaches threshold, instincts can evolve into skills/rules/commands.
-
-#### Prerequisites
-
-Requires Tier 3 memory (`"memory": { "tier": 3 }` in `.dev-flow.json`), as instincts are extracted from the `observations` table.
-
-#### How It Works
-
-```
-Sessions (Tier 3 observations) → observations table
-    → dev_instinct(extract) → cluster into instincts
-    → dev_instinct(list) → review high-confidence instincts
-    → /dev evolve → evolve into skill/rule/command
-```
-
-#### Usage
-
-```bash
-# Extract instincts from observations (DBSCAN-style clustering)
-dev_instinct(action='extract')
-
-# List all instincts (by confidence, descending)
-dev_instinct(action='list')
-
-# Filter by domain
-dev_instinct(action='list', domain='swift-style')
-```
-
-#### Confidence Mechanism
-
-| Confidence | Meaning | Evolvable? |
-|-----------|---------|------------|
-| 0.3 | Initial (first cluster from 3+ observations) | No |
-| 0.5-0.7 | Medium (reinforced by repeated extraction) | No |
-| 0.8-0.89 | High (requires confirmation to evolve) | Confirm first |
-| >= 0.9 | Very high (well validated) | Yes, directly |
-
-Each `extract` call increments confidence by +0.1 for existing clusters (capped at 1.0).
-
-#### Auto Domain Classification
-
-| Domain | Keywords |
-|--------|----------|
-| swift-style | swift, guard, optional, closure, protocol |
-| android-kotlin | kotlin, android, compose, coroutine, flow |
-| typescript | typescript, type, interface, generic, async |
-| git-workflow | commit, branch, merge, rebase, push |
-| testing | test, mock, assert, spec, unit |
-| performance | performance, memory, optimize, cache, slow |
-
-#### Evolution (/dev evolve)
-
-Convert high-confidence instincts into persistent assets:
-
-| Instinct Type | Evolution Target | Registration |
-|---------------|-----------------|-------------|
-| Pattern/Rule | `.claude/rules/pattern-*.md` | Auto-discovered |
-| Action | `skills/new-skill/SKILL.md` | Via plugin.json |
-| Workflow | `commands/new-command.md` | Auto-discovered |
-| Prevention | `.claude/rules/anti-pattern-*.md` | Auto-discovered |
-
 ### Notion Pipeline
 
 Pull tasks from Notion databases, generate specs, and automate the requirements-to-implementation pipeline.
@@ -809,7 +745,7 @@ Platform-aware rule templates auto-installed to `.claude/rules/`.
 /dev rules sync
 ```
 
-#### Available Templates (11)
+#### Available Templates (12)
 
 | Template | Scope | Description |
 |----------|-------|-------------|
@@ -1122,7 +1058,6 @@ The `platform` field in `.dev-flow.json` also affects:
 
 ### v6.0.0 (2026-02-27)
 
-- **Instinct System**: Auto-extract patterns from observations, cluster into evolvable instincts (`dev_instinct` tool)
 - **Notion Pipeline**: Task triage (`/dev inbox`), spec generation (`/dev spec`), post-merge status update hook
 - **Product Brain**: Product knowledge extraction & query (`dev_product` tool), post-commit architecture extraction
 - **Memory Architecture Alignment**: Auto Memory bidirectional sync (`syncToMemoryMd`), topic file output, path-scoped pitfalls

@@ -22,7 +22,7 @@ Thank you for your interest in contributing to dev-flow! This document provides 
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - Claude Code 2.1.19+
 - Git
 
@@ -39,11 +39,10 @@ cd dev-flow
 ### Build MCP Server
 
 ```bash
-cd mcp-server
-npm install
-npm run bundle    # Bundle for production
-npm run build     # TypeScript compile (development)
-npm run dev       # Run with ts-node
+npm install --prefix mcp-server
+npm run --prefix mcp-server bundle    # Bundle for production
+npm run --prefix mcp-server build     # TypeScript compile (development)
+npm run --prefix mcp-server dev       # Run with ts-node
 ```
 
 ### Test Locally

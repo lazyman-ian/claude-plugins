@@ -169,8 +169,8 @@ npm run --prefix dev-flow/mcp-server bundle
 ./scripts/validate-plugins.sh
 
 # Expected output:
-# ✅ dev-flow: 17 skills, 24 commands, 14 agents
-# ✅ ios-swift-plugin: 12 skills, 4 commands, 3 agents
+# ✅ dev-flow: 22 skills, 28 commands, 14 agents
+# ✅ ios-swift-plugin: 16 skills, 4 commands, 4 agents
 # ✅ android-kotlin-plugin: 7 skills, 2 commands, 2 agents
 ```
 
@@ -290,8 +290,8 @@ This monorepo contains 5 independent plugins:
 
 | Plugin | Purpose | Structure |
 |--------|---------|-----------|
-| dev-flow | Workflow automation (MCP server) | 17 skills, 24 cmds, 14 agents |
-| ios-swift-plugin | iOS/Swift toolkit | 12 skills, 4 cmds, 3 agents |
+| dev-flow | Workflow automation (MCP server) | 22 skills, 28 cmds, 14 agents |
+| ios-swift-plugin | iOS/Swift toolkit | 16 skills, 4 cmds, 4 agents |
 | android-kotlin-plugin | Android/Kotlin toolkit | 7 skills, 2 cmds, 2 agents |
 | utils-plugin | Code quality tools | 2 skills, 2 cmds |
 | research-plugin | Research tools | 3 skills, 4 cmds, 3 agents |

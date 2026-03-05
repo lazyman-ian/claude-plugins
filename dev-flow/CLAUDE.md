@@ -27,11 +27,11 @@ npm test --prefix mcp-server                  # All 98 tests
 .claude-plugin/plugin.json  # Plugin manifest (v6.2.0)
 .mcp.json                   # MCP server config → scripts/mcp-server.cjs
 skills/                     # 22 skills (SKILL.md + references/)
-commands/                   # 29 command definitions
+commands/                   # 28 command definitions
 agents/                     # 14 agent prompts + references/ (security/quality checklists)
-hooks/hooks.json            # 15 hooks across 6 types (PreToolUse, SessionStart, PreCompact, Stop, SessionEnd, PostToolUse)
+hooks/hooks.json            # 17 hooks across 6 types (PreToolUse, SessionStart, PreCompact, Stop, SessionEnd, PostToolUse)
 scripts/track-team.sh       # Session→team mapping for StatusLine
-templates/rules/            # 11 rule templates (platform-aware, path-scoped)
+templates/rules/            # 12 rule templates (platform-aware, path-scoped)
 templates/thoughts/schema/  # JSON schemas for meta-iterate and handoff outputs
 docs/                       # keybindings.md, hooks-setup.md
 ```
@@ -320,8 +320,8 @@ Architecture knowledge extraction and query (`dev_product` tool). Post-impl hook
 - **skill-stocktake**: Plugin skill audit
 - **spec-generator**: Notion task to spec
 
-### New Commands (8)
-`/dev inbox`, `/dev spec`, `/dev evolve`, `/dev rules`, `/dev checkpoint`, `/dev finish`, `/dev brainstorm`, `/dev review`
+### New Commands (7)
+`/dev inbox`, `/dev spec`, `/dev rules`, `/dev checkpoint`, `/dev finish`, `/dev brainstorm`, `/dev review`
 
 ### Infrastructure
 - vitest + 98 tests across 6 files
