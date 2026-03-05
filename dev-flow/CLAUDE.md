@@ -26,7 +26,7 @@ npm test --prefix mcp-server                  # All 98 tests
 ```
 .claude-plugin/plugin.json  # Plugin manifest (v6.2.0)
 .mcp.json                   # MCP server config → scripts/mcp-server.cjs
-skills/                     # 22 skills (SKILL.md + references/)
+skills/                     # 23 skills (SKILL.md + references/)
 commands/                   # 28 command definitions
 agents/                     # 14 agent prompts + references/ (security/quality checklists)
 hooks/hooks.json            # 17 hooks across 6 types (PreToolUse, SessionStart, PreCompact, Stop, SessionEnd, PostToolUse)

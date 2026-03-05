@@ -306,12 +306,30 @@ If Agent Teams are available, also check:
 | Delegate mode aware | Rules mention delegate mode | `rules/*.md` |
 | Quality gate scripts | Executable in expected path | `scripts/*-gate.sh` |
 
+## Phase 8: Prompt Artifact Optimization
+
+After model upgrade detected, auto-trigger prompt optimization across all artifact types (skills, agents, commands, rules):
+
+```
+Skill("dev-flow:prompt-optimizer", "--target <plugin-path>")
+```
+
+**Trigger conditions** (any of):
+- Claude model version changed (e.g., Opus 4.5 → 4.6)
+- Release notes mention "improved reasoning" or "native capability"
+- Prompts haven't been optimized in > 30 days (check `tests/skill-ab/results/OPTIMIZE-*.md`)
+
+**Skip conditions**:
+- Check-only mode (`/config-optimize check`)
+- No artifacts with methodology ratio > 40%
+
 ## Integration
 
 | Skill | Focus |
 |-------|-------|
-| `/config-optimize` | Config based on releases + blog search |
-| `/meta-iterate` | Prompts based on sessions |
+| `/config-optimize` | Config + rules + prompt optimization |
+| `/prompt-optimizer` | A/B test all prompt artifacts after model upgrade |
+| `/meta-iterate` | Prompts based on session performance |
 
 Weekly routine: `/config-optimize` then `/meta-iterate`
 
