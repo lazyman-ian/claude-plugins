@@ -1,6 +1,6 @@
 ---
 name: search-code
-description: Provides unified code search for files, content, symbols, and patterns with automatic tool selection. This skill should be used when the user needs to find files by name, search content by pattern, locate symbol definitions, or trace usage across the codebase. Key capabilities include Glob-based file search, Grep-based content search, and AST-based symbol lookup with smart tool routing. Triggers on "find", "search", "where is", "look for", "grep", "symbol", "definition", "usage", "查找", "搜索", "哪里用了", "在哪定义", "查找符号". Do NOT use for structural codebase exploration or architecture overview — use rp-explorer instead.
+description: Provides unified code search for files, content, symbols, and patterns with automatic tool selection. This skill should be used when the user needs to find files by name, search content by pattern, locate symbol definitions, or trace usage across the codebase. Key capabilities include Glob-based file search, Grep-based content search, and AST-based symbol lookup with smart tool routing. Triggers on "find", "search", "where is", "look for", "grep", "symbol", "definition", "usage", "查找", "搜索", "哪里用了", "在哪定义", "查找符号", "搜索代码", "查找文件", "代码搜索", "符号查找", "全局搜索". Do NOT use for structural codebase exploration or architecture overview — use rp-explorer instead.
 model: haiku
 allowed-tools: [Glob, Grep, Bash, Read]
 ---

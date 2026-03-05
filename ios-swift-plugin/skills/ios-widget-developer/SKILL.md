@@ -1,6 +1,6 @@
 ---
 name: ios-widget-developer
-description: Provides iOS WidgetKit development expertise with best practices for Timeline Providers, Widget Configuration, Live Activities, and App Intents. This skill should be used when creating new widgets, implementing Timeline Providers, adding Live Activities, integrating App Intents for interactive widgets, or debugging widget refresh issues. Key capabilities include widget scaffolding, timeline design, and interactive widget patterns. Triggers on "widget", "WidgetKit", "Timeline", "TimelineProvider", "Live Activity", "App Intent", "interactive widget", "widget refresh", "小组件", "桌面组件", "widget 开发", "实时活动".
+description: Provides iOS WidgetKit development expertise with best practices for Timeline Providers, Widget Configuration, Live Activities, and App Intents. This skill should be used when creating new widgets, implementing Timeline Providers, adding Live Activities, integrating App Intents for interactive widgets, or debugging widget refresh issues. Key capabilities include widget scaffolding, timeline design, and interactive widget patterns. Triggers on "widget", "WidgetKit", "Timeline", "TimelineProvider", "Live Activity", "App Intent", "interactive widget", "widget refresh", "小组件", "桌面组件", "widget 开发", "实时活动", "Widget开发", "WidgetKit". Do NOT use for general SwiftUI development — use "swiftui-expert" instead.
 allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, mcp__apple-docs__*]
 model: sonnet
 ---

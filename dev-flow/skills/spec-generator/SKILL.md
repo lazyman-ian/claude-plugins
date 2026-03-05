@@ -3,8 +3,9 @@ name: spec-generator
 description: >-
   Generates structured implementation specs from Notion tasks or user descriptions.
   Classifies as Feature/Bug, fills appropriate template, and saves to thoughts/shared/specs/.
+  This skill should be used when the user wants to generate a spec, create implementation requirements, or document task details.
   Triggers on "generate spec", "create spec", "write spec", "spec from notion",
-  "生成规格", "创建规格", "写规格".
+  "生成规格", "创建规格", "写规格", "需求文档", "实现规格", "任务规格".
   Do NOT use for implementation plans (use create-plan skill instead).
   Do NOT use for brainstorming (use brainstorm skill instead).
 allowed-tools: [Read, Write, Glob, Grep, Bash]

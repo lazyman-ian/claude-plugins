@@ -6,7 +6,7 @@ description: >-
   create, modify, debug, or test Claude Code hooks including PreToolUse, PostToolUse, SessionStart,
   Stop, SubagentStart, TaskCompleted, TeammateIdle, and other hook types.
   Triggers on "create hook", "write hook", "hook for", "add hook", "debug hook", "test hook",
-  "编写hook", "创建钩子", "hook开发", "调试hook".
+  "编写hook", "创建钩子", "hook开发", "调试hook", "开发Hook", "自动化Hook", "Hook模板".
   Do NOT use for general shell scripting — only Claude Code hook development.
 model: sonnet
 memory: project

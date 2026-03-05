@@ -1,6 +1,6 @@
 ---
 name: ios-build-test
-description: Provides token-efficient iOS build and test commands with minimal output. This skill should be used when building Xcode projects, running unit tests, checking build status, or iterating on test failures until they pass. Key capabilities include Xcode MCP native tools (Xcode 26.3+) and xcodebuild fallback. Triggers on "build", "test", "xcodebuild", "compile", "verify build", "run tests", "fix tests", "构建", "编译", "测试", "运行测试", "修复测试". Do NOT use for running apps on simulator or runtime debugging — use ios-debugger instead.
+description: Provides token-efficient iOS build and test commands with minimal output. This skill should be used when building Xcode projects, running unit tests, checking build status, or iterating on test failures until they pass. Key capabilities include Xcode MCP native tools (Xcode 26.3+) and xcodebuild fallback. Triggers on "build", "test", "xcodebuild", "compile", "verify build", "run tests", "fix tests", "构建", "编译", "测试", "运行测试", "修复测试", "iOS构建", "Xcode编译", "构建配置". Do NOT use for running apps on simulator or runtime debugging — use ios-debugger instead.
 memory: project
 allowed-tools: [Bash, Read, Grep, mcp__xcode__*, mcp__apple-docs__*]
 ---

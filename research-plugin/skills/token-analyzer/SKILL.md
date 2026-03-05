@@ -1,6 +1,6 @@
 ---
 name: token-analyzer
-description: Analyzes token usage patterns and suggests optimization strategies for Claude Code sessions. This skill should be used when the session feels slow, response quality degrades, or the user wants to understand token consumption distribution and reduce context bloat. Key capabilities include context percentage analysis, tool usage profiling, and actionable optimization recommendations. Triggers on "analyze tokens", "token usage", "optimize context", "context too large", "session slow", "token budget", "分析 token", "token 优化", "上下文优化", "会话变慢", "token 消耗".
+description: Analyzes token usage patterns and suggests optimization strategies for Claude Code sessions. This skill should be used when the session feels slow, response quality degrades, or the user wants to understand token consumption distribution and reduce context bloat. Key capabilities include context percentage analysis, tool usage profiling, and actionable optimization recommendations. Triggers on "analyze tokens", "token usage", "optimize context", "context too large", "session slow", "token budget", "分析 token", "token 优化", "上下文优化", "会话变慢", "token 消耗", "Token分析", "用量统计", "成本分析", "Token优化". Do NOT use for general performance optimization — use "config-optimize" instead.
 model: haiku
 memory: user
 allowed-tools: [Bash, Read, Grep]

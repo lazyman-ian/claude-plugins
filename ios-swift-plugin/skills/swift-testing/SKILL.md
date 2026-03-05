@@ -1,6 +1,6 @@
 ---
 name: swift-testing
-description: Writes, reviews, and migrates tests using Swift Testing framework (@Test, @Suite, #expect). This skill should be used when writing new tests, converting XCTest to Swift Testing, using parameterized tests, or implementing custom test traits. Triggers on "Swift Testing", "@Test", "@Suite", "#expect", "#require", "parameterized test", "test trait", "Swift 测试", "单元测试", "迁移测试". Do NOT use for XCTest-only patterns or UITest automation — use ios-build-test instead.
+description: Writes, reviews, and migrates tests using Swift Testing framework (@Test, @Suite, #expect). This skill should be used when writing new tests, converting XCTest to Swift Testing, using parameterized tests, or implementing custom test traits. Triggers on "Swift Testing", "@Test", "@Suite", "#expect", "#require", "parameterized test", "test trait", "Swift 测试", "单元测试", "迁移测试", "Swift测试", "Testing框架", "测试用例". Do NOT use for XCTest-only patterns or UITest automation — use ios-build-test instead.
 memory: project
 allowed-tools: [Read, Glob, Grep, Edit, Write, mcp__xcode__*, mcp__apple-docs__*]
 ---

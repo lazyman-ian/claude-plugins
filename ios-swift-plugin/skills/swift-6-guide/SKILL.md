@@ -1,6 +1,6 @@
 ---
 name: swift-6-guide
-description: Guides Swift 5 to Swift 6 language migration including typed throws, strict concurrency mode, Sendable protocol patterns, and Synchronization library. This skill should be used when enabling Swift 6 language mode, fixing concurrency warnings, adopting typed throws, or using Mutex/Atomic. Triggers on "Swift 6", "typed throws", "strict concurrency", "Sendable", "Swift migration", "@preconcurrency", "language mode", "region-based isolation", "Swift 6 迁移", "严格并发", "类型化抛出". Do NOT use for async/await patterns or actor design — use swift-concurrency instead. Do NOT use for test writing — use swift-testing instead.
+description: Guides Swift 5 to Swift 6 language migration including typed throws, strict concurrency mode, Sendable protocol patterns, and Synchronization library. This skill should be used when enabling Swift 6 language mode, fixing concurrency warnings, adopting typed throws, or using Mutex/Atomic. Triggers on "Swift 6", "typed throws", "strict concurrency", "Sendable", "Swift migration", "@preconcurrency", "language mode", "region-based isolation", "Swift 6 迁移", "严格并发", "类型化抛出", "数据隔离", "Swift迁移". Do NOT use for async/await patterns or actor design — use swift-concurrency instead. Do NOT use for test writing — use swift-testing instead.
 memory: project
 allowed-tools: [Read, Glob, Grep, Edit, Write, mcp__xcode__*, mcp__apple-docs__*]
 ---

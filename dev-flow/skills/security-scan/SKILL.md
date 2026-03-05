@@ -6,7 +6,7 @@ description: >-
   credential exposure. This skill should be used when the user wants to audit plugin security,
   check for prompt injection risks, verify hook safety, or review permission scope.
   Triggers on "security scan", "security audit", "check security", "audit hooks", "prompt injection check",
-  "安全扫描", "安全审计", "检查安全", "插件安全".
+  "安全扫描", "安全审计", "检查安全", "插件安全", "漏洞检查".
   Do NOT use for code review of application code (use code-reviewer agent instead).
   Do NOT use for general hook development (use hook-developer skill instead).
 allowed-tools: [Read, Glob, Grep, Bash]
@@ -256,4 +256,4 @@ dev_memory(action="save", key="security-scan-findings", value="<summary>", categ
 
 - `references/deny-rules.md` - Recommended deny rules for Claude Code settings
 - `references/security-guardrails.md` - Guardrail pattern for skills fetching external content
-- `agents/references/security-checklist.md` - Code-level security checklist (used by code-reviewer)
+- `${CLAUDE_PLUGIN_ROOT}/agents/references/security-checklist.md` - Code-level security checklist (used by code-reviewer)

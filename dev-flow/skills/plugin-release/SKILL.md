@@ -5,7 +5,8 @@ description: >-
   This skill should be used when bumping plugin versions, publishing releases, or checking
   manifest consistency across plugin.json, marketplace.json, and README files.
   Triggers on "release plugin", "bump version", "publish plugin", "update marketplace",
-  "plugin version", "check versions", "发布插件", "插件版本升级", "版本一致性检查".
+  "plugin version", "check versions", "发布插件", "插件版本升级", "版本一致性检查",
+  "插件发布", "版本升级", "发布插件", "版本管理".
   Do NOT use for git tag releases — use "dev" skill with /dev release instead.
 model: sonnet
 memory: project

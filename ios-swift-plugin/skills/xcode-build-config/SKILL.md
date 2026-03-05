@@ -1,6 +1,6 @@
 ---
 name: xcode-build-config
-description: Provides best practices for Xcode project configuration including .xcconfig files, Info.plist migration, build configurations, code signing, and capabilities setup. This skill should be used when setting up build environments, configuring signing, managing Info.plist keys, or creating custom build configurations. Triggers on "xcconfig", "Info.plist", "build settings", "code signing", "provisioning profile", "capabilities", "entitlements", "build configuration", "Xcode 配置", "签名", "构建设置", "环境配置". Do NOT use for Swift code patterns — use swiftui-expert or swift-concurrency instead.
+description: Provides best practices for Xcode project configuration including .xcconfig files, Info.plist migration, build configurations, code signing, and capabilities setup. This skill should be used when setting up build environments, configuring signing, managing Info.plist keys, or creating custom build configurations. Triggers on "xcconfig", "Info.plist", "build settings", "code signing", "provisioning profile", "capabilities", "entitlements", "build configuration", "Xcode 配置", "签名", "构建设置", "环境配置", "Xcode配置", "编译选项", "项目配置". Do NOT use for Swift code patterns — use swiftui-expert or swift-concurrency instead.
 memory: project
 allowed-tools: [Read, Glob, Grep, Edit, Write, Bash, mcp__xcode__*]
 ---

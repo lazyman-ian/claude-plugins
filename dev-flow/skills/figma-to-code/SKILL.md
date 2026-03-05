@@ -6,7 +6,8 @@ description: >-
   implementing UI from Figma designs, extracting design tokens, or converting design specs
   to SwiftUI, Compose, or React components.
   Triggers on "implement from figma", "figma to code", "convert figma", "build from design",
-  "figma design", "extract from figma", "Figma转代码", "按Figma实现", "设计稿转代码".
+  "figma design", "extract from figma", "Figma转代码", "按Figma实现", "设计稿转代码",
+  "设计稿转码", "UI实现", "设计还原".
   Do NOT use for creating designs — only converting existing Figma designs to code.
 model: sonnet
 context: fork

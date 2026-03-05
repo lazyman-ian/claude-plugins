@@ -3,7 +3,8 @@ name: skill-stocktake
 description: >-
   Audits all skills across installed plugins for quality, overlap, freshness, and actionability.
   Produces a report with Keep/Improve/Update/Retire/Merge recommendations per skill.
-  Triggers on "stocktake", "skill audit", "audit skills", "技能审计", "技能盘点", "检查技能质量".
+  This skill should be used when the user wants to review all installed skills, audit skill quality, or get improvement recommendations.
+  Triggers on "stocktake", "skill audit", "audit skills", "技能审计", "技能盘点", "检查技能质量", "Skill质量", "批量审查".
   Do NOT use for individual skill review (use plugin-dev:skill-reviewer).
 allowed-tools: [Read, Glob, Grep, Bash]
 model: sonnet

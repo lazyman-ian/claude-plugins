@@ -6,7 +6,8 @@ description: >-
   This skill should be used when task feasibility or consistency needs to be measured
   across multiple attempts, or when a quality gate requires statistical confidence.
   Triggers on "evaluate", "eval harness", "run evaluation", "pass@k", "pass^k",
-  "评估", "运行评估", "质量评估", "多次评估", "统计验证".
+  "评估", "运行评估", "质量评估", "多次评估", "统计验证",
+  "评估测试", "质量检测", "Agent评估", "评估框架".
   Do NOT use for single-run code review — use "code-reviewer" agent instead.
   Do NOT use for skill/workflow improvement cycles — use "meta-iterate" instead.
   Do NOT use for simple one-shot verification — use "verify" skill instead.

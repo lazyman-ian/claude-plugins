@@ -5,7 +5,8 @@ description: >-
   and style matching from existing test files. This skill should be used when writing unit tests,
   integration tests, or adding test coverage for untested code paths.
   Triggers on "generate tests", "write tests for", "add unit tests", "test coverage",
-  "add tests", "create test file", "生成测试", "补充测试", "写单元测试", "增加测试覆盖".
+  "add tests", "create test file", "生成测试", "补充测试", "写单元测试", "增加测试覆盖",
+  "写测试", "单元测试", "测试用例".
   Do NOT use for running existing tests — use "self-check" instead.
   Do NOT use for test-driven development during implementation — use "implement-plan" instead.
 model: sonnet

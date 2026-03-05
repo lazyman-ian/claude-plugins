@@ -1,6 +1,6 @@
 ---
 name: research-agent
-description: Researches external documentation, best practices, and library APIs using Perplexity, WebSearch, and WebFetch tools. This skill should be used when the user needs to look up external documentation, compare library options, find implementation examples, or gather best practices from the web. Key capabilities include multi-source research, documentation fetching, and structured findings output. Triggers on "research", "find docs", "best practices", "how to implement", "look up", "compare libraries", "external docs", "查资料", "最佳实践", "查文档", "对比方案".
+description: Researches external documentation, best practices, and library APIs using Perplexity, WebSearch, and WebFetch tools. This skill should be used when the user needs to look up external documentation, compare library options, find implementation examples, or gather best practices from the web. Key capabilities include multi-source research, documentation fetching, and structured findings output. Triggers on "research", "find docs", "best practices", "how to implement", "look up", "compare libraries", "external docs", "查资料", "最佳实践", "查文档", "对比方案", "研究", "API文档", "外部调研". Do NOT use for codebase-internal searches — use Grep/Glob or "search-code" instead.
 model: haiku
 memory: user
 context: fork

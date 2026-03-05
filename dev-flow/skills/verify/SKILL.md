@@ -6,6 +6,7 @@ description: >-
   verification before being marked complete. Runs platform-specific build, lint, and test commands
   and requires exit code 0 as the only acceptable completion signal. Invoked internally by
   implement-plan, agent-team, and debugging — not directly by users.
+  Triggers on "verify completion", "run verification", "check done", "验证完成", "检查通过", "确认完成", "验证测试".
   Do NOT use for pre-commit linting only — use "self-check" instead.
 user-invocable: false
 allowed-tools: [Bash, Read, Glob, Grep]

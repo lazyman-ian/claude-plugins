@@ -5,7 +5,8 @@ description: >-
   criteria through interactive research. This skill should be used when the user has clear
   requirements and needs a concrete, step-by-step technical plan saved to thoughts/shared/plans/.
   Triggers on "create plan", "make a plan", "plan feature", "implementation plan", "technical plan",
-  "write a plan", "制定计划", "设计方案", "规划功能", "技术方案", "写计划", "实现方案".
+  "write a plan", "制定计划", "设计方案", "规划功能", "技术方案", "写计划", "实现方案",
+  "创建计划", "技术设计", "任务规划", "实施计划".
   Do NOT use for open-ended design exploration or brainstorming — use "brainstorm" instead.
 model: opus
 memory: project

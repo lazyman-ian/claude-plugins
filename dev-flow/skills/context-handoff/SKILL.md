@@ -6,7 +6,8 @@ description: >-
   used when approaching context limits, preparing for session end, or handing off work
   to the next conversation.
   Triggers on "save context", "handoff", "prepare for clear", "context handoff",
-  "session end", "wrap up session", "保存上下文", "准备清空", "交接上下文", "会话交接".
+  "session end", "wrap up session", "保存上下文", "准备清空", "交接上下文", "会话交接",
+  "上下文交接", "清理会话", "保存进度", "交接文档".
   Do NOT use for regular task tracking — use TaskCreate directly instead.
 model: sonnet
 memory: project

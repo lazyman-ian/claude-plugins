@@ -5,7 +5,8 @@ description: >-
   This skill should be used when extracting functions, splitting large files, improving naming,
   reorganizing modules, or applying design patterns while ensuring no behavior changes.
   Triggers on "refactor", "extract function", "split file", "rename", "reorganize",
-  "improve structure", "重构", "提取方法", "拆分文件", "代码重组", "优化结构".
+  "improve structure", "重构", "提取方法", "拆分文件", "代码重组", "优化结构",
+  "重构代码", "提取函数", "代码重组".
   Do NOT use for removing AI slop patterns — use "deslop" instead.
   Do NOT use for fixing bugs — use "debugging" instead.
 model: sonnet

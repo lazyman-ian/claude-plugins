@@ -1,6 +1,6 @@
 ---
 name: ios-modern-apis
-description: Provides reference for iOS 18+ new APIs including MeshGradient, scroll position tracking, animation presets (wiggle, breathe, bouncy), KeyframeAnimator, and accessibility enhancements. This skill should be used when adopting iOS 18+ features, implementing new animations, using scroll tracking APIs, or adding MeshGradient effects. Triggers on "iOS 18", "MeshGradient", "scroll position", "wiggle animation", "breathe animation", "KeyframeAnimator", "ScrollView position", "iOS 18 新 API", "网格渐变", "滚动位置", "新动画". Do NOT use for SwiftUI best practices or view composition — use swiftui-expert instead. Do NOT use for iOS 26 Liquid Glass — use swiftui-liquid-glass instead.
+description: Provides reference for iOS 18+ new APIs including MeshGradient, scroll position tracking, animation presets (wiggle, breathe, bouncy), KeyframeAnimator, and accessibility enhancements. This skill should be used when adopting iOS 18+ features, implementing new animations, using scroll tracking APIs, or adding MeshGradient effects. Triggers on "iOS 18", "MeshGradient", "scroll position", "wiggle animation", "breathe animation", "KeyframeAnimator", "ScrollView position", "iOS 18 新 API", "网格渐变", "滚动位置", "新动画", "现代API", "新API", "iOS新特性", "最新API". Do NOT use for SwiftUI best practices or view composition — use swiftui-expert instead. Do NOT use for iOS 26 Liquid Glass — use swiftui-liquid-glass instead.
 memory: project
 allowed-tools: [Read, Glob, Grep, Edit, Write, mcp__xcode__*, mcp__apple-docs__*]
 ---
