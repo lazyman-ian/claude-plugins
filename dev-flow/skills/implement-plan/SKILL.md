@@ -26,6 +26,7 @@ Execute approved technical plans from `thoughts/shared/plans/` with optional TDD
 | **Agent Orchestration** | 4+ tasks, context preservation critical |
 | **TDD Mode** | User requests test-driven development |
 | **Agent Teams** | 3+ parallelizable phases, no file conflicts |
+| **Agentic Loop** | Plan tasks with `autonomy: 1` or `2`, sequential |
 
 ## 5-Gate Per-Task Pipeline (v5.0.0)
 
@@ -124,6 +125,7 @@ Check user input for TDD keywords:
 | `references/agent-orchestration.md` | Using agent mode (4+ tasks) |
 | `references/task-executor.md` | Single task TDD workflow |
 | `references/receiving-review.md` | How to handle review feedback |
+| `references/ralph-loop-mode.md` | Ralph Loop execution mode |
 
 ## Direct Implementation
 
@@ -134,7 +136,7 @@ For small plans (≤3 tasks):
 1. Implement each phase yourself
 2. Run success criteria checks
 3. Update checkboxes in plan
-4. Pause for manual verification per phase
+4. Auto-continue if verify passes (pause only if manual verification items exist)
 
 ### TDD Mode
 
@@ -147,15 +149,10 @@ For small plans (≤3 tasks):
 ### Verification Flow
 
 ```
-Phase N Complete - Ready for Manual Verification
-
-Automated verification passed:
-- [List automated checks]
-
-Please perform manual verification:
-- [List manual items from plan]
-
-Let me know when ready for Phase N+1.
+Phase N Complete
+Automated: [passed checks]
+Manual (if any): [items]
+→ Auto-continuing to Phase N+1
 ```
 
 ## Progress Tracking
@@ -217,6 +214,39 @@ Handoffs managed via `dev_handoff` MCP tool (auto-creates directory). See `refer
 
 See `references/agent-orchestration.md` "Agent Teams Alternative" for details.
 
+## Agentic Loop Mode
+
+**Trigger**: Plan tasks have `autonomy: 1` or `autonomy: 2` field.
+
+### Loop Protocol
+
+1. Read plan state (check [x] marks)
+2. Pick next incomplete task
+3. Execute per task contract
+4. Run verify command
+5. If pass: commit + mark done + continue to next
+6. If fail: diagnose → fix → re-verify (max 2)
+7. Repeat until all tasks done
+
+### Output Levels
+
+| Level | Output |
+|-------|--------|
+| 1 (milestone) | `[Task N/M] name done (X files, verify pass)` |
+| 2 (final only) | `Done: N/M tasks, X files, all pass. Proof: .proof/` |
+
+### Continue/Stop Signals
+
+Continue (ALL AND): verify pass + changes within scope + context < 70%
+Stop (ANY OR): verify fail 2x + out-of-scope changes + context > 80% + security/architecture issue
+
+### Uncertainty Routing
+
+Runtime questions → spawn Decision Agent (task 4.4) → get answer → continue
+Security/architecture → escalate to Human
+
+See `references/ralph-loop-mode.md` for Ralph Loop execution mode.
+
 ---
 
 ## Resuming Work
@@ -234,7 +264,7 @@ Expected: [what the plan says]
 Found: [actual situation]
 Why this matters: [explanation]
 
-How should I proceed?
+→ Route to Decision Agent for resolution
 ```
 
 ## Resumable Agents
@@ -256,4 +286,4 @@ When all phases complete:
 
 1. Update plan frontmatter `status: completed` (if plan has frontmatter)
 2. `dev_aggregate(action='pr_ready', taskId=...)` → generate final summary of all changes and decisions
-3. Prompt: "All phases complete. Ready for `/dev commit`?"
+3. Auto-commit after final verify pass (no confirmation needed)

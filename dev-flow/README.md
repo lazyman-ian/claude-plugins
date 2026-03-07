@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-6.2.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-6.3.0-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/Claude_Code-2.1.19+-purple.svg" alt="Claude Code">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
   <img src="https://img.shields.io/badge/platforms-iOS%20%7C%20Android%20%7C%20Custom-orange.svg" alt="Platforms">
@@ -53,6 +53,8 @@
 | **Rules Distribution** | Platform-aware rule templates for `.claude/rules/` |
 | **Multi-Platform** | iOS, Android built-in; extensible to Python, Go, Rust, Node |
 | **Self-Improvement** | Analyze sessions and iterate prompts automatically |
+| **Agentic Engineering** | Autonomous execution with task contracts, proof manifests, decision agent |
+| **Ralph Loop** | Stop-hook re-injection for iterative plan completion |
 
 ## Installation
 
@@ -127,9 +129,10 @@ See [INSTALL.md](../INSTALL.md) for detailed installation guide.
 | `/dev-flow:rules` | Install rule templates |
 | `/dev-flow:checkpoint` | Manual checkpoint creation |
 | `/dev-flow:finish` | Branch completion workflow |
+| `/dev-flow:ralph-implement` | Ralph Loop plan execution |
 
 <details>
-<summary><strong>All 28 Commands</strong></summary>
+<summary><strong>All 29 Commands</strong></summary>
 
 | Command | Description |
 |---------|-------------|
@@ -161,6 +164,7 @@ See [INSTALL.md](../INSTALL.md) for detailed installation guide.
 | `finish` | Branch completion |
 | `brainstorm` | Exploration session |
 | `review` | Code review |
+| `ralph-implement` | Ralph Loop execution |
 
 </details>
 

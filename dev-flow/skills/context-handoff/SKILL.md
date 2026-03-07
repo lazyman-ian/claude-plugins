@@ -63,6 +63,27 @@ Ledger State format:
 
 Mark current progress with `UNCONFIRMED:` if uncertain about completeness.
 
+### Step 3.5: Generate Resume Directive
+
+Write a machine-readable resume directive so the next session can continue without confirmation:
+
+```
+dev_ledger(action="status")    → get plan_path and current task info
+```
+
+Write to `thoughts/ledgers/.resume-directive.md`:
+```markdown
+plan: [plan path, e.g. thoughts/shared/plans/PLAN-xxx.md]
+task: [current task title and number, e.g. "Task 3/7: Implement auth service"]
+remaining: [count of remaining tasks]
+autonomy: [level from plan frontmatter, e.g. "Level 2 — batch checkpoint"]
+verify: [verify command from .dev-flow.json or plan, e.g. "make check"]
+Proceed without confirmation.
+```
+
+If no active plan exists, write a minimal directive with branch and next step instead.
+Overwrite the file on each handoff — only the latest state matters.
+
 ### Step 4: Create Tasks for Remaining Work
 
 For each incomplete item:
@@ -89,7 +110,8 @@ dev_handoff(action="write", handoff={
   decisions: { "key-decision": "rationale" },
   verification: ["what passed", "what not yet verified"],
   for_next_agent: "Start by [specific next step]",
-  open_questions: ["unresolved items"]
+  open_questions: ["unresolved items"],
+  resume_directive: "Continuing [PLAN-xxx]. Task [N/M]: [title]. Autonomy: [level]. Verify: [cmd]. Proceed without confirmation."
 })
 ```
 
@@ -141,7 +163,9 @@ Before confirming handoff complete:
 ## Auto-Trigger Hint
 
 StatusLine displays context percentage. Thresholds:
-- **70%+**: Consider running `/dev-flow:context-handoff`
+- **70%+**: Proactively run `/dev-flow:context-handoff` (do not wait to be asked)
 - **85%+**: Run handoff immediately, then `/clear`
+
+When context exceeds 70%, trigger this skill automatically — write the resume directive, update the ledger, and create remaining tasks before context degrades further.
 
 The Stop hook may remind you, but proactive handoff preserves more context than reactive cleanup.

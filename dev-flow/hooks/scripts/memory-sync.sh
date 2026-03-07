@@ -56,5 +56,11 @@ fi
 mkdir -p "$(dirname "$sync_marker")"
 touch "$sync_marker"
 
+# Write knowledge injection filter: only critical priority at session start
+# session-start-continuity.sh reads this policy via SQL WHERE priority='critical'
+filter_file="$project_dir/.claude/cache/.knowledge-filter.json"
+mkdir -p "$(dirname "$filter_file")"
+echo '{"inject_priority":"critical"}' > "$filter_file" 2>/dev/null || true
+
 echo '{"continue": true}'
 exit 0

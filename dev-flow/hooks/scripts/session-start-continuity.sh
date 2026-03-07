@@ -131,6 +131,13 @@ if [[ "$SESSION_TYPE" == "startup" ]]; then
         fi
     fi
 
+    # Check for resume directive (written by context-handoff skill)
+    RESUME_DIRECTIVE=""
+    RESUME_FILE="$PROJECT_DIR/thoughts/ledgers/.resume-directive.md"
+    if [[ -f "$RESUME_FILE" ]]; then
+        RESUME_DIRECTIVE=$(head -5 "$RESUME_FILE" 2>/dev/null | tr '\n' ' ' | /usr/bin/sed 's/[[:space:]]\+/ /g')
+    fi
+
     # Check PR status for merged PRs (suggest archive)
     PR_STATUS_MSG=""
     if [[ "$CURRENT_BRANCH" =~ TASK-([0-9]+) ]]; then
@@ -181,6 +188,11 @@ if [[ "$SESSION_TYPE" == "startup" ]]; then
         NEW_MSG="$TASK_RECOVERY\n$NEW_MSG"
     fi
 
+    # Prepend resume directive (higher priority than task recovery)
+    if [[ -n "$RESUME_DIRECTIVE" ]]; then
+        NEW_MSG="$RESUME_DIRECTIVE\n$NEW_MSG"
+    fi
+
     # Prepend init warning (highest priority)
     if [[ -n "$INIT_WARNING" ]]; then
         NEW_MSG="$INIT_WARNING\n$NEW_MSG"
@@ -214,14 +226,14 @@ if [[ "$SESSION_TYPE" == "clear" || "$SESSION_TYPE" == "compact" ]]; then
     SAFE_PLATFORM=$(echo "$PLATFORM" | /usr/bin/sed "s/'/''/g")
     if [[ -f "$DB_PATH" ]]; then
         # 1. Platform pitfalls from SQLite
-        PITFALLS=$(sqlite3 "$DB_PATH" "SELECT '[' || type || '] ' || title || ': ' || substr(problem,1,80) FROM knowledge WHERE type='pitfall' AND platform='$SAFE_PLATFORM' ORDER BY created_at DESC LIMIT 3;" 2>/dev/null)
+        PITFALLS=$(sqlite3 "$DB_PATH" "SELECT '[' || type || '] ' || title || ': ' || substr(problem,1,80) FROM knowledge WHERE type='pitfall' AND platform='$SAFE_PLATFORM' AND priority='critical' ORDER BY created_at DESC LIMIT 3;" 2>/dev/null)
         if [[ -n "$PITFALLS" ]]; then
             PLATFORM_UPPER=$(echo "$PLATFORM" | tr '[:lower:]' '[:upper:]')
             KNOWLEDGE_CONTEXT="### ${PLATFORM_UPPER} Pitfalls\n${PITFALLS}"
         fi
 
         # 3. Recent discoveries (7 days) from SQLite
-        DISCOVERIES=$(sqlite3 "$DB_PATH" "SELECT '[' || type || '] ' || title || ': ' || substr(problem,1,80) FROM knowledge WHERE julianday('now') - julianday(created_at) <= 7 ORDER BY created_at DESC LIMIT 3;" 2>/dev/null)
+        DISCOVERIES=$(sqlite3 "$DB_PATH" "SELECT '[' || type || '] ' || title || ': ' || substr(problem,1,80) FROM knowledge WHERE julianday('now') - julianday(created_at) <= 7 AND priority='critical' ORDER BY created_at DESC LIMIT 3;" 2>/dev/null)
         if [[ -n "$DISCOVERIES" ]]; then
             KNOWLEDGE_CONTEXT="${KNOWLEDGE_CONTEXT}\n\n### Recent Discoveries\n${DISCOVERIES}"
         fi

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-dev-flow-plugin (v6.2.0) is a Claude Code plugin providing unified development workflow automation: brainstorm → plan → implement (5-gate pipeline) → review → commit → PR → release. Features VDD (Verification-Driven Development), 5-gate execution pipeline, multi-layer automated code review (P0-P3), Markdown-first knowledge vault with SQLite FTS5 search, Notion pipeline (task triage → spec generation), product brain (architecture knowledge), rules distribution system, multi-agent collaboration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
+dev-flow-plugin (v6.3.0) is a Claude Code plugin providing unified development workflow automation: brainstorm → plan → implement (5-gate pipeline) → review → commit → PR → release. Features VDD (Verification-Driven Development), 5-gate execution pipeline, Agentic Engineering (autonomous execution with task contracts, proof manifests, and decision agent routing), Ralph Loop integration, multi-layer automated code review (P0-P3), Markdown-first knowledge vault with SQLite FTS5 search, Notion pipeline (task triage → spec generation), product brain (architecture knowledge), rules distribution system, multi-agent collaboration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
 
 ## Build & Development
 
@@ -24,11 +24,11 @@ npm test --prefix mcp-server                  # All 98 tests
 ### Plugin Structure
 
 ```
-.claude-plugin/plugin.json  # Plugin manifest (v6.2.0)
+.claude-plugin/plugin.json  # Plugin manifest (v6.3.0)
 .mcp.json                   # MCP server config → scripts/mcp-server.cjs
 skills/                     # 23 skills (SKILL.md + references/)
-commands/                   # 28 command definitions
-agents/                     # 14 agent prompts + references/ (security/quality checklists)
+commands/                   # 29 command definitions
+agents/                     # 15 agent prompts + references/ (security/quality checklists)
 hooks/hooks.json            # 17 hooks across 6 types (PreToolUse, SessionStart, PreCompact, Stop, SessionEnd, PostToolUse)
 scripts/track-team.sh       # Session→team mapping for StatusLine
 templates/rules/            # 12 rule templates (platform-aware, path-scoped)
@@ -186,7 +186,7 @@ Auto Memory (MEMORY.md)     ← Claude session injection
 
 **Write triggers**: Stop hook, commit time, AI proactive save, user manual — all through quality gate + smart dedup.
 
-**Read**: SessionStart injects critical + recent important. On-demand via `dev_memory(search)`.
+**Read**: SessionStart injects `priority='critical'` entries only (context diet). On-demand via `dev_memory(search)`.
 
 **Configuration** (`.dev-flow.json`):
 ```json
@@ -201,7 +201,7 @@ Auto Memory (MEMORY.md)     ← Claude session injection
 
 - `PreToolUse(Bash(git commit*))`: Pre-commit knowledge pitfall check (FTS5 query, warns only)
 - `PreToolUse(Bash(*git commit*))`: Commit guard — blocks raw `git commit` (including chained), enforces `/dev commit` via `DEV_FLOW_COMMIT=1` prefix
-- `SessionStart`: Warn if not initialized + load active ledger + inject critical knowledge from vault + init review session log
+- `SessionStart`: Warn if not initialized + load active ledger + inject critical knowledge from vault (priority='critical' only) + init review session log + detect resume directive
 - `PreCompact`: Backup transcript before context compaction
 - `Stop`: Save session learnings to knowledge vault (quality gate filtered)
 - `PostToolUse`: Tool counter + dev reminders
@@ -255,6 +255,7 @@ Agents in `agents/` are spawned via Task tool for complex operations:
 - `code-reviewer.md` - Multi-dimensional review with P0-P3 severity + review session log
 - `evaluate/diagnose/propose/apply/verify-agent.md` - Meta-iterate cycle
 - `validate-agent.md` - Validate plan tech choices
+- `decision-agent.md` - Runtime uncertainty routing (Sonnet, fork context)
 - `pr-describer.md` - Generate PR descriptions
 
 ## Conventions
@@ -302,7 +303,24 @@ dev_config → python|fix:black .|check:ruff .|scopes:api,models|src:custom
            → ios|fix:swiftlint --fix|check:swiftlint|scopes:...|src:auto
 ```
 
-## Recent Changes (v6.0.0)
+## Recent Changes (v6.3.0)
+
+### Agentic Engineering
+- **Task Contracts**: Plan tasks include `contract:` with explicit acceptance criteria and `autonomy: 1|2` levels
+- **Proof Manifest**: Structured evidence per task at `.proof/{task-id}.json` (verdict, commands, diff_stats)
+- **Decision Agent**: Lightweight Sonnet agent (`decision-agent.md`) for runtime uncertainty routing — security/architecture escalates to human
+- **Three-Layer Decision Architecture**: L1 Environment auto-judge → L2 Decision Agent (Sonnet) → L3 Human (PR only)
+- **Self-Healing Retry**: verify fail → diagnose → fix implementation (never modify verify command) → re-verify (max 2)
+- **Silent Execution**: No explanatory text during implementation; output only at milestones or final
+- **Auto-Resume**: `thoughts/ledgers/.resume-directive.md` written by context-handoff, injected by SessionStart
+- **Context Diet**: SessionStart injects only `priority='critical'` knowledge entries
+
+### Ralph Loop Integration
+- **ralph-implement command**: Bridge `/dev ralph-implement [plan-path]` reads plan → extracts tasks/contracts → generates Ralph prompt
+- **Ralph Loop Mode**: implement-plan execution mode using Stop hook re-injection for iterative completion
+- Reference: `skills/implement-plan/references/ralph-loop-mode.md`
+
+
 
 ### Notion Pipeline
 Task triage (`/dev inbox`), spec generation (`/dev spec`), and post-merge Notion status update hook. Configured via `notion` section in `.dev-flow.json`.

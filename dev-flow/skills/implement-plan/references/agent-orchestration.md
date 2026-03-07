@@ -60,14 +60,16 @@ Handoffs are managed via `dev_handoff` MCP tool (auto-creates directory). No man
 
 ---
 
-## Pre-Requisite: Plan Validation
+## Auto Plan Validation
 
-Check for validation handoff:
-```bash
-ls thoughts/handoffs/<session>/validation-*.md
-```
+Before first task execution, automatically validate the plan:
 
-If no validation: "Would you like me to spawn validate-agent first?"
+1. Auto-spawn validate-agent (no user confirmation needed)
+2. Pass → proceed to first task
+3. Issues found → plan-agent revise → re-validate (max 2 rounds)
+4. Still fail → escalate to human (only pre-PR escalation point)
+
+Skip validation only if plan already has a valid `VALIDATION-*.md` file.
 
 ---
 
@@ -144,7 +146,7 @@ Task(
 
 - Read the handoff (status will be "blocked")
 - Present blocker to user
-- Options: retry, skip, or ask user
+- Options: retry (auto, max 2) → route to Decision Agent → escalate to human (last resort)
 
 ---
 
@@ -312,6 +314,8 @@ Use Agent Teams when `dev_coordinate(action='plan')` shows no file conflicts and
 
 ### ✅ DO
 
+- **Auto-validate**: Always validate before execution, never ask
+- **Fresh context per task**: Shutdown subagent after proof (Ralph rotation)
 - **Keep orchestrator thin**: Don't implement, only manage
 - **Trust handoffs**: Use them for context passing
 - **One agent per task**: Don't batch
