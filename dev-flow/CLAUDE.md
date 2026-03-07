@@ -26,10 +26,10 @@ npm test --prefix mcp-server                  # All 98 tests
 ```
 .claude-plugin/plugin.json  # Plugin manifest (v6.3.0)
 .mcp.json                   # MCP server config → scripts/mcp-server.cjs
-skills/                     # 23 skills (SKILL.md + references/)
-commands/                   # 29 command definitions
-agents/                     # 15 agent prompts + references/ (security/quality checklists)
-hooks/hooks.json            # 17 hooks across 6 types (PreToolUse, SessionStart, PreCompact, Stop, SessionEnd, PostToolUse)
+skills/                     # 25 skills (SKILL.md + references/)
+commands/                   # 30 command definitions
+agents/                     # 14 agent prompts + references/ (security/quality checklists)
+hooks/hooks.json            # 20 hooks across 9 types (PreToolUse, PostToolUse, SessionStart, SessionEnd, PreCompact, Stop, SubagentStart, UserPromptSubmit, TaskCompleted)
 scripts/track-team.sh       # Session→team mapping for StatusLine
 templates/rules/            # 12 rule templates (platform-aware, path-scoped)
 templates/thoughts/schema/  # JSON schemas for meta-iterate and handoff outputs
@@ -42,7 +42,7 @@ Single-file bundle architecture using `@modelcontextprotocol/sdk`:
 
 | Module | Purpose |
 |--------|---------|
-| `index.ts` | Server entry, 27 MCP tools |
+| `index.ts` | Server entry, 21 MCP tools |
 | `detector.ts` | Project type detection + unified `detectPlatformSimple()` + Notion config |
 | `notion.ts` | Notion integration: config, inbox filter, spec extraction |
 | `git/workflow.ts` | Git status, phase detection |
@@ -95,7 +95,6 @@ export function getPythonCommands(): PlatformCommands {
 | `dev_aggregate` | ~60 | Aggregate results for PR |
 | `dev_commit` | ~30 | Server-enforced commit: prepare → review → finalize |
 | `dev_memory` | ~60 | Knowledge vault: save/search/get/list/prune/reindex |
-| `dev_product` | ~50 | Product brain: extract/query/save architecture knowledge |
 | `dev_inbox` | ~40 | Notion task triage with priority filtering |
 | `dev_spec` | ~50 | Spec generation from Notion tasks |
 
@@ -324,9 +323,6 @@ dev_config → python|fix:black .|check:ruff .|scopes:api,models|src:custom
 
 ### Notion Pipeline
 Task triage (`/dev inbox`), spec generation (`/dev spec`), and post-merge Notion status update hook. Configured via `notion` section in `.dev-flow.json`.
-
-### Product Brain
-Architecture knowledge extraction and query (`dev_product` tool). Post-impl hook reminds to capture product-level decisions after commits.
 
 ### Knowledge Vault (v6.2.0)
 - Markdown-first storage in `thoughts/knowledge/` — human-editable, git-tracked

@@ -25,7 +25,6 @@ case "$command" in
 esac
 
 # Signal that product extraction should run
-# The actual extraction is done by dev_product(action="extract") in the MCP server
-# This hook just outputs a reminder
-echo '{"continue": true, "reason": "Post-commit: consider running dev_product(extract) to capture domain knowledge."}'
+# This hook outputs a reminder to save domain knowledge
+echo '{"continue": true, "reason": "Post-commit: consider saving domain knowledge via dev_memory(save)."}'
 exit 0

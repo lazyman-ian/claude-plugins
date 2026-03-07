@@ -23580,62 +23580,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     }
   ]
 }));
-server.setRequestHandler(ListPromptsRequestSchema, async () => ({
-  prompts: [
-    {
-      name: "dev_workflow_check",
-      description: "Check development workflow status before committing code",
-      arguments: []
-    },
-    {
-      name: "dev_auto_fix",
-      description: "Automatically fix code quality issues",
-      arguments: []
-    },
-    {
-      name: "dev_next_step",
-      description: "Get recommended next step in workflow",
-      arguments: []
-    }
-  ]
-}));
-server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-  const { name } = request.params;
-  switch (name) {
-    case "dev_workflow_check":
-      return {
-        messages: [{
-          role: "user",
-          content: {
-            type: "text",
-            text: "Check the current development workflow status using dev_status. If there are errors, suggest running dev_fix. Follow Conventional Commits and Git Flow standards."
-          }
-        }]
-      };
-    case "dev_auto_fix":
-      return {
-        messages: [{
-          role: "user",
-          content: {
-            type: "text",
-            text: "Run dev_check to verify errors, then get fix commands with dev_fix and execute them. Ensure code quality before committing."
-          }
-        }]
-      };
-    case "dev_next_step":
-      return {
-        messages: [{
-          role: "user",
-          content: {
-            type: "text",
-            text: "Use dev_next to get the recommended next command for the current workflow phase. Commands follow Conventional Commits (feat/fix/docs/etc) and Git Flow (feature/release/hotfix branches) standards."
-          }
-        }]
-      };
-    default:
-      throw new Error(`Unknown prompt: ${name}`);
-  }
-});
 server.setRequestHandler(ListResourcesRequestSchema, async () => ({
   resources: [
     {

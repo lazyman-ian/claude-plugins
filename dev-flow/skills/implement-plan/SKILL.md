@@ -18,15 +18,49 @@ Execute approved technical plans from `thoughts/shared/plans/` with optional TDD
 - 按计划实现, 执行方案
 - "use tdd", "test driven", "测试驱动开发" (enables TDD mode)
 
-## Execution Modes
+## Architecture
 
-| Mode | When to Use |
-|------|-------------|
-| **Direct** (default) | 1-3 tasks, quick focused work |
-| **Agent Orchestration** | 4+ tasks, context preservation critical |
-| **TDD Mode** | User requests test-driven development |
-| **Agent Teams** | 3+ parallelizable phases, no file conflicts |
-| **Agentic Loop** | Plan tasks with `autonomy: 1` or `2`, sequential |
+### Primary: Agentic Loop
+
+The default execution mode. Each task follows: Contract → Verify → Self-Heal → Next Task.
+
+1. Read plan state (check `[x]` marks for completed tasks)
+2. Pick next incomplete task
+3. Execute per task contract (acceptance criteria)
+4. Run verify command → pass: commit + mark done → continue
+5. Verify fail: diagnose → fix → re-verify (max 2 retries)
+6. Context > 70%: save state, prepare handoff
+
+**Output Levels** (from task `autonomy` field):
+
+| Level | Output |
+|-------|--------|
+| 1 (milestone) | `[Task N/M] name done (X files, verify pass)` |
+| 2 (final only) | `Done: N/M tasks, X files, all pass. Proof: .proof/` |
+
+**Continue** (ALL AND): verify pass + changes within scope + context < 70%
+**Stop** (ANY OR): verify fail 2x + out-of-scope changes + context > 80% + security/architecture issue
+
+**Uncertainty**: Runtime questions → spawn Decision Agent → get answer → continue. Security/architecture → escalate to Human.
+
+### Persistence: Ralph Loop
+
+For plans that may exceed context limits. Uses Stop hook re-injection to continue across sessions.
+
+`/dev ralph-implement [plan-path]` generates optimal prompt and starts loop. See `references/ralph-loop-mode.md`.
+
+### Execution Strategy (auto-selected by orchestrator)
+
+| Condition | Strategy |
+|-----------|----------|
+| ≤3 tasks | Direct — orchestrator executes inline |
+| 4+ tasks, sequential | Subagent per task — fresh context isolation |
+| 3+ tasks, parallelizable, no file overlap | Agent Teams — true parallelism |
+
+### Flags
+
+- **TDD**: Add `--tdd` or plan marks `tdd: true`. Any strategy supports RED-GREEN-REFACTOR cycle. See TDD Mode section below.
+- **5-Gate Pipeline**: Auto-enabled when phase has `tasks` array in frontmatter. See next section.
 
 ## 5-Gate Per-Task Pipeline (v5.0.0)
 
@@ -213,39 +247,6 @@ Handoffs managed via `dev_handoff` MCP tool (auto-creates directory). See `refer
 6. `SendMessage(type='shutdown_request')` → `TeamDelete`
 
 See `references/agent-orchestration.md` "Agent Teams Alternative" for details.
-
-## Agentic Loop Mode
-
-**Trigger**: Plan tasks have `autonomy: 1` or `autonomy: 2` field.
-
-### Loop Protocol
-
-1. Read plan state (check [x] marks)
-2. Pick next incomplete task
-3. Execute per task contract
-4. Run verify command
-5. If pass: commit + mark done + continue to next
-6. If fail: diagnose → fix → re-verify (max 2)
-7. Repeat until all tasks done
-
-### Output Levels
-
-| Level | Output |
-|-------|--------|
-| 1 (milestone) | `[Task N/M] name done (X files, verify pass)` |
-| 2 (final only) | `Done: N/M tasks, X files, all pass. Proof: .proof/` |
-
-### Continue/Stop Signals
-
-Continue (ALL AND): verify pass + changes within scope + context < 70%
-Stop (ANY OR): verify fail 2x + out-of-scope changes + context > 80% + security/architecture issue
-
-### Uncertainty Routing
-
-Runtime questions → spawn Decision Agent (task 4.4) → get answer → continue
-Security/architecture → escalate to Human
-
-See `references/ralph-loop-mode.md` for Ralph Loop execution mode.
 
 ---
 

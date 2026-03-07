@@ -9,10 +9,12 @@ description: Smart commit - auto-fix, auto-scope, auto-reasoning
 ## 自动执行流程
 
 ### Step 1: 质量检查
-```bash
-make fix    # 自动格式化 + 修复
-make check  # 验证
 ```
+dev_config()  # 获取平台特定的 fix/check 命令
+```
+
+执行返回的 fix 命令（如 `make fix`、`swiftlint --fix`、`ruff check --fix`），
+然后执行 check 命令验证。
 
 如果仍有错误：
 ```
@@ -74,9 +76,25 @@ HAS_FIGMA_CONTEXT=$(git log -1 --format=%B | grep -qi 'figma' && echo 1)
 | UI 文件改动 + 无 Figma context | 提示: "检测到 UI 改动，有 Figma 设计稿可对比吗？" |
 | 无 UI 文件改动 | 跳过 |
 
-### Step 2.5: Code Review Gate
+### Step 2.5: Quality Gate (轻量)
 
-**无条件 spawn code-reviewer agent**（深度由 agent 自行判定，主流程不参与决策）：
+检查是否需要 full review:
+
+1. 读取 review session log (`.git/claude/review-session-{branch}.md`) 最近条目时间
+2. 如果最近 5 分钟内有 `/dev review` 记录 → 跳过 (已 review)
+3. 否则: 运行 `dev_check()` (lint-level, ~10 tokens)
+
+| 结果 | 行为 |
+|------|------|
+| dev_check pass | ✅ 继续提交 |
+| dev_check fail | ❌ 停止，显示错误，建议 `dev_fix()` |
+| 最近有 review | ⏩ 跳过检查，继续提交 |
+
+> Full code review 在 `/dev pr` 时执行。commit-gate 只做 lint 验证。
+> 需要 commit 时 full review: `/dev review` → `/dev commit`
+> 强制 full review: `/dev commit --review`
+
+当使用 `--review` 时，spawn code-reviewer agent（与之前行为一致）：
 
 ```
 Task(subagent_type="dev-flow:code-reviewer",
@@ -86,26 +104,6 @@ Task(subagent_type="dev-flow:code-reviewer",
              Read branch-scoped review session log for previous review context.
              After review, append findings to review session log.")
 ```
-
-Agent 在独立 context 中自动完成：
-1. 读取 review session log（前次审查的跨模块 context）
-2. 分析 diff 大小、敏感文件、新文件等信号
-3. 查询 `dev_memory` 匹配 pitfalls
-4. **关联当前改动与之前审查发现**（跨 commit 检测）
-5. 自动选择审查深度（🔴 Full / 🟡 Medium / 🟢 Quick / ⚪ Skip）
-6. 返回分级报告 + 写回 session log
-
-| Agent 返回 | 行为 |
-|-----------|------|
-| P0/P1 issues found | ❌ 停止提交，展示问题，要求修复 |
-| P2/P3 only | ⚠️ 显示 warnings，继续提交 |
-| Risk ⚪ (docs-only) | ✅ Agent 确认无需审查，继续提交 |
-| No issues | ✅ 继续提交 |
-
-> 为什么不在主流程判定深度？防止主 agent 为省 token 合理化跳过审查。
-> 深度决策权在 code-reviewer agent（独立 context，无偏差）。
->
-> 强制跳过: `/dev-flow:commit --no-review`（仅供紧急修复，PR 审查会补偿）
 
 ### Step 3: 智能 Scope 推断
 ```
@@ -181,11 +179,12 @@ dev_ledger(action="update", content="Committed: <hash-short>")
 | `/dev-flow:commit` | 自动生成 message |
 | `/dev-flow:commit "message"` | 使用指定 message |
 | `/dev-flow:commit --simplify` | 提交前简化 (AI 自动选 light/deep) |
+| `/dev-flow:commit --review` | 强制 full code review (spawn code-reviewer) |
 | `/dev-flow:commit --amend` | 修改上次提交 (谨慎) |
 
 ## 重要
 
-- ✅ 自动运行 `make fix` 和 `make check`
+- ✅ 自动运行 `dev_config()` 返回的 fix/check 命令
 - ✅ 自动推断 scope
 - ✅ 自动更新 ledger
 - ❌ **不添加** Claude 署名

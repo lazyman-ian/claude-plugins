@@ -12,7 +12,6 @@
   - [Knowledge Base](#knowledge-base)
   - [Memory System](#memory-system)
   - [Notion Pipeline](#notion-pipeline) *(v6.0.0)*
-  - [Product Brain](#product-brain) *(v6.0.0)*
   - [Rules Distribution](#rules-distribution) *(v6.0.0)*
   - [Multi-Agent Coordination](#multi-agent-coordination)
   - [Meta-Iterate Self-Improvement](#meta-iterate-self-improvement)
@@ -666,62 +665,6 @@ Select a task to automatically chain to `/dev spec`.
 4. Save to `thoughts/shared/specs/SPEC-{id}.md`
 5. Human confirmation, then chain to `/dev create-plan`
 
-### Product Brain
-
-Extract, store, and query product architecture knowledge. Automatically captures domain knowledge after each implementation for future context.
-
-#### Usage
-
-```bash
-# Auto-extract from recent commits
-dev_product(action='extract')
-
-# Extract with spec file for richer context
-dev_product(action='extract', specPath='thoughts/shared/specs/SPEC-001.md')
-
-# Query by domain
-dev_product(action='query', domain='ios')
-
-# Query by topic
-dev_product(action='query', topic='authentication')
-
-# Keyword search
-dev_product(action='query', query='JWT token')
-
-# Manually save a knowledge entry
-dev_product(action='save', title='Auth architecture', content='Using JWT + refresh token...', domain='backend', topic='authentication')
-
-# Write to Auto Memory topic files
-dev_product(action='write_topics')
-```
-
-#### Auto Classification
-
-File paths auto-infer domain and topic:
-
-| Domain | Path Signals |
-|--------|-------------|
-| ios | `/ios/`, `.swift`, `xcodeproj` |
-| android | `/android/`, `.kt`, `gradle` |
-| web | `/web/`, `.tsx`, `.jsx` |
-| backend | `/backend/`, `/api/`, `.go`, `.py` |
-
-| Topic | Path Signals |
-|-------|-------------|
-| authentication | `auth`, `login`, `session` |
-| navigation | `nav`, `router`, `route` |
-| data-layer | `data`, `model`, `schema`, `db` |
-| ui | `ui`, `view`, `component`, `screen` |
-| networking | `network`, `api`, `request`, `http` |
-
-#### Recommended Workflow
-
-```
-Spec → implement → commit
-    → dev_product(extract, specPath: "specs/SPEC-X.md")  # capture knowledge
-    → before next related work: dev_product(query, domain: "ios")  # retrieve context
-```
-
 ### Rules Distribution
 
 Platform-aware rule templates auto-installed to `.claude/rules/`.
@@ -1059,7 +1002,6 @@ The `platform` field in `.dev-flow.json` also affects:
 ### v6.0.0 (2026-02-27)
 
 - **Notion Pipeline**: Task triage (`/dev inbox`), spec generation (`/dev spec`), post-merge status update hook
-- **Product Brain**: Product knowledge extraction & query (`dev_product` tool), post-commit architecture extraction
 - **Memory Architecture Alignment**: Auto Memory bidirectional sync (`syncToMemoryMd`), topic file output, path-scoped pitfalls
 - **Rules Distribution**: 9 platform-aware rule templates + `/dev rules` command, `/dev init` auto-install
 - **Structure Consistency**: All 5 plugins unified hooks/scripts/ path, added missing CLAUDE.md
