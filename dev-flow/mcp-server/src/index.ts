@@ -1217,6 +1217,20 @@ function aggregateTool(action: string, handoffIdsJson?: string, taskId?: string)
       result.filesModified.forEach(f => text += `- ${f}\n`);
       text += `\n### Technical Decisions\n`;
       Object.entries(result.keyDecisions).forEach(([k, v]) => text += `- **${k}**: ${v}\n`);
+
+      // Include execution report summary if available
+      try {
+        const { getActiveLedgerPath, generateExecutionReport } = continuity;
+        const ledgerPath = getActiveLedgerPath();
+        if (ledgerPath) {
+          const report = generateExecutionReport(ledgerPath);
+          if (report.summary && report.summary !== 'Ledger not found') {
+            text += `\n### Execution Stats\n${report.summary}\n`;
+            text += `Full report: ${report.reportPath}\n`;
+          }
+        }
+      } catch { /* non-critical: execution report is best-effort */ }
+
       return { content: [{ type: 'text', text }] };
     }
     default:

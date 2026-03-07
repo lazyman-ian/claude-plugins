@@ -9,3 +9,4 @@ export * from './defaults';
 export * from './task-sync';
 export * from './memory';
 export * from './context-injector';
+export * from './execution-report';
