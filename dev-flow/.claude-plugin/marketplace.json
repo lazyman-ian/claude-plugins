@@ -10,7 +10,7 @@
     {
       "name": "dev-flow",
       "description": "Unified development workflow: planning → coding → commit → PR → release with full automation",
-      "version": "6.3.0",
+      "version": "7.0.0",
       "author": {
         "name": "lazyman",
         "email": "nickyuan94@gmail.com"

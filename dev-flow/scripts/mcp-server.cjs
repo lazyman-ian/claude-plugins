@@ -3223,8 +3223,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path6) {
-      let input = path6;
+    function removeDotSegments(path7) {
+      let input = path7;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3298,8 +3298,8 @@ var require_utils = __commonJS({
       }
       return output.join("");
     }
-    function normalizeComponentEncoding(component, esc3) {
-      const func = esc3 !== true ? escape : unescape;
+    function normalizeComponentEncoding(component, esc4) {
+      const func = esc4 !== true ? escape : unescape;
       if (component.scheme !== void 0) {
         component.scheme = func(component.scheme);
       }
@@ -3423,8 +3423,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path6, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path6 && path6 !== "/" ? path6 : void 0;
+        const [path7, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path7 && path7 !== "/" ? path7 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6777,12 +6777,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs7, exportName) {
+    function addFormats(ajv, list, fs8, exportName) {
       var _a2;
       var _b;
       (_a2 = (_b = ajv.opts.code).formats) !== null && _a2 !== void 0 ? _a2 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs7[f]);
+        ajv.addFormat(f, fs8[f]);
     }
     module2.exports = exports2 = formatsPlugin;
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -7149,8 +7149,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path6, errorMaps, issueData } = params;
-  const fullPath = [...path6, ...issueData.path || []];
+  const { data, path: path7, errorMaps, issueData } = params;
+  const fullPath = [...path7, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -7265,11 +7265,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path6, key) {
+  constructor(parent, value, path7, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path6;
+    this._path = path7;
     this._key = key;
   }
   get path() {
@@ -10913,10 +10913,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path6) {
-  if (!path6)
+function getElementAtPath(obj, path7) {
+  if (!path7)
     return obj;
-  return path6.reduce((acc, key) => acc?.[key], obj);
+  return path7.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -11299,11 +11299,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path6, issues) {
+function prefixIssues(path7, issues) {
   return issues.map((iss) => {
     var _a2;
     (_a2 = iss).path ?? (_a2.path = []);
-    iss.path.unshift(path6);
+    iss.path.unshift(path7);
     return iss;
   });
 }
@@ -21446,12 +21446,70 @@ function getPlatformConfig2() {
   };
 }
 
+// src/continuity/index.ts
+var continuity_exports = {};
+__export(continuity_exports, {
+  branchCleanup: () => branchCleanup,
+  branchListMerged: () => branchListMerged,
+  branchListStale: () => branchListStale,
+  branchPrune: () => branchPrune,
+  branchStashPop: () => branchStashPop,
+  branchStashSwitch: () => branchStashSwitch,
+  buildExecutionContext: () => buildExecutionContext,
+  ensureDbSchema: () => ensureDbSchema,
+  exportLedgerAsJson: () => exportLedgerAsJson,
+  extractKeyTerms: () => extractKeyTerms,
+  extractLedgerPatterns: () => extractLedgerPatterns,
+  formatTasksAsMarkdown: () => formatTasksAsMarkdown,
+  generateExecutionReport: () => generateExecutionReport,
+  generateTaskCommands: () => generateTaskCommands,
+  getActiveLedgerPath: () => getActiveLedgerPath,
+  getTaskSyncSummary: () => getTaskSyncSummary,
+  inferAll: () => inferAll,
+  inferLabels: () => inferLabels,
+  inferReviewers: () => inferReviewers,
+  inferScope: () => inferScope,
+  inferWorkingSet: () => inferWorkingSet,
+  injectKnowledgeContext: () => injectKnowledgeContext,
+  ledgerAddPr: () => ledgerAddPr,
+  ledgerArchive: () => ledgerArchive,
+  ledgerCreate: () => ledgerCreate,
+  ledgerList: () => ledgerList,
+  ledgerSearch: () => ledgerSearch,
+  ledgerStatus: () => ledgerStatus,
+  ledgerTaskUpdate: () => ledgerTaskUpdate,
+  ledgerUpdate: () => ledgerUpdate,
+  loadCompactCheckpoint: () => loadCompactCheckpoint,
+  memoryGet: () => memoryGet,
+  memoryList: () => memoryList,
+  memoryPrune: () => memoryPrune,
+  memoryQuery: () => memoryQuery,
+  memorySave: () => memorySave,
+  memorySearch: () => memorySearch,
+  memoryStatus: () => memoryStatus,
+  parseFrontmatter: () => parseFrontmatter,
+  parseGateLine: () => parseGateLine,
+  parseLedgerState: () => parseLedgerState,
+  parseLedgerV2: () => parseLedgerV2,
+  qualityCheck: () => qualityCheck,
+  reindexVault: () => reindexVault,
+  serializeLedgerTaskEntry: () => serializeLedgerTaskEntry,
+  smartDedup: () => smartDedup,
+  syncToMemoryMd: () => syncToMemoryMd,
+  tokenOverlap: () => tokenOverlap,
+  updateLedgerFromTasks: () => updateLedgerFromTasks,
+  writeLedgerTaskEntry: () => writeLedgerTaskEntry
+});
+
 // src/continuity/ledger.ts
+var import_child_process8 = require("child_process");
+var import_fs2 = require("fs");
+var import_path2 = require("path");
+
+// src/continuity/memory.ts
 var import_child_process7 = require("child_process");
 var import_fs = require("fs");
 var import_path = require("path");
-var LEDGERS_DIR = "thoughts/ledgers";
-var ARCHIVE_DIR = "thoughts/ledgers/archive";
 function getCwd() {
   try {
     return (0, import_child_process7.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
@@ -21459,9 +21517,850 @@ function getCwd() {
     return process.cwd();
   }
 }
+function getDbPath() {
+  const projectDir = getCwd();
+  return (0, import_path.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
+}
+function getProjectName() {
+  const cwd = getCwd();
+  return (0, import_path.basename)(cwd);
+}
+function generateId(type, title) {
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+  const ts = Date.now().toString(36);
+  return `${type}-${slug}-${ts}`;
+}
+function ensureDbSchema() {
+  const dbPath = getDbPath();
+  const dbDir = (0, import_path.join)(getCwd(), ".claude", "cache", "artifact-index");
+  (0, import_fs.mkdirSync)(dbDir, { recursive: true });
+  const schema = `
+CREATE TABLE IF NOT EXISTS knowledge (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  platform TEXT,
+  title TEXT NOT NULL,
+  problem TEXT,
+  solution TEXT,
+  source_project TEXT,
+  source_session TEXT,
+  created_at TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  access_count INTEGER DEFAULT 0,
+  last_accessed TEXT
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
+  title, problem, solution, content=knowledge, content_rowid=rowid,
+  tokenize='porter unicode61', prefix='2,3'
+);
+
+CREATE TRIGGER IF NOT EXISTS knowledge_ai AFTER INSERT ON knowledge BEGIN
+  INSERT INTO knowledge_fts(rowid, title, problem, solution) VALUES (new.rowid, new.title, new.problem, new.solution);
+END;
+
+CREATE TRIGGER IF NOT EXISTS knowledge_ad AFTER DELETE ON knowledge BEGIN
+  INSERT INTO knowledge_fts(knowledge_fts, rowid, title, problem, solution) VALUES('delete', old.rowid, old.title, old.problem, old.solution);
+END;
+
+CREATE TABLE IF NOT EXISTS synonyms (
+  term TEXT PRIMARY KEY,
+  expansions TEXT NOT NULL
+);
+
+`;
+  try {
+    (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "${schema.replace(/"/g, '\\"')}"`, {
+      encoding: "utf-8",
+      timeout: 5e3
+    });
+  } catch {
+  }
+  try {
+    (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN access_count INTEGER DEFAULT 0;"`, { encoding: "utf-8", timeout: 2e3 });
+  } catch {
+  }
+  try {
+    (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN last_accessed TEXT;"`, { encoding: "utf-8", timeout: 2e3 });
+  } catch {
+  }
+  try {
+    (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN priority TEXT DEFAULT 'important';"`, { encoding: "utf-8", timeout: 2e3 });
+  } catch {
+  }
+  seedSynonyms();
+}
+function dbInsertKnowledge(entry) {
+  const dbPath = getDbPath();
+  if (!(0, import_fs.existsSync)(dbPath)) return false;
+  const priority = entry.priority || "important";
+  const sql = `INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed, priority) VALUES ('${esc2(entry.id)}', '${esc2(entry.type)}', '${esc2(entry.platform)}', '${esc2(entry.title)}', '${esc2(entry.problem)}', '${esc2(entry.solution)}', '${esc2(entry.sourceProject)}', '${esc2(entry.sourceSession)}', '${esc2(entry.createdAt)}', '${esc2(entry.filePath)}', 0, NULL, '${esc2(priority)}');`;
+  try {
+    (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 3e3 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+function dbQueryKnowledge(query, limit = 10) {
+  const dbPath = getDbPath();
+  if (!(0, import_fs.existsSync)(dbPath)) return [];
+  const sql = `SELECT k.id, k.type, k.platform, k.title, k.problem, k.solution, k.source_project, k.source_session, k.created_at, k.file_path FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc2(query)}' ORDER BY rank LIMIT ${limit};`;
+  try {
+    const result = (0, import_child_process7.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (!result) return [];
+    return result.split("\n").map((line) => {
+      const [id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split("|||");
+      return { id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
+    });
+  } catch {
+    return [];
+  }
+}
+function esc2(s) {
+  return (s || "").replace(/'/g, "''");
+}
+function expandQuery(query) {
+  const dbPath = getDbPath();
+  if (!(0, import_fs.existsSync)(dbPath)) return query;
+  const terms = query.split(/\s+/).filter(Boolean);
+  const expanded = terms.map((term) => {
+    try {
+      const sql = `SELECT expansions FROM synonyms WHERE term = '${esc2(term.toLowerCase())}';`;
+      const result = (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 2e3 }).trim();
+      if (result) {
+        const synonyms = JSON.parse(result);
+        return `(${term} OR ${synonyms.join(" OR ")})`;
+      }
+    } catch {
+    }
+    return term;
+  });
+  return expanded.join(" ");
+}
+function seedSynonyms() {
+  const dbPath = getDbPath();
+  if (!(0, import_fs.existsSync)(dbPath)) return;
+  const defaults = {
+    concurrency: ["thread", "race condition", "async", "await", "actor", "sendable"],
+    auth: ["authentication", "authorization", "jwt", "token", "login", "session"],
+    crash: ["fatal", "exception", "abort", "signal", "SIGABRT"],
+    performance: ["slow", "latency", "memory leak", "cpu", "optimize"],
+    ui: ["layout", "view", "component", "render", "display"],
+    network: ["http", "api", "request", "response", "fetch", "url"],
+    database: ["sqlite", "core data", "realm", "migration", "schema"],
+    test: ["unit test", "integration", "mock", "stub", "assert"]
+  };
+  for (const [term, expansions] of Object.entries(defaults)) {
+    try {
+      const sql = `INSERT OR IGNORE INTO synonyms (term, expansions) VALUES ('${esc2(term)}', '${esc2(JSON.stringify(expansions))}');`;
+      (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 2e3 });
+    } catch {
+    }
+  }
+}
+function detectCurrentPlatform() {
+  return detectPlatformSimple(getCwd());
+}
+function getVaultPath() {
+  const cwd = getCwd();
+  const configPath = (0, import_path.join)(cwd, ".dev-flow.json");
+  try {
+    const config2 = JSON.parse((0, import_fs.readFileSync)(configPath, "utf-8"));
+    if (config2?.memory?.vault) return (0, import_path.join)(cwd, config2.memory.vault);
+  } catch {
+  }
+  return (0, import_path.join)(cwd, "thoughts", "knowledge");
+}
+function parseFrontmatter(content) {
+  const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!match) return { data: {}, body: content };
+  const data = {};
+  for (const line of match[1].split("\n")) {
+    const kv = line.match(/^(\w[\w-]*):\s*(.+)$/);
+    if (kv) data[kv[1]] = kv[2].trim();
+  }
+  return { data, body: match[2] };
+}
+function generateFrontmatter(meta3) {
+  const lines = ["---"];
+  lines.push(`type: ${meta3.type}`);
+  lines.push(`priority: ${meta3.priority || "important"}`);
+  lines.push(`platform: ${meta3.platform}`);
+  if (meta3.tags?.length) lines.push(`tags: [${meta3.tags.join(", ")}]`);
+  lines.push(`created: ${meta3.created}`);
+  lines.push(`access_count: ${meta3.access_count || 0}`);
+  lines.push("---");
+  return lines.join("\n");
+}
+function ensureVaultDirs() {
+  const vault = getVaultPath();
+  for (const dir of ["pitfalls", "patterns", "decisions", "habits"]) {
+    (0, import_fs.mkdirSync)((0, import_path.join)(vault, dir), { recursive: true });
+  }
+}
+function generateSlug(title) {
+  return title.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+}
+function countVaultFiles() {
+  const vaultPath = getVaultPath();
+  let count = 0;
+  for (const dir of ["pitfalls", "patterns", "decisions", "habits"]) {
+    const dirPath = (0, import_path.join)(vaultPath, dir);
+    if (!(0, import_fs.existsSync)(dirPath)) continue;
+    for (const file2 of (0, import_fs.readdirSync)(dirPath)) {
+      if (file2.endsWith(".md") && !file2.startsWith("_")) count++;
+    }
+  }
+  return count;
+}
+function memoryStatus() {
+  const cwd = getCwd();
+  const status = {
+    totalEntries: 0,
+    byType: { pitfall: 0, pattern: 0, decision: 0, habit: 0 },
+    unprocessedHandoffs: 0,
+    knowledgeDir: getDbPath(),
+    vaultPath: getVaultPath(),
+    vaultFiles: countVaultFiles()
+  };
+  const dbPath = getDbPath();
+  if ((0, import_fs.existsSync)(dbPath)) {
+    try {
+      const countResult = (0, import_child_process7.execSync)(
+        `sqlite3 "${dbPath}" "SELECT type, COUNT(*) FROM knowledge GROUP BY type;"`,
+        { encoding: "utf-8", timeout: 3e3 }
+      ).trim();
+      if (countResult) {
+        for (const line of countResult.split("\n")) {
+          const [type, countStr] = line.split("|");
+          const count = parseInt(countStr, 10) || 0;
+          if (type in status.byType) {
+            status.byType[type] = count;
+          }
+          status.totalEntries += count;
+        }
+      }
+    } catch {
+    }
+  }
+  const handoffsBase = (0, import_path.join)(cwd, "thoughts", "shared", "handoffs");
+  if ((0, import_fs.existsSync)(handoffsBase)) {
+    for (const sessionDir of (0, import_fs.readdirSync)(handoffsBase)) {
+      const sessionPath = (0, import_path.join)(handoffsBase, sessionDir);
+      if (!(0, import_fs.statSync)(sessionPath).isDirectory()) continue;
+      for (const file2 of (0, import_fs.readdirSync)(sessionPath)) {
+        if (file2.startsWith("auto-handoff-") && file2.endsWith(".md")) {
+          const content = (0, import_fs.readFileSync)((0, import_path.join)(sessionPath, file2), "utf-8");
+          if (content.includes("## Errors Encountered") && !content.includes("No errors.")) {
+            status.unprocessedHandoffs++;
+          }
+        }
+      }
+    }
+  }
+  return status;
+}
+function memoryQuery(query, limit = 10) {
+  ensureDbSchema();
+  return dbQueryKnowledge(expandQuery(query), limit);
+}
+function memoryList(type) {
+  const dbPath = getDbPath();
+  if (!(0, import_fs.existsSync)(dbPath)) return [];
+  const whereClause = type ? `WHERE type = '${esc2(type)}'` : "";
+  const sql = `SELECT id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path FROM knowledge ${whereClause} ORDER BY created_at DESC LIMIT 50;`;
+  try {
+    const result = (0, import_child_process7.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (!result) return [];
+    return result.split("\n").map((line) => {
+      const [id, type2, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split("|||");
+      return { id, type: type2, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
+    });
+  } catch {
+    return [];
+  }
+}
+function qualityCheck(text, title) {
+  if (text.length < 20) return { pass: false, reason: "Too short (<20 chars)" };
+  if (/^(Significant|There were|Updated|Modified|Changed|Made|Added several|Removed several) /i.test(text))
+    return { pass: false, reason: "Generic description, not actionable knowledge" };
+  if (/^\d+ (files?|insertions?|deletions?|changes?)/i.test(text))
+    return { pass: false, reason: "Statistics, not knowledge" };
+  const words = text.toLowerCase().split(/\s+/).filter((w) => w.length > 0);
+  if (words.length > 10) {
+    const ttr = new Set(words).size / words.length;
+    if (ttr < 0.3) return { pass: false, reason: "Low lexical diversity (repetitive content)" };
+  }
+  return { pass: true, reason: "OK" };
+}
+function memorySave(text, title, tags, type, priority) {
+  ensureDbSchema();
+  ensureVaultDirs();
+  const project = getProjectName();
+  const platform = detectCurrentPlatform();
+  const autoTitle = title || text.slice(0, 60).replace(/\n/g, " ").trim();
+  const validTypes = ["pitfall", "pattern", "decision", "habit"];
+  const entryType = validTypes.includes(type || "") ? type : "decision";
+  const validPriorities = ["critical", "important", "reference"];
+  const entryPriority = validPriorities.includes(priority || "") ? priority : "important";
+  const qc = qualityCheck(text, autoTitle);
+  if (!qc.pass) {
+    return { id: "", message: `Rejected: ${qc.reason}`, saved: false, reason: qc.reason };
+  }
+  try {
+    const dedupResult = smartDedup(
+      { type: entryType, title: autoTitle, content: text, platform },
+      getDbPath()
+    );
+    if (dedupResult.action === "NOOP") {
+      return { id: "", message: `Duplicate: ${dedupResult.reason} (${dedupResult.method})`, saved: false, reason: `Duplicate: ${dedupResult.reason}` };
+    }
+  } catch {
+  }
+  const slug = generateSlug(autoTitle);
+  const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const id = generateId(entryType, autoTitle);
+  const typeDir = entryType === "habit" ? "habits" : `${entryType}s`;
+  const filePath = (0, import_path.join)(getVaultPath(), typeDir, `${slug}.md`);
+  const frontmatter = generateFrontmatter({
+    type: entryType,
+    priority: entryPriority,
+    platform,
+    tags,
+    created: today,
+    access_count: 0
+  });
+  const mdContent = `${frontmatter}
+
+# ${autoTitle}
+
+${text}
+`;
+  (0, import_fs.writeFileSync)(filePath, mdContent, "utf-8");
+  const entry = {
+    id,
+    type: entryType,
+    platform,
+    title: autoTitle,
+    problem: text,
+    solution: tags?.join(", ") || "",
+    sourceProject: project,
+    sourceSession: "manual",
+    createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+    filePath,
+    priority: entryPriority
+  };
+  dbInsertKnowledge(entry);
+  return { id, message: `Saved: ${autoTitle}`, saved: true, filePath };
+}
+function memorySearch(query, limit = 10, type) {
+  ensureDbSchema();
+  const dbPath = getDbPath();
+  if (!(0, import_fs.existsSync)(dbPath)) return [];
+  const expandedQuery = expandQuery(query);
+  const typeFilter = type ? ` AND k.type = '${esc2(type)}'` : "";
+  const sql = `SELECT k.id, k.type, k.title, k.platform, k.created_at
+   FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid
+   WHERE knowledge_fts MATCH '${esc2(expandedQuery)}'${typeFilter}
+   ORDER BY rank * CASE COALESCE(k.priority, 'important') WHEN 'critical' THEN 3.0 WHEN 'important' THEN 2.0 ELSE 1.0 END * (1.0 / (1.0 + COALESCE(julianday('now') - julianday(COALESCE(k.last_accessed, k.created_at)), 0) / 30.0))
+   LIMIT ${limit};`;
+  try {
+    const result = (0, import_child_process7.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (!result) return [];
+    const entries = result.split("\n").map((line) => {
+      const [id, entryType, title, platform, createdAt] = line.split("|||");
+      return { id, type: entryType, title, platform, createdAt };
+    });
+    if (entries.length > 0) {
+      const idList = entries.map((e) => `'${esc2(e.id)}'`).join(",");
+      try {
+        (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "UPDATE knowledge SET access_count = COALESCE(access_count, 0) + 1, last_accessed = datetime('now') WHERE id IN (${idList});"`, {
+          encoding: "utf-8",
+          timeout: 2e3
+        });
+      } catch {
+      }
+    }
+    return entries;
+  } catch {
+    return [];
+  }
+}
+function memoryGet(ids) {
+  ensureDbSchema();
+  const dbPath = getDbPath();
+  if (!(0, import_fs.existsSync)(dbPath) || ids.length === 0) return [];
+  const idList = ids.map((id) => `'${esc2(id)}'`).join(",");
+  const sql = `SELECT id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path FROM knowledge WHERE id IN (${idList});`;
+  try {
+    const result = (0, import_child_process7.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (!result) return [];
+    const vaultPrefix = getVaultPath();
+    return result.split("\n").map((line) => {
+      const [id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split("|||");
+      const entry = { id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
+      if (filePath && filePath.startsWith(vaultPrefix) && (0, import_fs.existsSync)(filePath)) {
+        try {
+          const content = (0, import_fs.readFileSync)(filePath, "utf-8");
+          const { body } = parseFrontmatter(content);
+          entry.problem = body.replace(/^#\s+.+\n+/, "").trim();
+        } catch {
+        }
+      }
+      return entry;
+    });
+  } catch {
+    return [];
+  }
+}
+function updateVaultFilePriority(filePath, newPriority) {
+  if (!filePath || !(0, import_fs.existsSync)(filePath)) return;
+  try {
+    const content = (0, import_fs.readFileSync)(filePath, "utf-8");
+    const updated = content.replace(/^priority:\s*.+$/m, `priority: ${newPriority}`);
+    if (updated !== content) (0, import_fs.writeFileSync)(filePath, updated, "utf-8");
+  } catch {
+  }
+}
+function memoryPrune(dryRun = false) {
+  ensureDbSchema();
+  const dbPath = getDbPath();
+  if (!(0, import_fs.existsSync)(dbPath)) return { pruned: 0, promoted: 0, demoted: 0, archived: 0, message: "No database" };
+  let promoted = 0, demoted = 0, archived = 0;
+  try {
+    const promoteQuery = `SELECT id, file_path FROM knowledge WHERE COALESCE(access_count, 0) >= 3 AND COALESCE(priority, 'important') != 'critical';`;
+    const promoteResult = (0, import_child_process7.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${promoteQuery}"`, { encoding: "utf-8", timeout: 3e3 }).trim();
+    if (promoteResult) {
+      for (const line of promoteResult.split("\n")) {
+        const [id, filePath] = line.split("|||");
+        if (!dryRun) {
+          (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "UPDATE knowledge SET priority = 'critical' WHERE id = '${esc2(id)}';"`, { encoding: "utf-8", timeout: 2e3 });
+          updateVaultFilePriority(filePath, "critical");
+        }
+        promoted++;
+      }
+    }
+  } catch {
+  }
+  try {
+    const demoteQuery = `SELECT id, file_path FROM knowledge WHERE COALESCE(priority, 'important') = 'important' AND COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;`;
+    const demoteResult = (0, import_child_process7.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${demoteQuery}"`, { encoding: "utf-8", timeout: 3e3 }).trim();
+    if (demoteResult) {
+      for (const line of demoteResult.split("\n")) {
+        const [id, filePath] = line.split("|||");
+        if (!dryRun) {
+          (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "UPDATE knowledge SET priority = 'reference' WHERE id = '${esc2(id)}';"`, { encoding: "utf-8", timeout: 2e3 });
+          updateVaultFilePriority(filePath, "reference");
+        }
+        demoted++;
+      }
+    }
+  } catch {
+  }
+  try {
+    const archiveQuery = `SELECT id, file_path FROM knowledge WHERE COALESCE(priority, 'important') = 'reference' AND COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;`;
+    const archiveResult = (0, import_child_process7.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${archiveQuery}"`, { encoding: "utf-8", timeout: 3e3 }).trim();
+    if (archiveResult) {
+      for (const line of archiveResult.split("\n")) {
+        const [id, filePath] = line.split("|||");
+        if (!dryRun) {
+          if (filePath && (0, import_fs.existsSync)(filePath)) {
+            const archiveDir = (0, import_path.join)(getVaultPath(), ".archive");
+            (0, import_fs.mkdirSync)(archiveDir, { recursive: true });
+            const archivePath = (0, import_path.join)(archiveDir, (0, import_path.basename)(filePath));
+            (0, import_fs.renameSync)(filePath, archivePath);
+          }
+          (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "DELETE FROM knowledge WHERE id = '${esc2(id)}';"`, { encoding: "utf-8", timeout: 2e3 });
+        }
+        archived++;
+      }
+    }
+  } catch {
+  }
+  const total = promoted + demoted + archived;
+  const parts = [];
+  if (promoted > 0) parts.push(`${promoted} promoted to critical`);
+  if (demoted > 0) parts.push(`${demoted} demoted to reference`);
+  if (archived > 0) parts.push(`${archived} archived`);
+  const prefix = dryRun ? "Would: " : "";
+  const msg = parts.length > 0 ? `${prefix}${parts.join(", ")}` : "No entries need maintenance";
+  return { pruned: total, promoted, demoted, archived, message: msg };
+}
+function extractKeyTerms(text) {
+  const stopWords = /* @__PURE__ */ new Set([
+    "the",
+    "a",
+    "an",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "have",
+    "has",
+    "had",
+    "do",
+    "does",
+    "did",
+    "will",
+    "would",
+    "could",
+    "should",
+    "and",
+    "or",
+    "but",
+    "in",
+    "on",
+    "at",
+    "to",
+    "for",
+    "of",
+    "with",
+    "by",
+    "from",
+    "as",
+    "it",
+    "this",
+    "that"
+  ]);
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !stopWords.has(w));
+}
+function tokenOverlap(textA, textB) {
+  const tokensA = new Set(extractKeyTerms(textA));
+  const tokensB = new Set(extractKeyTerms(textB));
+  if (tokensA.size === 0 || tokensB.size === 0) return 0;
+  const intersection2 = [...tokensA].filter((t) => tokensB.has(t)).length;
+  const union2 = (/* @__PURE__ */ new Set([...tokensA, ...tokensB])).size;
+  return intersection2 / union2;
+}
+function smartDedup(newEntry, dbPath) {
+  const keyTerms = extractKeyTerms(`${newEntry.title} ${newEntry.content}`);
+  if (keyTerms.length === 0) {
+    return { action: "ADD", reason: "No extractable terms", method: "fts5" };
+  }
+  const ftsQuery = keyTerms.slice(0, 8).join(" OR ");
+  let candidates = [];
+  try {
+    const sql = `SELECT k.id, k.title, k.problem || ' ' || k.solution as content FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc2(ftsQuery)}' ORDER BY rank LIMIT 5;`;
+    const result = (0, import_child_process7.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (result) {
+      candidates = result.split("\n").map((line) => {
+        const [id, title, content] = line.split("|||");
+        return { id, title, content };
+      });
+    }
+  } catch {
+    return { action: "ADD", reason: "FTS5 query failed", method: "fts5" };
+  }
+  if (candidates.length === 0) {
+    return { action: "ADD", reason: "No FTS5 matches", method: "fts5" };
+  }
+  const newText = `${newEntry.title} ${newEntry.content}`;
+  for (const candidate of candidates) {
+    const existingText = `${candidate.title} ${candidate.content}`;
+    const overlap = tokenOverlap(newText, existingText);
+    if (overlap > 0.7) {
+      return { action: "NOOP", targetId: candidate.id, reason: `Token overlap ${(overlap * 100).toFixed(0)}%`, method: "token-overlap" };
+    }
+    if (overlap > 0.3) {
+      const llmResult = llmCompare(
+        { type: newEntry.type, title: newEntry.title, content: newEntry.content },
+        { id: candidate.id, type: "knowledge", title: candidate.title, content: candidate.content }
+      );
+      if (llmResult) return llmResult;
+      return { action: "ADD", reason: `Overlap ${(overlap * 100).toFixed(0)}%, no API key for disambiguation`, method: "token-overlap" };
+    }
+  }
+  return { action: "ADD", reason: "Low similarity to all candidates", method: "fts5" };
+}
+function llmCompare(newEntry, existing) {
+  const apiKey = process.env.DEV_FLOW_API_KEY || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+  const apiUrl = process.env.DEV_FLOW_API_URL || "https://api.anthropic.com/v1/messages";
+  const model = process.env.DEV_FLOW_MODEL || "claude-haiku-4-5-20251001";
+  const isAnthropic = apiUrl.includes("api.anthropic.com");
+  const prompt = `Are these the same knowledge? Reply ONLY: SAME or DIFFERENT
+A: [${newEntry.type}] ${newEntry.title}: ${newEntry.content}
+B: [${existing.type}] ${existing.title}: ${existing.content}`;
+  try {
+    const https = require("https");
+    const url2 = new URL(apiUrl);
+    const headers = { "content-type": "application/json" };
+    if (isAnthropic) {
+      headers["x-api-key"] = apiKey;
+      headers["anthropic-version"] = "2023-06-01";
+    } else {
+      headers["authorization"] = `Bearer ${apiKey}`;
+    }
+    const body = JSON.stringify({
+      model,
+      max_tokens: 10,
+      messages: [{ role: "user", content: prompt }]
+    });
+    const opts = JSON.stringify({
+      hostname: url2.hostname,
+      port: Number(url2.port) || 443,
+      path: url2.pathname,
+      method: "POST",
+      headers,
+      timeout: 5e3
+    });
+    const script = `const https=require('https');const o=JSON.parse(process.env.OPTS);const r=https.request(o,res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>process.stdout.write(d))});r.on('error',()=>process.exit(1));r.write(process.env.BODY);r.end()`;
+    const result = (0, import_child_process7.execSync)(`node -e "${script}"`, {
+      encoding: "utf-8",
+      timeout: 8e3,
+      env: { ...process.env, OPTS: opts, BODY: body }
+    });
+    const text = (JSON.parse(result)?.content?.[0]?.text || "").trim().toUpperCase();
+    if (text.includes("SAME")) {
+      return { action: "NOOP", targetId: existing.id, reason: "LLM confirmed duplicate", method: "llm" };
+    }
+    return { action: "ADD", reason: "LLM confirmed different", method: "llm" };
+  } catch {
+    return null;
+  }
+}
+function reindexVault() {
+  ensureDbSchema();
+  ensureVaultDirs();
+  const vaultPath = getVaultPath();
+  const dbPath = getDbPath();
+  let indexed = 0;
+  try {
+    (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "DELETE FROM knowledge WHERE file_path LIKE '%${vaultPath.replace(/'/g, "''")}%';"`, {
+      encoding: "utf-8",
+      timeout: 5e3
+    });
+    (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "INSERT INTO knowledge_fts(knowledge_fts) VALUES('rebuild');"`, {
+      encoding: "utf-8",
+      timeout: 5e3
+    });
+  } catch {
+  }
+  for (const typeDir of ["pitfalls", "patterns", "decisions", "habits"]) {
+    const dirPath = (0, import_path.join)(vaultPath, typeDir);
+    if (!(0, import_fs.existsSync)(dirPath)) continue;
+    for (const file2 of (0, import_fs.readdirSync)(dirPath)) {
+      if (!file2.endsWith(".md") || file2.startsWith("_")) continue;
+      const filePath = (0, import_path.join)(dirPath, file2);
+      try {
+        const content = (0, import_fs.readFileSync)(filePath, "utf-8");
+        const { data, body } = parseFrontmatter(content);
+        const entryType = data.type || typeDir.replace(/s$/, "");
+        const titleMatch = body.match(/^#\s+(.+)$/m);
+        const title = titleMatch?.[1] || file2.replace(".md", "");
+        const platform = data.platform || "general";
+        const id = generateId(entryType, title);
+        const entry = {
+          id,
+          type: entryType,
+          platform,
+          title,
+          problem: body.replace(/^#\s+.+\n+/, "").trim(),
+          solution: data.tags || "",
+          sourceProject: getProjectName(),
+          sourceSession: "vault",
+          createdAt: data.created || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
+          filePath
+        };
+        dbInsertKnowledge(entry);
+        indexed++;
+      } catch {
+      }
+    }
+  }
+  return { indexed, message: `Reindexed ${indexed} entries from vault` };
+}
+
+// src/continuity/ledger.ts
+var LEDGERS_DIR = "thoughts/ledgers";
+var ARCHIVE_DIR = "thoughts/ledgers/archive";
+function parseGateLine(line) {
+  const records = [];
+  const raw = line.replace(/^\s*gates:\s*/, "");
+  if (!raw.trim()) return records;
+  const tokens = [];
+  let current = "";
+  let depth = 0;
+  for (const ch of raw.trim()) {
+    if (ch === "(") {
+      depth++;
+      current += ch;
+    } else if (ch === ")") {
+      depth--;
+      current += ch;
+    } else if (ch === " " && depth === 0) {
+      if (current) {
+        tokens.push(current);
+        current = "";
+      }
+    } else {
+      current += ch;
+    }
+  }
+  if (current) tokens.push(current);
+  for (const token of tokens) {
+    let colonIdx = -1;
+    let depth2 = 0;
+    for (let i = 0; i < token.length; i++) {
+      if (token[i] === "(") depth2++;
+      else if (token[i] === ")") depth2--;
+      else if (token[i] === ":" && depth2 === 0) {
+        colonIdx = i;
+        break;
+      }
+    }
+    if (colonIdx === -1) continue;
+    const gate = token.slice(0, colonIdx);
+    const rest = token.slice(colonIdx + 1);
+    const detailMatch = rest.match(/\(([^)]*)\)$/);
+    const detail = detailMatch ? detailMatch[1] : void 0;
+    const resultRaw = rest.replace(/\([^)]*\)$/, "");
+    const resultSegments = resultRaw.split(">");
+    const resultStr = resultSegments[resultSegments.length - 1];
+    const result = resultStr === "pass" ? "pass" : resultStr === "skip" ? "skip" : "fail";
+    records.push({ gate, result, ...detail !== void 0 ? { detail } : {} });
+  }
+  return records;
+}
+function parseLedgerV2(content) {
+  const entries = [];
+  const stateMatch = content.match(/## State\s*\n([\s\S]*?)(?=\n## |\n# |$)/);
+  if (!stateMatch) return entries;
+  const stateBlock = stateMatch[1];
+  const lines = stateBlock.split("\n");
+  let current = null;
+  for (const line of lines) {
+    const taskMatch = line.match(/^- \[(x|→|->| )\]\s+(.+)$/);
+    if (taskMatch) {
+      if (current) entries.push(current);
+      const marker = taskMatch[1];
+      const rest = taskMatch[2];
+      const status = marker === "x" ? "done" : marker === "\u2192" || marker === "->" ? "in_progress" : "pending";
+      const idNameMatch = rest.match(/^(\d+(?:\.\d+)*(?:-\d+)?)\s*:\s*(.+)$/);
+      let id;
+      let name;
+      let timestamp;
+      if (idNameMatch) {
+        id = idNameMatch[1];
+        const nameAndMeta = idNameMatch[2];
+        const metaMatch = nameAndMeta.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+        if (metaMatch) {
+          name = metaMatch[1].trim();
+          timestamp = metaMatch[2];
+        } else {
+          name = nameAndMeta.trim();
+        }
+      } else {
+        id = "";
+        const metaMatch = rest.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+        if (metaMatch) {
+          name = metaMatch[1].trim();
+          timestamp = metaMatch[2];
+        } else {
+          name = rest.trim();
+        }
+      }
+      current = { id, name, status, ...timestamp !== void 0 ? { timestamp } : {} };
+      continue;
+    }
+    if (!current) continue;
+    if (/^\s+gates:\s/.test(line)) {
+      current.gates = parseGateLine(line);
+      continue;
+    }
+    const retriesMatch = line.match(/^\s+retries:\s*(\d+)/);
+    if (retriesMatch) {
+      current.retries = parseInt(retriesMatch[1], 10);
+      continue;
+    }
+    const durationMatch = line.match(/^\s+duration_ms:\s*(\d+)/);
+    if (durationMatch) {
+      current.duration_ms = parseInt(durationMatch[1], 10);
+      continue;
+    }
+  }
+  if (current) entries.push(current);
+  return entries;
+}
+function serializeLedgerTaskEntry(entry) {
+  const marker = entry.status === "done" ? "x" : entry.status === "in_progress" ? "\u2192" : " ";
+  const idPrefix = entry.id ? `${entry.id}: ` : "";
+  const meta3 = entry.timestamp ? ` (${entry.timestamp})` : "";
+  let out = `- [${marker}] ${idPrefix}${entry.name}${meta3}
+`;
+  if (entry.gates && entry.gates.length > 0) {
+    const gateParts = entry.gates.map((g) => {
+      const detail = g.detail !== void 0 ? `(${g.detail})` : "";
+      return `${g.gate}:${g.result}${detail}`;
+    });
+    out += `  gates: ${gateParts.join(" ")}
+`;
+  }
+  if (entry.retries !== void 0) {
+    out += `  retries: ${entry.retries}
+`;
+  }
+  if (entry.duration_ms !== void 0) {
+    out += `  duration_ms: ${entry.duration_ms}
+`;
+  }
+  return out;
+}
+function writeLedgerTaskEntry(filePath, entry) {
+  let content = (0, import_fs2.readFileSync)(filePath, "utf-8");
+  const serialized = serializeLedgerTaskEntry(entry);
+  content = content.replace(/^Updated:\s*.+$/m, `Updated: ${(/* @__PURE__ */ new Date()).toISOString()}`);
+  if (!content.includes("## State")) {
+    content += `
+## State
+${serialized}`;
+    (0, import_fs2.writeFileSync)(filePath, content);
+    return;
+  }
+  if (entry.id) {
+    const escapedId = entry.id.replace(/\./g, "\\.");
+    const entryRegex = new RegExp(
+      `- \\[[x \u2192\\-]\\] ${escapedId}:[^\\n]*\\n(?:  [^\\n]*\\n)*`,
+      "g"
+    );
+    if (entryRegex.test(content)) {
+      content = content.replace(entryRegex, serialized);
+      (0, import_fs2.writeFileSync)(filePath, content);
+      return;
+    }
+  }
+  content = content.replace(/## State\n/, `## State
+${serialized}`);
+  (0, import_fs2.writeFileSync)(filePath, content);
+}
+function getCwd2() {
+  try {
+    return (0, import_child_process8.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
+  } catch {
+    return process.cwd();
+  }
+}
 function getCurrentBranch() {
   try {
-    return (0, import_child_process7.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
+    return (0, import_child_process8.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
   } catch {
     return "";
   }
@@ -21471,20 +22370,20 @@ function getTaskFromBranch(branch) {
   return match ? `TASK-${match[1]}` : null;
 }
 function findActiveLedger() {
-  const cwd = getCwd();
+  const cwd = getCwd2();
   const branch = getCurrentBranch();
   const taskId = getTaskFromBranch(branch);
   if (!taskId) return null;
-  const ledgersPath = (0, import_path.join)(cwd, LEDGERS_DIR);
-  if (!(0, import_fs.existsSync)(ledgersPath)) return null;
-  const files = (0, import_fs.readdirSync)(ledgersPath).filter((f) => f.startsWith(taskId) && f.endsWith(".md"));
+  const ledgersPath = (0, import_path2.join)(cwd, LEDGERS_DIR);
+  if (!(0, import_fs2.existsSync)(ledgersPath)) return null;
+  const files = (0, import_fs2.readdirSync)(ledgersPath).filter((f) => f.startsWith(taskId) && f.endsWith(".md"));
   if (files.length === 0) return null;
-  const ledgerPath = (0, import_path.join)(ledgersPath, files[0]);
+  const ledgerPath = (0, import_path2.join)(ledgersPath, files[0]);
   return parseLedger(ledgerPath);
 }
-function parseLedger(path6) {
-  const content = (0, import_fs.readFileSync)(path6, "utf-8");
-  const name = (0, import_path.basename)(path6, ".md");
+function parseLedger(path7) {
+  const content = (0, import_fs2.readFileSync)(path7, "utf-8");
+  const name = (0, import_path2.basename)(path7, ".md");
   const taskMatch = name.match(/TASK-\d+/);
   const taskId = taskMatch ? taskMatch[0] : "";
   const updatedMatch = content.match(/^Updated:\s*(.+)$/m);
@@ -21498,7 +22397,7 @@ function parseLedger(path6) {
   const prUrl = prMatch ? prMatch[0] : void 0;
   return {
     name,
-    path: path6,
+    path: path7,
     taskId,
     updated,
     goal,
@@ -21525,23 +22424,37 @@ function ledgerStatus() {
   }
   const p = ledger.progress;
   const pct = p.total > 0 ? Math.round(p.done / p.total * 100) : 0;
+  let gateSummary = "";
+  const content = (0, import_fs2.readFileSync)(ledger.path, "utf-8");
+  const entries = parseLedgerV2(content);
+  if (entries.some((e) => e.gates && e.gates.length > 0)) {
+    let totalGates = 0;
+    let passGates = 0;
+    for (const entry of entries) {
+      for (const g of entry.gates || []) {
+        totalGates++;
+        if (g.result === "pass") passGates++;
+      }
+    }
+    gateSummary = `|gates:${passGates}/${totalGates} pass`;
+  }
   return {
     success: true,
-    message: `${ledger.taskId}|${pct}%|D:${p.done}|N:${p.inProgress}|P:${p.pending}`,
+    message: `${ledger.taskId}|${pct}%|D:${p.done}|N:${p.inProgress}|P:${p.pending}${gateSummary}`,
     data: ledger
   };
 }
 function ledgerList() {
-  const cwd = getCwd();
-  const ledgersPath = (0, import_path.join)(cwd, LEDGERS_DIR);
-  const archivePath = (0, import_path.join)(cwd, ARCHIVE_DIR);
+  const cwd = getCwd2();
+  const ledgersPath = (0, import_path2.join)(cwd, LEDGERS_DIR);
+  const archivePath = (0, import_path2.join)(cwd, ARCHIVE_DIR);
   const active = [];
   const archived = [];
-  if ((0, import_fs.existsSync)(ledgersPath)) {
-    active.push(...(0, import_fs.readdirSync)(ledgersPath).filter((f) => f.endsWith(".md") && f.startsWith("TASK-")));
+  if ((0, import_fs2.existsSync)(ledgersPath)) {
+    active.push(...(0, import_fs2.readdirSync)(ledgersPath).filter((f) => f.endsWith(".md") && f.startsWith("TASK-")));
   }
-  if ((0, import_fs.existsSync)(archivePath)) {
-    archived.push(...(0, import_fs.readdirSync)(archivePath).filter((f) => f.endsWith(".md")));
+  if ((0, import_fs2.existsSync)(archivePath)) {
+    archived.push(...(0, import_fs2.readdirSync)(archivePath).filter((f) => f.endsWith(".md")));
   }
   return {
     success: true,
@@ -21550,18 +22463,18 @@ function ledgerList() {
   };
 }
 function ledgerCreate(taskId, branchName) {
-  const cwd = getCwd();
-  const ledgersPath = (0, import_path.join)(cwd, LEDGERS_DIR);
+  const cwd = getCwd2();
+  const ledgersPath = (0, import_path2.join)(cwd, LEDGERS_DIR);
   if (!taskId.match(/^TASK-\d+$/)) {
     return { success: false, message: "Invalid TASK format" };
   }
   const desc = branchName.replace(/^(feature|fix|refactor|perf|test|docs|hotfix)\/TASK-\d+-/, "").replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   const fileName = `${taskId}-${desc.replace(/\s+/g, "-")}.md`;
-  const filePath = (0, import_path.join)(ledgersPath, fileName);
-  if ((0, import_fs.existsSync)(filePath)) {
+  const filePath = (0, import_path2.join)(ledgersPath, fileName);
+  if ((0, import_fs2.existsSync)(filePath)) {
     return { success: false, message: "Ledger already exists" };
   }
-  (0, import_fs.mkdirSync)(ledgersPath, { recursive: true });
+  (0, import_fs2.mkdirSync)(ledgersPath, { recursive: true });
   const template = `# Session: ${taskId}-${desc.replace(/\s+/g, "-")}
 Updated: ${(/* @__PURE__ */ new Date()).toISOString()}
 
@@ -21575,13 +22488,11 @@ ${desc}
 ## Key Decisions
 
 ## State
-- Done:
-  - [ ] \u521D\u59CB\u5316
-- Now:
-  - [\u2192] \u5F00\u53D1\u529F\u80FD
-- Next:
-  - [ ] \u4EE3\u7801\u5BA1\u67E5
-  - [ ] \u6D4B\u8BD5
+<!-- Gate notation: gate:result(detail) \u2014 results: pass|fail|skip, e.g. quality:pass(P2x1) verify:fail>pass(r1: msg) -->
+- [ ] 1.1: \u521D\u59CB\u5316
+- [\u2192] 1.2: \u5F00\u53D1\u529F\u80FD
+- [ ] 1.3: \u4EE3\u7801\u5BA1\u67E5
+- [ ] 1.4: \u6D4B\u8BD5
 
 ## Open Questions
 
@@ -21592,19 +22503,45 @@ ${desc}
 ### ${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}
 - \u{1F680} Started: ${taskId}
 `;
-  (0, import_fs.writeFileSync)(filePath, template);
+  (0, import_fs2.writeFileSync)(filePath, template);
   return {
     success: true,
     message: `Created:${fileName}`,
     data: { path: filePath, taskId }
   };
 }
-function ledgerUpdate(commitHash, commitMessage) {
+function ledgerTaskUpdate(taskId, taskName, gate, result, detail) {
   const ledger = findActiveLedger();
   if (!ledger) {
     return { success: false, message: "No active ledger" };
   }
-  let content = (0, import_fs.readFileSync)(ledger.path, "utf-8");
+  const content = (0, import_fs2.readFileSync)(ledger.path, "utf-8");
+  const entries = parseLedgerV2(content);
+  let entry = entries.find((e) => e.id === taskId);
+  if (!entry) {
+    entry = { id: taskId, name: taskName, status: "in_progress", gates: [] };
+  }
+  if (!entry.gates) entry.gates = [];
+  const existingIdx = entry.gates.findIndex((g) => g.gate === gate);
+  const gateRecord = { gate, result, ...detail !== void 0 ? { detail } : {} };
+  if (existingIdx >= 0) {
+    entry.gates[existingIdx] = gateRecord;
+  } else {
+    entry.gates.push(gateRecord);
+  }
+  writeLedgerTaskEntry(ledger.path, entry);
+  return {
+    success: true,
+    message: `TaskUpdate:${taskId}|gate:${gate}=${result}`,
+    data: entry
+  };
+}
+function ledgerUpdate(commitHash, commitMessage, options) {
+  const ledger = findActiveLedger();
+  if (!ledger) {
+    return { success: false, message: "No active ledger" };
+  }
+  let content = (0, import_fs2.readFileSync)(ledger.path, "utf-8");
   content = content.replace(
     /^Updated:\s*.+$/m,
     `Updated: ${(/* @__PURE__ */ new Date()).toISOString()}`
@@ -21623,22 +22560,131 @@ ${commitNote}`
 ${commitNote}
 `;
   }
-  (0, import_fs.writeFileSync)(ledger.path, content);
+  (0, import_fs2.writeFileSync)(ledger.path, content);
+  if (options?.gates || options?.retries !== void 0 || options?.duration_ms !== void 0) {
+    const entries = parseLedgerV2(content);
+    const inProgress = entries.find((e) => e.status === "in_progress");
+    if (inProgress) {
+      if (options.gates) inProgress.gates = options.gates;
+      if (options.retries !== void 0) inProgress.retries = options.retries;
+      if (options.duration_ms !== void 0) inProgress.duration_ms = options.duration_ms;
+      if (options.decisions) inProgress.decisions = options.decisions;
+      writeLedgerTaskEntry(ledger.path, inProgress);
+    }
+  }
   return {
     success: true,
     message: `Updated:${ledger.taskId}`
   };
 }
+function ledgerAddPr(prUrl) {
+  const ledger = findActiveLedger();
+  if (!ledger) {
+    return { success: false, message: "No active ledger" };
+  }
+  let content = (0, import_fs2.readFileSync)(ledger.path, "utf-8");
+  if (!content.includes(prUrl)) {
+    content = content.replace(
+      /## Working Set/,
+      `## Working Set
+- PR: ${prUrl}`
+    );
+    (0, import_fs2.writeFileSync)(ledger.path, content);
+  }
+  return {
+    success: true,
+    message: `PR added:${ledger.taskId}`
+  };
+}
+function extractLedgerPatterns(content, taskId) {
+  const entries = parseLedgerV2(content);
+  const hasGateData = entries.some((e) => e.gates && e.gates.length > 0);
+  if (!hasGateData) {
+    return { extracted: 0, summary: "v1 ledger: skipped" };
+  }
+  const candidates = [];
+  for (const entry of entries) {
+    if (!entry.gates || entry.gates.length === 0) continue;
+    const specGate = entry.gates.find((g) => g.gate === "spec");
+    if (specGate) {
+      const failRounds = specGate.detail?.match(/r(\d+)/) ? parseInt(specGate.detail.match(/r(\d+)/)[1], 10) : 0;
+      if (failRounds > 1) {
+        candidates.push({
+          type: "pitfall",
+          title: `Requirement clarity issue in task ${entry.id}: ${entry.name}`,
+          text: `Task "${entry.name}" (${entry.id}) required ${failRounds} spec-review rounds. Indicates requirement clarity issues. Spec gate detail: ${specGate.detail || "none"}. Review spec/contract thoroughness before implementation.`,
+          tags: ["spec-review", "requirement-clarity", taskId]
+        });
+      }
+    }
+    if (entry.retries && entry.retries > 0) {
+      const verifyGate = entry.gates.find((g) => g.gate === "verify");
+      const retryReason = verifyGate?.detail || "unknown failure";
+      candidates.push({
+        type: "pitfall",
+        title: `Verify retry in task ${entry.id}: ${entry.name}`,
+        text: `Task "${entry.name}" (${entry.id}) had ${entry.retries} verify retry. Retry reason: ${retryReason}. Check for similar patterns before implementation.`,
+        tags: ["verify-retry", "self-healing", taskId]
+      });
+    }
+    if (entry.decisions && entry.decisions.length > 0) {
+      const escalated = entry.decisions.filter((d) => d.escalated);
+      if (escalated.length > 0) {
+        for (const dec of escalated) {
+          candidates.push({
+            type: "pattern",
+            title: `Decision escalation in ${entry.id}: ${dec.question.slice(0, 40)}`,
+            text: `Task "${entry.name}" (${entry.id}) escalated decision to human: "${dec.question}" \u2192 "${dec.decision}". Record as architectural decision.`,
+            tags: ["decision-agent", "escalation", taskId]
+          });
+        }
+      }
+    }
+  }
+  const gatesByType = {};
+  for (const entry of entries) {
+    for (const g of entry.gates || []) {
+      if (!gatesByType[g.gate]) gatesByType[g.gate] = { pass: 0, total: 0 };
+      gatesByType[g.gate].total++;
+      if (g.result === "pass") gatesByType[g.gate].pass++;
+    }
+  }
+  for (const [gate, stats] of Object.entries(gatesByType)) {
+    if (stats.total >= 2) {
+      const rate = stats.pass / stats.total;
+      if (rate < 0.8) {
+        candidates.push({
+          type: "habit",
+          title: `Low ${gate} gate pass rate in ${taskId}`,
+          text: `Gate "${gate}" passed only ${stats.pass}/${stats.total} (${Math.round(rate * 100)}%) in ${taskId}. Below 80% threshold \u2014 review ${gate} quality habits.`,
+          tags: [gate, "gate-rate", taskId]
+        });
+      }
+    }
+  }
+  let saved = 0;
+  const rejected = [];
+  for (const c of candidates) {
+    const result = memorySave(c.text, c.title, c.tags, c.type);
+    if (result.saved) {
+      saved++;
+    } else {
+      rejected.push(c.title);
+    }
+  }
+  const summary = candidates.length === 0 ? "no patterns extracted" : `extracted ${candidates.length} candidates, saved ${saved}` + (rejected.length > 0 ? `, rejected ${rejected.length}` : "");
+  return { extracted: saved, summary };
+}
 function ledgerArchive(taskId) {
-  const cwd = getCwd();
-  const ledgersPath = (0, import_path.join)(cwd, LEDGERS_DIR);
-  const archivePath = (0, import_path.join)(cwd, ARCHIVE_DIR);
+  const cwd = getCwd2();
+  const ledgersPath = (0, import_path2.join)(cwd, LEDGERS_DIR);
+  const archivePath = (0, import_path2.join)(cwd, ARCHIVE_DIR);
   let targetLedger = null;
   if (taskId) {
-    if ((0, import_fs.existsSync)(ledgersPath)) {
-      const files = (0, import_fs.readdirSync)(ledgersPath).filter((f) => f.startsWith(taskId) && f.endsWith(".md"));
+    if ((0, import_fs2.existsSync)(ledgersPath)) {
+      const files = (0, import_fs2.readdirSync)(ledgersPath).filter((f) => f.startsWith(taskId) && f.endsWith(".md"));
       if (files.length > 0) {
-        targetLedger = parseLedger((0, import_path.join)(ledgersPath, files[0]));
+        targetLedger = parseLedger((0, import_path2.join)(ledgersPath, files[0]));
       }
     }
   } else {
@@ -21647,31 +22693,32 @@ function ledgerArchive(taskId) {
   if (!targetLedger) {
     return { success: false, message: "No ledger found" };
   }
-  (0, import_fs.mkdirSync)(archivePath, { recursive: true });
+  (0, import_fs2.mkdirSync)(archivePath, { recursive: true });
   const srcPath = targetLedger.path;
-  const destPath = (0, import_path.join)(archivePath, (0, import_path.basename)(srcPath));
+  const destPath = (0, import_path2.join)(archivePath, (0, import_path2.basename)(srcPath));
   try {
-    const content = (0, import_fs.readFileSync)(srcPath, "utf-8");
-    (0, import_fs.writeFileSync)(destPath, content);
-    (0, import_child_process7.execSync)(`rm "${srcPath}"`);
+    const content = (0, import_fs2.readFileSync)(srcPath, "utf-8");
+    const extraction = extractLedgerPatterns(content, targetLedger.taskId);
+    (0, import_fs2.writeFileSync)(destPath, content);
+    (0, import_child_process8.execSync)(`rm "${srcPath}"`);
     return {
       success: true,
-      message: `Archived:${targetLedger.taskId}`
+      message: `Archived:${targetLedger.taskId}|patterns:${extraction.summary}`
     };
   } catch (error2) {
     return { success: false, message: error2.message };
   }
 }
 function ledgerSearch(keyword) {
-  const cwd = getCwd();
-  const ledgersPath = (0, import_path.join)(cwd, LEDGERS_DIR);
-  const archivePath = (0, import_path.join)(cwd, ARCHIVE_DIR);
+  const cwd = getCwd2();
+  const ledgersPath = (0, import_path2.join)(cwd, LEDGERS_DIR);
+  const archivePath = (0, import_path2.join)(cwd, ARCHIVE_DIR);
   const matches = [];
   const searchDir = (dir, archived) => {
-    if (!(0, import_fs.existsSync)(dir)) return;
-    for (const file2 of (0, import_fs.readdirSync)(dir)) {
+    if (!(0, import_fs2.existsSync)(dir)) return;
+    for (const file2 of (0, import_fs2.readdirSync)(dir)) {
       if (!file2.endsWith(".md")) continue;
-      const content = (0, import_fs.readFileSync)((0, import_path.join)(dir, file2), "utf-8");
+      const content = (0, import_fs2.readFileSync)((0, import_path2.join)(dir, file2), "utf-8");
       if (content.toLowerCase().includes(keyword.toLowerCase())) {
         const lineMatch = content.split("\n").find((l) => l.toLowerCase().includes(keyword.toLowerCase()));
         matches.push({
@@ -21690,19 +22737,31 @@ function ledgerSearch(keyword) {
     data: matches
   };
 }
+function loadCompactCheckpoint() {
+  const cwd = getCwd2();
+  const checkpointPath = (0, import_path2.join)(cwd, LEDGERS_DIR, ".compact-checkpoint.md");
+  if (!(0, import_fs2.existsSync)(checkpointPath)) return null;
+  try {
+    const stat = (0, import_fs2.statSync)(checkpointPath);
+    if (Date.now() - stat.mtime.getTime() > 36e5) return null;
+  } catch {
+    return null;
+  }
+  return (0, import_fs2.readFileSync)(checkpointPath, "utf-8");
+}
 
 // src/continuity/branch.ts
-var import_child_process8 = require("child_process");
-function getCwd2() {
+var import_child_process9 = require("child_process");
+function getCwd3() {
   try {
-    return (0, import_child_process8.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
+    return (0, import_child_process9.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
   } catch {
     return process.cwd();
   }
 }
 function getDefaultBranch() {
   try {
-    const ref = (0, import_child_process8.execSync)("git symbolic-ref refs/remotes/origin/HEAD", {
+    const ref = (0, import_child_process9.execSync)("git symbolic-ref refs/remotes/origin/HEAD", {
       encoding: "utf-8"
     }).trim();
     return ref.replace("refs/remotes/origin/", "");
@@ -21712,17 +22771,17 @@ function getDefaultBranch() {
 }
 function getCurrentBranch2() {
   try {
-    return (0, import_child_process8.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
+    return (0, import_child_process9.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
   } catch {
     return "";
   }
 }
 function branchListMerged() {
-  const cwd = getCwd2();
+  const cwd = getCwd3();
   const defaultBranch = getDefaultBranch();
   const currentBranch = getCurrentBranch2();
   try {
-    const merged = (0, import_child_process8.execSync)(`git branch --merged ${defaultBranch}`, {
+    const merged = (0, import_child_process9.execSync)(`git branch --merged ${defaultBranch}`, {
       encoding: "utf-8",
       cwd
     }).split("\n").map((b) => b.trim().replace("* ", "")).filter((b) => b && b !== defaultBranch && b !== "main" && b !== "master" && b !== "develop" && b !== currentBranch);
@@ -21736,7 +22795,7 @@ function branchListMerged() {
   }
 }
 function branchCleanup(dryRun = false) {
-  const cwd = getCwd2();
+  const cwd = getCwd3();
   const { data } = branchListMerged();
   if (!data?.branches || data.branches.length === 0) {
     return { success: true, message: "No branches to clean" };
@@ -21752,14 +22811,14 @@ function branchCleanup(dryRun = false) {
   const failed = [];
   for (const branch of data.branches) {
     try {
-      (0, import_child_process8.execSync)(`git branch -d "${branch}"`, { encoding: "utf-8", cwd });
+      (0, import_child_process9.execSync)(`git branch -d "${branch}"`, { encoding: "utf-8", cwd });
       deleted.push(branch);
     } catch {
       failed.push(branch);
     }
   }
   try {
-    (0, import_child_process8.execSync)("git fetch --prune origin", { encoding: "utf-8", cwd });
+    (0, import_child_process9.execSync)("git fetch --prune origin", { encoding: "utf-8", cwd });
   } catch {
   }
   return {
@@ -21769,18 +22828,18 @@ function branchCleanup(dryRun = false) {
   };
 }
 function branchListStale(days = 30) {
-  const cwd = getCwd2();
+  const cwd = getCwd3();
   const cutoffDate = /* @__PURE__ */ new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
   const stale = [];
   try {
-    const branches = (0, import_child_process8.execSync)('git for-each-ref --format="%(refname:short)" refs/heads/', {
+    const branches = (0, import_child_process9.execSync)('git for-each-ref --format="%(refname:short)" refs/heads/', {
       encoding: "utf-8",
       cwd
     }).split("\n").filter((b) => b && !["master", "main", "develop"].includes(b));
     for (const branch of branches) {
       try {
-        const dateStr = (0, import_child_process8.execSync)(`git log -1 --format="%ci" "${branch}"`, {
+        const dateStr = (0, import_child_process9.execSync)(`git log -1 --format="%ci" "${branch}"`, {
           encoding: "utf-8",
           cwd
         }).trim().split(" ")[0];
@@ -21802,30 +22861,30 @@ function branchListStale(days = 30) {
   };
 }
 function branchStashSwitch(targetBranch) {
-  const cwd = getCwd2();
+  const cwd = getCwd3();
   const currentBranch = getCurrentBranch2();
   let hasChanges = false;
   try {
-    (0, import_child_process8.execSync)("git diff --quiet && git diff --cached --quiet", { cwd });
+    (0, import_child_process9.execSync)("git diff --quiet && git diff --cached --quiet", { cwd });
   } catch {
     hasChanges = true;
   }
   if (hasChanges) {
     const stashMsg = `Auto-stash from ${currentBranch} before switching to ${targetBranch}`;
     try {
-      (0, import_child_process8.execSync)(`git stash push -m "${stashMsg}"`, { encoding: "utf-8", cwd });
+      (0, import_child_process9.execSync)(`git stash push -m "${stashMsg}"`, { encoding: "utf-8", cwd });
     } catch (error2) {
       return { success: false, message: `Stash failed: ${error2.message}` };
     }
   }
   try {
     try {
-      (0, import_child_process8.execSync)(`git show-ref --verify --quiet refs/heads/${targetBranch}`, { cwd });
-      (0, import_child_process8.execSync)(`git checkout "${targetBranch}"`, { encoding: "utf-8", cwd });
+      (0, import_child_process9.execSync)(`git show-ref --verify --quiet refs/heads/${targetBranch}`, { cwd });
+      (0, import_child_process9.execSync)(`git checkout "${targetBranch}"`, { encoding: "utf-8", cwd });
     } catch {
       try {
-        (0, import_child_process8.execSync)(`git show-ref --verify --quiet refs/remotes/origin/${targetBranch}`, { cwd });
-        (0, import_child_process8.execSync)(`git checkout -b "${targetBranch}" "origin/${targetBranch}"`, { encoding: "utf-8", cwd });
+        (0, import_child_process9.execSync)(`git show-ref --verify --quiet refs/remotes/origin/${targetBranch}`, { cwd });
+        (0, import_child_process9.execSync)(`git checkout -b "${targetBranch}" "origin/${targetBranch}"`, { encoding: "utf-8", cwd });
       } catch {
         return { success: false, message: `Branch not found: ${targetBranch}` };
       }
@@ -21835,7 +22894,7 @@ function branchStashSwitch(targetBranch) {
   }
   let hasStash = false;
   try {
-    const stashList = (0, import_child_process8.execSync)("git stash list", { encoding: "utf-8", cwd });
+    const stashList = (0, import_child_process9.execSync)("git stash list", { encoding: "utf-8", cwd });
     hasStash = stashList.includes(`from ${targetBranch}`);
   } catch {
   }
@@ -21845,10 +22904,26 @@ function branchStashSwitch(targetBranch) {
     data: { from: currentBranch, to: targetBranch, stashed: hasChanges, hasTargetStash: hasStash }
   };
 }
-function branchPrune() {
-  const cwd = getCwd2();
+function branchStashPop() {
+  const cwd = getCwd3();
+  const currentBranch = getCurrentBranch2();
   try {
-    (0, import_child_process8.execSync)("git fetch --prune origin", { encoding: "utf-8", cwd });
+    const stashList = (0, import_child_process9.execSync)("git stash list", { encoding: "utf-8", cwd });
+    const lines = stashList.split("\n");
+    const targetStash = lines.findIndex((l) => l.includes(`from ${currentBranch}`));
+    if (targetStash >= 0) {
+      (0, import_child_process9.execSync)(`git stash pop stash@{${targetStash}}`, { encoding: "utf-8", cwd });
+      return { success: true, message: "Stash applied" };
+    }
+    return { success: false, message: "No stash found for current branch" };
+  } catch (error2) {
+    return { success: false, message: error2.message };
+  }
+}
+function branchPrune() {
+  const cwd = getCwd3();
+  try {
+    (0, import_child_process9.execSync)("git fetch --prune origin", { encoding: "utf-8", cwd });
     return { success: true, message: "Remote tracking branches pruned" };
   } catch (error2) {
     return { success: false, message: error2.message };
@@ -21856,64 +22931,107 @@ function branchPrune() {
 }
 
 // src/continuity/defaults.ts
-var import_child_process9 = require("child_process");
-var import_fs2 = require("fs");
-var import_path2 = require("path");
-function getCwd3() {
+var import_child_process10 = require("child_process");
+var import_fs3 = require("fs");
+var import_path3 = require("path");
+function getCwd4() {
   try {
-    return (0, import_child_process9.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
+    return (0, import_child_process10.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
   } catch {
     return process.cwd();
   }
 }
 function getCurrentBranch3() {
   try {
-    return (0, import_child_process9.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
+    return (0, import_child_process10.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
   } catch {
     return "";
   }
 }
 function getChangedFiles() {
-  const cwd = getCwd3();
+  const cwd = getCwd4();
   try {
-    const staged = (0, import_child_process9.execSync)("git diff --name-only --cached", { encoding: "utf-8", cwd }).trim();
-    const unstaged = (0, import_child_process9.execSync)("git diff --name-only HEAD", { encoding: "utf-8", cwd }).trim();
+    const staged = (0, import_child_process10.execSync)("git diff --name-only --cached", { encoding: "utf-8", cwd }).trim();
+    const unstaged = (0, import_child_process10.execSync)("git diff --name-only HEAD", { encoding: "utf-8", cwd }).trim();
     const files = [...staged.split("\n"), ...unstaged.split("\n")].filter((f) => f);
     return [...new Set(files)];
   } catch {
     return [];
   }
 }
+function loadDevFlowConfig(cwd) {
+  const configPath = (0, import_path3.join)(cwd, ".dev-flow.json");
+  if (!(0, import_fs3.existsSync)(configPath)) return null;
+  try {
+    return JSON.parse((0, import_fs3.readFileSync)(configPath, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+function inferScopesFromDirectories(cwd) {
+  const skipDirs = /* @__PURE__ */ new Set([
+    "node_modules",
+    "dist",
+    "build",
+    ".git",
+    ".github",
+    "coverage",
+    "tmp",
+    "temp",
+    ".cache",
+    "vendor",
+    "__pycache__"
+  ]);
+  try {
+    return (0, import_fs3.readdirSync)(cwd).filter((entry) => {
+      if (entry.startsWith(".")) return false;
+      if (skipDirs.has(entry)) return false;
+      try {
+        return (0, import_fs3.statSync)((0, import_path3.join)(cwd, entry)).isDirectory();
+      } catch {
+        return false;
+      }
+    });
+  } catch {
+    return [];
+  }
+}
+function matchScope(file2, candidates) {
+  const fileNorm = file2.toLowerCase();
+  let bestScope = "";
+  let bestLen = 0;
+  for (const scope of candidates) {
+    const scopeNorm = scope.toLowerCase();
+    if (fileNorm.startsWith(scopeNorm + "/") && scopeNorm.length > bestLen) {
+      bestLen = scopeNorm.length;
+      bestScope = scope;
+    }
+  }
+  if (bestScope) return bestScope;
+  if (file2.match(/Auth|Login|Token/i)) return "auth";
+  if (file2.match(/(test|spec)/i)) return "test";
+  if (file2.match(/^\.github\//)) return "ci";
+  if (file2.match(/(package|Podfile|build\.gradle|Cargo|requirements|pyproject)/)) return "deps";
+  if (file2.match(/(README|CHANGELOG|\.md$)/)) return "docs";
+  for (const scope of candidates) {
+    const scopeNorm = scope.toLowerCase();
+    if (fileNorm.includes("/" + scopeNorm + "/") || fileNorm.includes("/" + scopeNorm + ".")) {
+      return scope;
+    }
+  }
+  return "";
+}
 function inferScope(files) {
   const changedFiles = files || getChangedFiles();
   if (changedFiles.length === 0) {
     return { success: false, message: "No changes" };
   }
+  const cwd = getCwd4();
+  const config2 = loadDevFlowConfig(cwd);
+  const scopeCandidates = config2?.scopes && config2.scopes.length > 0 ? config2.scopes : inferScopesFromDirectories(cwd);
   const componentCounts = {};
   for (const file2 of changedFiles) {
-    let component = "";
-    if (file2.match(/^HouseSigma\/UI\//)) component = "ui";
-    else if (file2.match(/^HouseSigma\/Network/)) component = "network";
-    else if (file2.match(/^HouseSigma\/Model\//)) component = "model";
-    else if (file2.match(/^HouseSigma\/Helper\//)) component = "helper";
-    else if (file2.match(/^HouseSigma\/Router\//)) component = "router";
-    else if (file2.match(/Auth|Login|Token/i)) component = "auth";
-    else if (file2.match(/Home|Dashboard/i)) component = "home";
-    else if (file2.match(/Search/i)) component = "search";
-    else if (file2.match(/Map/i)) component = "map";
-    else if (file2.match(/Property|Listing/i)) component = "property";
-    else if (file2.match(/^app\/src\/main\/java\/.*\/ui\//)) component = "ui";
-    else if (file2.match(/^app\/src\/main\/java\/.*\/network\//)) component = "network";
-    else if (file2.match(/^app\/src\/main\/java\/.*\/data\//)) component = "data";
-    else if (file2.match(/^src\/components\//)) component = "components";
-    else if (file2.match(/^src\/pages\//)) component = "pages";
-    else if (file2.match(/^src\/api\//)) component = "api";
-    else if (file2.match(/^src\/hooks\//)) component = "hooks";
-    else if (file2.match(/^src\/utils\//)) component = "utils";
-    else if (file2.match(/^\.github\//)) component = "ci";
-    else if (file2.match(/(package|Podfile|build\.gradle|Cargo)/)) component = "deps";
-    else if (file2.match(/(README|CHANGELOG|\.md$)/)) component = "docs";
-    else if (file2.match(/(test|spec|Test)/i)) component = "test";
+    const component = matchScope(file2, scopeCandidates);
     if (component) {
       componentCounts[component] = (componentCounts[component] || 0) + 1;
     }
@@ -21956,14 +23074,14 @@ function inferLabels() {
   };
 }
 function inferReviewers() {
-  const cwd = getCwd3();
+  const cwd = getCwd4();
   const files = getChangedFiles();
   const reviewers = [];
   const codeownersPaths = [".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"];
   for (const coPath of codeownersPaths) {
-    const fullPath = (0, import_path2.join)(cwd, coPath);
-    if ((0, import_fs2.existsSync)(fullPath)) {
-      const content = (0, import_fs2.readFileSync)(fullPath, "utf-8");
+    const fullPath = (0, import_path3.join)(cwd, coPath);
+    if ((0, import_fs3.existsSync)(fullPath)) {
+      const content = (0, import_fs3.readFileSync)(fullPath, "utf-8");
       const lines = content.split("\n").filter((l) => l && !l.startsWith("#"));
       for (const file2 of files) {
         for (const line of lines) {
@@ -21988,7 +23106,7 @@ function inferReviewers() {
   if (reviewers.length === 0 && files.length > 0) {
     try {
       for (const file2 of files.slice(0, 3)) {
-        const author = (0, import_child_process9.execSync)(`git log -1 --format="%an" -- "${file2}"`, {
+        const author = (0, import_child_process10.execSync)(`git log -1 --format="%an" -- "${file2}"`, {
           encoding: "utf-8",
           cwd
         }).trim();
@@ -22008,8 +23126,8 @@ function inferReviewers() {
 function inferWorkingSet() {
   const branch = getCurrentBranch3();
   const files = getChangedFiles();
-  const staged = (0, import_child_process9.execSync)("git diff --name-only --cached", { encoding: "utf-8" }).trim().split("\n").filter((f) => f);
-  const unstaged = (0, import_child_process9.execSync)("git diff --name-only", { encoding: "utf-8" }).trim().split("\n").filter((f) => f);
+  const staged = (0, import_child_process10.execSync)("git diff --name-only --cached", { encoding: "utf-8" }).trim().split("\n").filter((f) => f);
+  const unstaged = (0, import_child_process10.execSync)("git diff --name-only", { encoding: "utf-8" }).trim().split("\n").filter((f) => f);
   return {
     success: true,
     message: `branch:${branch}|staged:${staged.length}|unstaged:${unstaged.length}`,
@@ -22039,10 +23157,10 @@ function inferAll() {
 }
 
 // src/continuity/task-sync.ts
-var import_fs3 = require("fs");
+var import_fs4 = require("fs");
 function parseLedgerState(ledgerPath) {
-  if (!(0, import_fs3.existsSync)(ledgerPath)) return [];
-  const content = (0, import_fs3.readFileSync)(ledgerPath, "utf-8");
+  if (!(0, import_fs4.existsSync)(ledgerPath)) return [];
+  const content = (0, import_fs4.readFileSync)(ledgerPath, "utf-8");
   const tasks = [];
   const stateMatch = content.match(/## State\s*\n([\s\S]*?)(?=\n## |$)/m);
   if (!stateMatch) return [];
@@ -22127,6 +23245,38 @@ function formatTasksAsMarkdown(tasks) {
   }
   return lines.join("\n");
 }
+function updateLedgerFromTasks(ledgerPath, taskUpdates) {
+  if (!(0, import_fs4.existsSync)(ledgerPath)) return false;
+  let content = (0, import_fs4.readFileSync)(ledgerPath, "utf-8");
+  for (const update of taskUpdates) {
+    const tasks = parseLedgerState(ledgerPath);
+    const task = tasks.find((t) => t.id === update.id);
+    if (!task) continue;
+    const subject = task.subject;
+    const escapedSubject = subject.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    let newMarker;
+    switch (update.status) {
+      case "completed":
+        newMarker = "[x]";
+        break;
+      case "in_progress":
+        newMarker = "[\u2192]";
+        break;
+      default:
+        newMarker = "[ ]";
+    }
+    content = content.replace(
+      new RegExp(`\\[(x|\u2192| )\\]\\s*${escapedSubject}`, "i"),
+      `${newMarker} ${subject}`
+    );
+  }
+  content = content.replace(
+    /^Updated:\s*.+$/m,
+    `Updated: ${(/* @__PURE__ */ new Date()).toISOString()}`
+  );
+  (0, import_fs4.writeFileSync)(ledgerPath, content);
+  return true;
+}
 function getTaskSyncSummary(ledgerPath) {
   const tasks = parseLedgerState(ledgerPath);
   if (tasks.length === 0) {
@@ -22138,8 +23288,8 @@ function getTaskSyncSummary(ledgerPath) {
   return `TASKS|${tasks.length} total|${completed} done|${inProgress} active|${pending} pending`;
 }
 function exportLedgerAsJson(ledgerPath) {
-  if (!(0, import_fs3.existsSync)(ledgerPath)) return null;
-  const content = (0, import_fs3.readFileSync)(ledgerPath, "utf-8");
+  if (!(0, import_fs4.existsSync)(ledgerPath)) return null;
+  const content = (0, import_fs4.readFileSync)(ledgerPath, "utf-8");
   const taskIdMatch = ledgerPath.match(/TASK-\d+/);
   const taskId = taskIdMatch ? taskIdMatch[0] : "unknown";
   return {
@@ -22150,700 +23300,526 @@ function exportLedgerAsJson(ledgerPath) {
   };
 }
 
-// src/continuity/memory.ts
-var import_child_process10 = require("child_process");
-var import_fs4 = require("fs");
-var import_path3 = require("path");
-function getCwd4() {
-  try {
-    return (0, import_child_process10.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
-  } catch {
-    return process.cwd();
-  }
-}
-function getDbPath() {
-  const projectDir = getCwd4();
-  return (0, import_path3.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
-}
-function getProjectName() {
-  const cwd = getCwd4();
-  return (0, import_path3.basename)(cwd);
-}
-function generateId(type, title) {
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
-  const ts = Date.now().toString(36);
-  return `${type}-${slug}-${ts}`;
-}
-function ensureDbSchema() {
-  const dbPath = getDbPath();
-  const dbDir = (0, import_path3.join)(getCwd4(), ".claude", "cache", "artifact-index");
-  (0, import_fs4.mkdirSync)(dbDir, { recursive: true });
-  const schema = `
-CREATE TABLE IF NOT EXISTS knowledge (
-  id TEXT PRIMARY KEY,
-  type TEXT NOT NULL,
-  platform TEXT,
-  title TEXT NOT NULL,
-  problem TEXT,
-  solution TEXT,
-  source_project TEXT,
-  source_session TEXT,
-  created_at TEXT NOT NULL,
-  file_path TEXT NOT NULL,
-  access_count INTEGER DEFAULT 0,
-  last_accessed TEXT
-);
-
-CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
-  title, problem, solution, content=knowledge, content_rowid=rowid,
-  tokenize='porter unicode61', prefix='2,3'
-);
-
-CREATE TRIGGER IF NOT EXISTS knowledge_ai AFTER INSERT ON knowledge BEGIN
-  INSERT INTO knowledge_fts(rowid, title, problem, solution) VALUES (new.rowid, new.title, new.problem, new.solution);
-END;
-
-CREATE TRIGGER IF NOT EXISTS knowledge_ad AFTER DELETE ON knowledge BEGIN
-  INSERT INTO knowledge_fts(knowledge_fts, rowid, title, problem, solution) VALUES('delete', old.rowid, old.title, old.problem, old.solution);
-END;
-
-CREATE TABLE IF NOT EXISTS synonyms (
-  term TEXT PRIMARY KEY,
-  expansions TEXT NOT NULL
-);
-
-`;
-  try {
-    (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "${schema.replace(/"/g, '\\"')}"`, {
-      encoding: "utf-8",
-      timeout: 5e3
-    });
-  } catch {
-  }
-  try {
-    (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN access_count INTEGER DEFAULT 0;"`, { encoding: "utf-8", timeout: 2e3 });
-  } catch {
-  }
-  try {
-    (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN last_accessed TEXT;"`, { encoding: "utf-8", timeout: 2e3 });
-  } catch {
-  }
-  try {
-    (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "ALTER TABLE knowledge ADD COLUMN priority TEXT DEFAULT 'important';"`, { encoding: "utf-8", timeout: 2e3 });
-  } catch {
-  }
-  seedSynonyms();
-}
-function dbInsertKnowledge(entry) {
-  const dbPath = getDbPath();
-  if (!(0, import_fs4.existsSync)(dbPath)) return false;
-  const priority = entry.priority || "important";
-  const sql = `INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed, priority) VALUES ('${esc2(entry.id)}', '${esc2(entry.type)}', '${esc2(entry.platform)}', '${esc2(entry.title)}', '${esc2(entry.problem)}', '${esc2(entry.solution)}', '${esc2(entry.sourceProject)}', '${esc2(entry.sourceSession)}', '${esc2(entry.createdAt)}', '${esc2(entry.filePath)}', 0, NULL, '${esc2(priority)}');`;
-  try {
-    (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 3e3 });
-    return true;
-  } catch {
-    return false;
-  }
-}
-function dbQueryKnowledge(query, limit = 10) {
-  const dbPath = getDbPath();
-  if (!(0, import_fs4.existsSync)(dbPath)) return [];
-  const sql = `SELECT k.id, k.type, k.platform, k.title, k.problem, k.solution, k.source_project, k.source_session, k.created_at, k.file_path FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc2(query)}' ORDER BY rank LIMIT ${limit};`;
-  try {
-    const result = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-      encoding: "utf-8",
-      timeout: 3e3
-    }).trim();
-    if (!result) return [];
-    return result.split("\n").map((line) => {
-      const [id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split("|||");
-      return { id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
-    });
-  } catch {
-    return [];
-  }
-}
-function esc2(s) {
-  return (s || "").replace(/'/g, "''");
-}
-function expandQuery(query) {
-  const dbPath = getDbPath();
-  if (!(0, import_fs4.existsSync)(dbPath)) return query;
-  const terms = query.split(/\s+/).filter(Boolean);
-  const expanded = terms.map((term) => {
-    try {
-      const sql = `SELECT expansions FROM synonyms WHERE term = '${esc2(term.toLowerCase())}';`;
-      const result = (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 2e3 }).trim();
-      if (result) {
-        const synonyms = JSON.parse(result);
-        return `(${term} OR ${synonyms.join(" OR ")})`;
-      }
-    } catch {
-    }
-    return term;
-  });
-  return expanded.join(" ");
-}
-function seedSynonyms() {
-  const dbPath = getDbPath();
-  if (!(0, import_fs4.existsSync)(dbPath)) return;
-  const defaults = {
-    concurrency: ["thread", "race condition", "async", "await", "actor", "sendable"],
-    auth: ["authentication", "authorization", "jwt", "token", "login", "session"],
-    crash: ["fatal", "exception", "abort", "signal", "SIGABRT"],
-    performance: ["slow", "latency", "memory leak", "cpu", "optimize"],
-    ui: ["layout", "view", "component", "render", "display"],
-    network: ["http", "api", "request", "response", "fetch", "url"],
-    database: ["sqlite", "core data", "realm", "migration", "schema"],
-    test: ["unit test", "integration", "mock", "stub", "assert"]
-  };
-  for (const [term, expansions] of Object.entries(defaults)) {
-    try {
-      const sql = `INSERT OR IGNORE INTO synonyms (term, expansions) VALUES ('${esc2(term)}', '${esc2(JSON.stringify(expansions))}');`;
-      (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 2e3 });
-    } catch {
-    }
-  }
-}
-function detectCurrentPlatform() {
-  return detectPlatformSimple(getCwd4());
-}
-function getVaultPath() {
-  const cwd = getCwd4();
-  const configPath = (0, import_path3.join)(cwd, ".dev-flow.json");
-  try {
-    const config2 = JSON.parse((0, import_fs4.readFileSync)(configPath, "utf-8"));
-    if (config2?.memory?.vault) return (0, import_path3.join)(cwd, config2.memory.vault);
-  } catch {
-  }
-  return (0, import_path3.join)(cwd, "thoughts", "knowledge");
-}
-function parseFrontmatter(content) {
-  const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  if (!match) return { data: {}, body: content };
-  const data = {};
-  for (const line of match[1].split("\n")) {
-    const kv = line.match(/^(\w[\w-]*):\s*(.+)$/);
-    if (kv) data[kv[1]] = kv[2].trim();
-  }
-  return { data, body: match[2] };
-}
-function generateFrontmatter(meta3) {
-  const lines = ["---"];
-  lines.push(`type: ${meta3.type}`);
-  lines.push(`priority: ${meta3.priority || "important"}`);
-  lines.push(`platform: ${meta3.platform}`);
-  if (meta3.tags?.length) lines.push(`tags: [${meta3.tags.join(", ")}]`);
-  lines.push(`created: ${meta3.created}`);
-  lines.push(`access_count: ${meta3.access_count || 0}`);
-  lines.push("---");
-  return lines.join("\n");
-}
-function ensureVaultDirs() {
-  const vault = getVaultPath();
-  for (const dir of ["pitfalls", "patterns", "decisions", "habits"]) {
-    (0, import_fs4.mkdirSync)((0, import_path3.join)(vault, dir), { recursive: true });
-  }
-}
-function generateSlug(title) {
-  return title.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
-}
-function countVaultFiles() {
-  const vaultPath = getVaultPath();
-  let count = 0;
-  for (const dir of ["pitfalls", "patterns", "decisions", "habits"]) {
-    const dirPath = (0, import_path3.join)(vaultPath, dir);
-    if (!(0, import_fs4.existsSync)(dirPath)) continue;
-    for (const file2 of (0, import_fs4.readdirSync)(dirPath)) {
-      if (file2.endsWith(".md") && !file2.startsWith("_")) count++;
-    }
-  }
-  return count;
-}
-function memoryStatus() {
-  const cwd = getCwd4();
-  const status = {
-    totalEntries: 0,
-    byType: { pitfall: 0, pattern: 0, decision: 0, habit: 0 },
-    unprocessedHandoffs: 0,
-    knowledgeDir: getDbPath(),
-    vaultPath: getVaultPath(),
-    vaultFiles: countVaultFiles()
-  };
-  const dbPath = getDbPath();
-  if ((0, import_fs4.existsSync)(dbPath)) {
-    try {
-      const countResult = (0, import_child_process10.execSync)(
-        `sqlite3 "${dbPath}" "SELECT type, COUNT(*) FROM knowledge GROUP BY type;"`,
-        { encoding: "utf-8", timeout: 3e3 }
-      ).trim();
-      if (countResult) {
-        for (const line of countResult.split("\n")) {
-          const [type, countStr] = line.split("|");
-          const count = parseInt(countStr, 10) || 0;
-          if (type in status.byType) {
-            status.byType[type] = count;
-          }
-          status.totalEntries += count;
-        }
-      }
-    } catch {
-    }
-  }
-  const handoffsBase = (0, import_path3.join)(cwd, "thoughts", "shared", "handoffs");
-  if ((0, import_fs4.existsSync)(handoffsBase)) {
-    for (const sessionDir of (0, import_fs4.readdirSync)(handoffsBase)) {
-      const sessionPath = (0, import_path3.join)(handoffsBase, sessionDir);
-      if (!(0, import_fs4.statSync)(sessionPath).isDirectory()) continue;
-      for (const file2 of (0, import_fs4.readdirSync)(sessionPath)) {
-        if (file2.startsWith("auto-handoff-") && file2.endsWith(".md")) {
-          const content = (0, import_fs4.readFileSync)((0, import_path3.join)(sessionPath, file2), "utf-8");
-          if (content.includes("## Errors Encountered") && !content.includes("No errors.")) {
-            status.unprocessedHandoffs++;
-          }
-        }
-      }
-    }
-  }
-  return status;
-}
-function memoryQuery(query, limit = 10) {
-  ensureDbSchema();
-  return dbQueryKnowledge(expandQuery(query), limit);
-}
-function memoryList(type) {
-  const dbPath = getDbPath();
-  if (!(0, import_fs4.existsSync)(dbPath)) return [];
-  const whereClause = type ? `WHERE type = '${esc2(type)}'` : "";
-  const sql = `SELECT id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path FROM knowledge ${whereClause} ORDER BY created_at DESC LIMIT 50;`;
-  try {
-    const result = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-      encoding: "utf-8",
-      timeout: 3e3
-    }).trim();
-    if (!result) return [];
-    return result.split("\n").map((line) => {
-      const [id, type2, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split("|||");
-      return { id, type: type2, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
-    });
-  } catch {
-    return [];
-  }
-}
-function qualityCheck(text, title) {
-  if (text.length < 20) return { pass: false, reason: "Too short (<20 chars)" };
-  if (/^(Significant|There were|Updated|Modified|Changed|Made|Added several|Removed several) /i.test(text))
-    return { pass: false, reason: "Generic description, not actionable knowledge" };
-  if (/^\d+ (files?|insertions?|deletions?|changes?)/i.test(text))
-    return { pass: false, reason: "Statistics, not knowledge" };
-  const words = text.toLowerCase().split(/\s+/).filter((w) => w.length > 0);
-  if (words.length > 10) {
-    const ttr = new Set(words).size / words.length;
-    if (ttr < 0.3) return { pass: false, reason: "Low lexical diversity (repetitive content)" };
-  }
-  return { pass: true, reason: "OK" };
-}
-function memorySave(text, title, tags, type, priority) {
-  ensureDbSchema();
-  ensureVaultDirs();
-  const project = getProjectName();
-  const platform = detectCurrentPlatform();
-  const autoTitle = title || text.slice(0, 60).replace(/\n/g, " ").trim();
-  const validTypes = ["pitfall", "pattern", "decision", "habit"];
-  const entryType = validTypes.includes(type || "") ? type : "decision";
-  const validPriorities = ["critical", "important", "reference"];
-  const entryPriority = validPriorities.includes(priority || "") ? priority : "important";
-  const qc = qualityCheck(text, autoTitle);
-  if (!qc.pass) {
-    return { id: "", message: `Rejected: ${qc.reason}`, saved: false, reason: qc.reason };
-  }
-  try {
-    const dedupResult = smartDedup(
-      { type: entryType, title: autoTitle, content: text, platform },
-      getDbPath()
-    );
-    if (dedupResult.action === "NOOP") {
-      return { id: "", message: `Duplicate: ${dedupResult.reason} (${dedupResult.method})`, saved: false, reason: `Duplicate: ${dedupResult.reason}` };
-    }
-  } catch {
-  }
-  const slug = generateSlug(autoTitle);
-  const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-  const id = generateId(entryType, autoTitle);
-  const typeDir = entryType === "habit" ? "habits" : `${entryType}s`;
-  const filePath = (0, import_path3.join)(getVaultPath(), typeDir, `${slug}.md`);
-  const frontmatter = generateFrontmatter({
-    type: entryType,
-    priority: entryPriority,
-    platform,
-    tags,
-    created: today,
-    access_count: 0
-  });
-  const mdContent = `${frontmatter}
-
-# ${autoTitle}
-
-${text}
-`;
-  (0, import_fs4.writeFileSync)(filePath, mdContent, "utf-8");
-  const entry = {
-    id,
-    type: entryType,
-    platform,
-    title: autoTitle,
-    problem: text,
-    solution: tags?.join(", ") || "",
-    sourceProject: project,
-    sourceSession: "manual",
-    createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-    filePath,
-    priority: entryPriority
-  };
-  dbInsertKnowledge(entry);
-  return { id, message: `Saved: ${autoTitle}`, saved: true, filePath };
-}
-function memorySearch(query, limit = 10, type) {
-  ensureDbSchema();
-  const dbPath = getDbPath();
-  if (!(0, import_fs4.existsSync)(dbPath)) return [];
-  const expandedQuery = expandQuery(query);
-  const typeFilter = type ? ` AND k.type = '${esc2(type)}'` : "";
-  const sql = `SELECT k.id, k.type, k.title, k.platform, k.created_at
-   FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid
-   WHERE knowledge_fts MATCH '${esc2(expandedQuery)}'${typeFilter}
-   ORDER BY rank * CASE COALESCE(k.priority, 'important') WHEN 'critical' THEN 3.0 WHEN 'important' THEN 2.0 ELSE 1.0 END * (1.0 / (1.0 + COALESCE(julianday('now') - julianday(COALESCE(k.last_accessed, k.created_at)), 0) / 30.0))
-   LIMIT ${limit};`;
-  try {
-    const result = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-      encoding: "utf-8",
-      timeout: 3e3
-    }).trim();
-    if (!result) return [];
-    const entries = result.split("\n").map((line) => {
-      const [id, entryType, title, platform, createdAt] = line.split("|||");
-      return { id, type: entryType, title, platform, createdAt };
-    });
-    if (entries.length > 0) {
-      const idList = entries.map((e) => `'${esc2(e.id)}'`).join(",");
-      try {
-        (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "UPDATE knowledge SET access_count = COALESCE(access_count, 0) + 1, last_accessed = datetime('now') WHERE id IN (${idList});"`, {
-          encoding: "utf-8",
-          timeout: 2e3
-        });
-      } catch {
-      }
-    }
-    return entries;
-  } catch {
-    return [];
-  }
-}
-function memoryGet(ids) {
-  ensureDbSchema();
-  const dbPath = getDbPath();
-  if (!(0, import_fs4.existsSync)(dbPath) || ids.length === 0) return [];
-  const idList = ids.map((id) => `'${esc2(id)}'`).join(",");
-  const sql = `SELECT id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path FROM knowledge WHERE id IN (${idList});`;
-  try {
-    const result = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-      encoding: "utf-8",
-      timeout: 3e3
-    }).trim();
-    if (!result) return [];
-    const vaultPrefix = getVaultPath();
-    return result.split("\n").map((line) => {
-      const [id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath] = line.split("|||");
-      const entry = { id, type, platform, title, problem, solution, sourceProject, sourceSession, createdAt, filePath };
-      if (filePath && filePath.startsWith(vaultPrefix) && (0, import_fs4.existsSync)(filePath)) {
-        try {
-          const content = (0, import_fs4.readFileSync)(filePath, "utf-8");
-          const { body } = parseFrontmatter(content);
-          entry.problem = body.replace(/^#\s+.+\n+/, "").trim();
-        } catch {
-        }
-      }
-      return entry;
-    });
-  } catch {
-    return [];
-  }
-}
-function updateVaultFilePriority(filePath, newPriority) {
-  if (!filePath || !(0, import_fs4.existsSync)(filePath)) return;
-  try {
-    const content = (0, import_fs4.readFileSync)(filePath, "utf-8");
-    const updated = content.replace(/^priority:\s*.+$/m, `priority: ${newPriority}`);
-    if (updated !== content) (0, import_fs4.writeFileSync)(filePath, updated, "utf-8");
-  } catch {
-  }
-}
-function memoryPrune(dryRun = false) {
-  ensureDbSchema();
-  const dbPath = getDbPath();
-  if (!(0, import_fs4.existsSync)(dbPath)) return { pruned: 0, promoted: 0, demoted: 0, archived: 0, message: "No database" };
-  let promoted = 0, demoted = 0, archived = 0;
-  try {
-    const promoteQuery = `SELECT id, file_path FROM knowledge WHERE COALESCE(access_count, 0) >= 3 AND COALESCE(priority, 'important') != 'critical';`;
-    const promoteResult = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${promoteQuery}"`, { encoding: "utf-8", timeout: 3e3 }).trim();
-    if (promoteResult) {
-      for (const line of promoteResult.split("\n")) {
-        const [id, filePath] = line.split("|||");
-        if (!dryRun) {
-          (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "UPDATE knowledge SET priority = 'critical' WHERE id = '${esc2(id)}';"`, { encoding: "utf-8", timeout: 2e3 });
-          updateVaultFilePriority(filePath, "critical");
-        }
-        promoted++;
-      }
-    }
-  } catch {
-  }
-  try {
-    const demoteQuery = `SELECT id, file_path FROM knowledge WHERE COALESCE(priority, 'important') = 'important' AND COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;`;
-    const demoteResult = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${demoteQuery}"`, { encoding: "utf-8", timeout: 3e3 }).trim();
-    if (demoteResult) {
-      for (const line of demoteResult.split("\n")) {
-        const [id, filePath] = line.split("|||");
-        if (!dryRun) {
-          (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "UPDATE knowledge SET priority = 'reference' WHERE id = '${esc2(id)}';"`, { encoding: "utf-8", timeout: 2e3 });
-          updateVaultFilePriority(filePath, "reference");
-        }
-        demoted++;
-      }
-    }
-  } catch {
-  }
-  try {
-    const archiveQuery = `SELECT id, file_path FROM knowledge WHERE COALESCE(priority, 'important') = 'reference' AND COALESCE(access_count, 0) = 0 AND julianday('now') - julianday(created_at) > 90;`;
-    const archiveResult = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${archiveQuery}"`, { encoding: "utf-8", timeout: 3e3 }).trim();
-    if (archiveResult) {
-      for (const line of archiveResult.split("\n")) {
-        const [id, filePath] = line.split("|||");
-        if (!dryRun) {
-          if (filePath && (0, import_fs4.existsSync)(filePath)) {
-            const archiveDir = (0, import_path3.join)(getVaultPath(), ".archive");
-            (0, import_fs4.mkdirSync)(archiveDir, { recursive: true });
-            const archivePath = (0, import_path3.join)(archiveDir, (0, import_path3.basename)(filePath));
-            (0, import_fs4.renameSync)(filePath, archivePath);
-          }
-          (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "DELETE FROM knowledge WHERE id = '${esc2(id)}';"`, { encoding: "utf-8", timeout: 2e3 });
-        }
-        archived++;
-      }
-    }
-  } catch {
-  }
-  const total = promoted + demoted + archived;
-  const parts = [];
-  if (promoted > 0) parts.push(`${promoted} promoted to critical`);
-  if (demoted > 0) parts.push(`${demoted} demoted to reference`);
-  if (archived > 0) parts.push(`${archived} archived`);
-  const prefix = dryRun ? "Would: " : "";
-  const msg = parts.length > 0 ? `${prefix}${parts.join(", ")}` : "No entries need maintenance";
-  return { pruned: total, promoted, demoted, archived, message: msg };
-}
-function extractKeyTerms(text) {
-  const stopWords = /* @__PURE__ */ new Set([
-    "the",
-    "a",
-    "an",
-    "is",
-    "are",
-    "was",
-    "were",
-    "be",
-    "been",
-    "have",
-    "has",
-    "had",
-    "do",
-    "does",
-    "did",
-    "will",
-    "would",
-    "could",
-    "should",
-    "and",
-    "or",
-    "but",
-    "in",
-    "on",
-    "at",
-    "to",
-    "for",
-    "of",
-    "with",
-    "by",
-    "from",
-    "as",
-    "it",
-    "this",
-    "that"
-  ]);
-  return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !stopWords.has(w));
-}
-function tokenOverlap(textA, textB) {
-  const tokensA = new Set(extractKeyTerms(textA));
-  const tokensB = new Set(extractKeyTerms(textB));
-  if (tokensA.size === 0 || tokensB.size === 0) return 0;
-  const intersection2 = [...tokensA].filter((t) => tokensB.has(t)).length;
-  const union2 = (/* @__PURE__ */ new Set([...tokensA, ...tokensB])).size;
-  return intersection2 / union2;
-}
-function smartDedup(newEntry, dbPath) {
-  const keyTerms = extractKeyTerms(`${newEntry.title} ${newEntry.content}`);
-  if (keyTerms.length === 0) {
-    return { action: "ADD", reason: "No extractable terms", method: "fts5" };
-  }
-  const ftsQuery = keyTerms.slice(0, 8).join(" OR ");
-  let candidates = [];
-  try {
-    const sql = `SELECT k.id, k.title, k.problem || ' ' || k.solution as content FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc2(ftsQuery)}' ORDER BY rank LIMIT 5;`;
-    const result = (0, import_child_process10.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
-      encoding: "utf-8",
-      timeout: 3e3
-    }).trim();
-    if (result) {
-      candidates = result.split("\n").map((line) => {
-        const [id, title, content] = line.split("|||");
-        return { id, title, content };
-      });
-    }
-  } catch {
-    return { action: "ADD", reason: "FTS5 query failed", method: "fts5" };
-  }
-  if (candidates.length === 0) {
-    return { action: "ADD", reason: "No FTS5 matches", method: "fts5" };
-  }
-  const newText = `${newEntry.title} ${newEntry.content}`;
-  for (const candidate of candidates) {
-    const existingText = `${candidate.title} ${candidate.content}`;
-    const overlap = tokenOverlap(newText, existingText);
-    if (overlap > 0.7) {
-      return { action: "NOOP", targetId: candidate.id, reason: `Token overlap ${(overlap * 100).toFixed(0)}%`, method: "token-overlap" };
-    }
-    if (overlap > 0.3) {
-      const llmResult = llmCompare(
-        { type: newEntry.type, title: newEntry.title, content: newEntry.content },
-        { id: candidate.id, type: "knowledge", title: candidate.title, content: candidate.content }
-      );
-      if (llmResult) return llmResult;
-      return { action: "ADD", reason: `Overlap ${(overlap * 100).toFixed(0)}%, no API key for disambiguation`, method: "token-overlap" };
-    }
-  }
-  return { action: "ADD", reason: "Low similarity to all candidates", method: "fts5" };
-}
-function llmCompare(newEntry, existing) {
-  const apiKey = process.env.DEV_FLOW_API_KEY || process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
-  const apiUrl = process.env.DEV_FLOW_API_URL || "https://api.anthropic.com/v1/messages";
-  const model = process.env.DEV_FLOW_MODEL || "claude-haiku-4-5-20251001";
-  const isAnthropic = apiUrl.includes("api.anthropic.com");
-  const prompt = `Are these the same knowledge? Reply ONLY: SAME or DIFFERENT
-A: [${newEntry.type}] ${newEntry.title}: ${newEntry.content}
-B: [${existing.type}] ${existing.title}: ${existing.content}`;
-  try {
-    const https = require("https");
-    const url2 = new URL(apiUrl);
-    const headers = { "content-type": "application/json" };
-    if (isAnthropic) {
-      headers["x-api-key"] = apiKey;
-      headers["anthropic-version"] = "2023-06-01";
-    } else {
-      headers["authorization"] = `Bearer ${apiKey}`;
-    }
-    const body = JSON.stringify({
-      model,
-      max_tokens: 10,
-      messages: [{ role: "user", content: prompt }]
-    });
-    const opts = JSON.stringify({
-      hostname: url2.hostname,
-      port: Number(url2.port) || 443,
-      path: url2.pathname,
-      method: "POST",
-      headers,
-      timeout: 5e3
-    });
-    const script = `const https=require('https');const o=JSON.parse(process.env.OPTS);const r=https.request(o,res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>process.stdout.write(d))});r.on('error',()=>process.exit(1));r.write(process.env.BODY);r.end()`;
-    const result = (0, import_child_process10.execSync)(`node -e "${script}"`, {
-      encoding: "utf-8",
-      timeout: 8e3,
-      env: { ...process.env, OPTS: opts, BODY: body }
-    });
-    const text = (JSON.parse(result)?.content?.[0]?.text || "").trim().toUpperCase();
-    if (text.includes("SAME")) {
-      return { action: "NOOP", targetId: existing.id, reason: "LLM confirmed duplicate", method: "llm" };
-    }
-    return { action: "ADD", reason: "LLM confirmed different", method: "llm" };
-  } catch {
-    return null;
-  }
-}
-function reindexVault() {
-  ensureDbSchema();
-  ensureVaultDirs();
-  const vaultPath = getVaultPath();
-  const dbPath = getDbPath();
-  let indexed = 0;
-  try {
-    (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "DELETE FROM knowledge WHERE file_path LIKE '%${vaultPath.replace(/'/g, "''")}%';"`, {
-      encoding: "utf-8",
-      timeout: 5e3
-    });
-    (0, import_child_process10.execSync)(`sqlite3 "${dbPath}" "INSERT INTO knowledge_fts(knowledge_fts) VALUES('rebuild');"`, {
-      encoding: "utf-8",
-      timeout: 5e3
-    });
-  } catch {
-  }
-  for (const typeDir of ["pitfalls", "patterns", "decisions", "habits"]) {
-    const dirPath = (0, import_path3.join)(vaultPath, typeDir);
-    if (!(0, import_fs4.existsSync)(dirPath)) continue;
-    for (const file2 of (0, import_fs4.readdirSync)(dirPath)) {
-      if (!file2.endsWith(".md") || file2.startsWith("_")) continue;
-      const filePath = (0, import_path3.join)(dirPath, file2);
-      try {
-        const content = (0, import_fs4.readFileSync)(filePath, "utf-8");
-        const { data, body } = parseFrontmatter(content);
-        const entryType = data.type || typeDir.replace(/s$/, "");
-        const titleMatch = body.match(/^#\s+(.+)$/m);
-        const title = titleMatch?.[1] || file2.replace(".md", "");
-        const platform = data.platform || "general";
-        const id = generateId(entryType, title);
-        const entry = {
-          id,
-          type: entryType,
-          platform,
-          title,
-          problem: body.replace(/^#\s+.+\n+/, "").trim(),
-          solution: data.tags || "",
-          sourceProject: getProjectName(),
-          sourceSession: "vault",
-          createdAt: data.created || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
-          filePath
-        };
-        dbInsertKnowledge(entry);
-        indexed++;
-      } catch {
-      }
-    }
-  }
-  return { indexed, message: `Reindexed ${indexed} entries from vault` };
-}
-
 // src/continuity/context-injector.ts
 var import_child_process11 = require("child_process");
 var import_fs5 = require("fs");
 var import_path4 = require("path");
 var import_os = require("os");
+var BUDGET_TOTAL = 2500;
+var BUDGET_PITFALLS = 600;
+var BUDGET_TASK = 500;
+var BUDGET_RECENT = 400;
+function getCwd5() {
+  try {
+    return (0, import_child_process11.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
+  } catch {
+    return process.cwd();
+  }
+}
+function getDbPath2() {
+  const projectDir = getCwd5();
+  return (0, import_path4.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
+}
+function extractBranchKeywords() {
+  try {
+    const branch = (0, import_child_process11.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
+    const parts = branch.replace(/^(feature|bugfix|hotfix|release)\//, "").replace(/TASK-\d+-?/i, "").split(/[-_/]/).filter((p) => p.length > 2 && !/^\d+$/.test(p));
+    return parts;
+  } catch {
+    return [];
+  }
+}
+function detectPlatform() {
+  return detectPlatformSimple(getCwd5());
+}
+function getRecentFileKeywords() {
+  try {
+    const files = (0, import_child_process11.execSync)('git diff --name-only HEAD~3 2>/dev/null || echo ""', {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (!files) return [];
+    const keywords = /* @__PURE__ */ new Set();
+    for (const file2 of files.split("\n").slice(0, 10)) {
+      const parts = file2.split("/").pop()?.replace(/\.[^.]+$/, "").split(/[-_.]/) || [];
+      for (const part of parts) {
+        if (part.length > 3 && !/^(index|main|app|test|spec)$/i.test(part)) {
+          keywords.add(part.toLowerCase());
+        }
+      }
+    }
+    return Array.from(keywords).slice(0, 5);
+  } catch {
+    return [];
+  }
+}
+function loadPlatformPitfalls(platform, maxChars) {
+  const dbPath = getDbPath2();
+  if (!(0, import_fs5.existsSync)(dbPath)) return "";
+  const safePlatform = platform.replace(/'/g, "''");
+  const sql = `SELECT title, substr(problem,1,100) FROM knowledge WHERE type='pitfall' AND platform='${safePlatform}' ORDER BY created_at DESC LIMIT 5;`;
+  try {
+    const result = (0, import_child_process11.execSync)(`sqlite3 -separator $'\\t' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (!result) return "";
+    let output = "";
+    for (const line of result.split("\n")) {
+      const sep = line.indexOf("	");
+      if (sep === -1) continue;
+      const title = line.slice(0, sep);
+      const problem = line.slice(sep + 1);
+      const entry = `### ${title}
+${problem}
+`;
+      if (output.length + entry.length > maxChars) break;
+      output += entry;
+    }
+    return output;
+  } catch {
+    return "";
+  }
+}
+function queryKnowledgeFts(keywords, maxChars) {
+  const dbPath = getDbPath2();
+  if (!(0, import_fs5.existsSync)(dbPath) || keywords.length === 0) return "";
+  const query = keywords.join(" OR ");
+  const sql = `SELECT k.type, k.title, k.problem FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc3(query)}' ORDER BY rank LIMIT 5;`;
+  try {
+    const result = (0, import_child_process11.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (!result) return "";
+    let output = "";
+    for (const line of result.split("\n")) {
+      const [type, title, problem] = line.split("|||");
+      const entry = `- [${type}] ${title}: ${(problem || "").slice(0, 80)}
+`;
+      if (output.length + entry.length > maxChars) break;
+      output += entry;
+    }
+    return output;
+  } catch {
+    return "";
+  }
+}
+function loadRecentDiscoveries(maxChars) {
+  const dbPath = getDbPath2();
+  if (!(0, import_fs5.existsSync)(dbPath)) return "";
+  const sql = `SELECT type, title, substr(problem,1,80) FROM knowledge WHERE julianday('now') - julianday(created_at) <= 7 ORDER BY created_at DESC LIMIT 3;`;
+  try {
+    const result = (0, import_child_process11.execSync)(`sqlite3 -separator $'\\t' "${dbPath}" "${sql}"`, {
+      encoding: "utf-8",
+      timeout: 3e3
+    }).trim();
+    if (!result) return "";
+    let output = "";
+    for (const line of result.split("\n")) {
+      const sep = line.indexOf("	");
+      if (sep === -1) continue;
+      const type = line.slice(0, sep);
+      const rest = line.slice(sep + 1);
+      const sep2 = rest.indexOf("	");
+      const title = sep2 === -1 ? rest : rest.slice(0, sep2);
+      const problem = sep2 === -1 ? "" : rest.slice(sep2 + 1);
+      const entry = `- [${type}] ${title}: ${problem}
+`;
+      if (output.length + entry.length > maxChars) break;
+      output += entry;
+    }
+    return output;
+  } catch {
+    return "";
+  }
+}
+function esc3(s) {
+  return (s || "").replace(/'/g, "''");
+}
+var BUDGET_EXECUTION = 500;
+function buildExecutionContext() {
+  const cwd = getCwd5();
+  const ledgersPath = (0, import_path4.join)(cwd, "thoughts", "ledgers");
+  const archivePath = (0, import_path4.join)(cwd, "thoughts", "ledgers", "archive");
+  const lines = [];
+  if ((0, import_fs5.existsSync)(ledgersPath)) {
+    const branch = getCurrentBranch4();
+    const taskId = extractTaskIdFromBranch(branch);
+    if (taskId) {
+      const files = (0, import_fs5.readdirSync)(ledgersPath).filter((f) => f.startsWith(taskId) && f.endsWith(".md") && !f.startsWith("."));
+      if (files.length > 0) {
+        try {
+          const content = (0, import_fs5.readFileSync)((0, import_path4.join)(ledgersPath, files[0]), "utf-8");
+          const entries = parseLedgerV2(content);
+          const inProgress = entries.find((e) => e.status === "in_progress");
+          if (inProgress) {
+            const gates = inProgress.gates || [];
+            const lastGate = gates[gates.length - 1];
+            const gateStatus = lastGate ? `${lastGate.gate}:${lastGate.result}` : "no gates yet";
+            lines.push(`Resume: Task ${inProgress.id} (${gateStatus})`);
+            if (inProgress.retries && inProgress.retries > 0) {
+              const verifyGate = gates.find((g) => g.gate === "verify");
+              const failReason = verifyGate?.detail || "verify fail";
+              lines.push(`Last failure: ${failReason}`);
+            }
+          }
+        } catch {
+        }
+      }
+    }
+  }
+  if ((0, import_fs5.existsSync)(archivePath)) {
+    const branch = getCurrentBranch4();
+    const taskId = extractTaskIdFromBranch(branch);
+    const branchKeywords = branch.replace(/^(feature|bugfix|hotfix|release)\//, "").replace(/TASK-\d+-?/i, "").split(/[-_/]/).filter((p) => p.length > 2 && !/^\d+$/.test(p)).slice(0, 3);
+    try {
+      const archivedFiles = (0, import_fs5.readdirSync)(archivePath).filter((f) => f.endsWith(".md"));
+      for (const file2 of archivedFiles) {
+        const fileLower = file2.toLowerCase();
+        const taskMatch = taskId && file2.startsWith(taskId);
+        const keywordMatch = branchKeywords.some((k) => fileLower.includes(k.toLowerCase()));
+        if (taskMatch || keywordMatch) {
+          try {
+            const content = (0, import_fs5.readFileSync)((0, import_path4.join)(archivePath, file2), "utf-8");
+            const entries = parseLedgerV2(content);
+            const hasGates = entries.some((e) => e.gates && e.gates.length > 0);
+            if (!hasGates) continue;
+            let totalRetries = 0;
+            const gateStats = {};
+            for (const entry of entries) {
+              totalRetries += entry.retries || 0;
+              for (const g of entry.gates || []) {
+                if (!gateStats[g.gate]) gateStats[g.gate] = { pass: 0, total: 0 };
+                gateStats[g.gate].total++;
+                if (g.result === "pass") gateStats[g.gate].pass++;
+              }
+            }
+            const notableGates = Object.entries(gateStats).filter(([, s]) => s.total >= 2 && s.pass / s.total < 0.8).map(([gate]) => gate);
+            if (totalRetries > 0 || notableGates.length > 0) {
+              const archiveName = (0, import_path4.basename)(file2, ".md");
+              const parts = [];
+              if (totalRetries > 0) parts.push(`${totalRetries} retries`);
+              if (notableGates.length > 0) parts.push(`low pass: ${notableGates.join(",")}`);
+              lines.push(`Archive match (${archiveName}): ${parts.join(", ")}`);
+            }
+            break;
+          } catch {
+          }
+        }
+      }
+    } catch {
+    }
+  }
+  if (lines.length === 0) return "";
+  let result = lines.join("\n");
+  if (result.length > BUDGET_EXECUTION) {
+    result = result.slice(0, BUDGET_EXECUTION);
+    const lastNl = result.lastIndexOf("\n");
+    if (lastNl > BUDGET_EXECUTION * 0.7) result = result.slice(0, lastNl);
+  }
+  return result;
+}
+function getCurrentBranch4() {
+  try {
+    return (0, import_child_process11.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
+  } catch {
+    return "";
+  }
+}
+function extractTaskIdFromBranch(branch) {
+  const match = branch.match(/TASK-(\d+)/i);
+  return match ? `TASK-${match[1]}` : null;
+}
+var MEMORY_MARKER_START = "<!-- DEV-MEMORY-START -->";
+var MEMORY_MARKER_END = "<!-- DEV-MEMORY-END -->";
+var MEMORY_MD_BUDGET = 4e3;
+function syncToMemoryMd(memoryMdPath) {
+  const platform = detectPlatform();
+  const branchKeywords = extractBranchKeywords();
+  const fileKeywords = getRecentFileKeywords();
+  const allKeywords = [.../* @__PURE__ */ new Set([...branchKeywords, ...fileKeywords])];
+  const lines = [];
+  const pitfalls = loadPlatformPitfalls(platform, BUDGET_PITFALLS);
+  if (pitfalls) {
+    lines.push(`**${platform.toUpperCase()} Pitfalls:**
+${pitfalls.trimEnd()}`);
+  }
+  if (allKeywords.length > 0) {
+    const taskKnowledge = queryKnowledgeFts(allKeywords, BUDGET_TASK);
+    if (taskKnowledge) {
+      lines.push(`**Related** (${allKeywords.join(", ")}):
+${taskKnowledge.trimEnd()}`);
+    }
+  }
+  const recent = loadRecentDiscoveries(BUDGET_RECENT);
+  if (recent) {
+    lines.push(`**Recent discoveries:**
+${recent.trimEnd()}`);
+  }
+  let devMemorySection = `## Dev Memory
+
+`;
+  if (lines.length === 0) {
+    devMemorySection += "_No dev memory entries yet. Run `dev_memory save` to add knowledge._\n";
+  } else {
+    let body = lines.join("\n\n");
+    if (body.length > MEMORY_MD_BUDGET) {
+      body = body.slice(0, MEMORY_MD_BUDGET);
+      const lastNl = body.lastIndexOf("\n");
+      if (lastNl > MEMORY_MD_BUDGET * 0.8) body = body.slice(0, lastNl);
+    }
+    devMemorySection += body + "\n";
+  }
+  const newBlock = `${MEMORY_MARKER_START}
+${devMemorySection}
+${MEMORY_MARKER_END}`;
+  let existing = "";
+  if ((0, import_fs5.existsSync)(memoryMdPath)) {
+    existing = (0, import_fs5.readFileSync)(memoryMdPath, "utf-8");
+  }
+  let updated;
+  if (existing.includes(MEMORY_MARKER_START) && existing.includes(MEMORY_MARKER_END)) {
+    const startIdx = existing.indexOf(MEMORY_MARKER_START);
+    const endIdx = existing.indexOf(MEMORY_MARKER_END) + MEMORY_MARKER_END.length;
+    updated = existing.slice(0, startIdx) + newBlock + existing.slice(endIdx);
+  } else {
+    const separator = existing.length > 0 && !existing.endsWith("\n\n") ? "\n\n" : "";
+    updated = existing + separator + newBlock + "\n";
+  }
+  (0, import_fs5.writeFileSync)(memoryMdPath, updated, "utf-8");
+}
+function injectKnowledgeContext() {
+  const projectDir = getCwd5();
+  const escapedPath = projectDir.replace(/\//g, "-").replace(/^-/, "");
+  const memoryMdPath = (0, import_path4.join)((0, import_os.homedir)(), ".claude", "projects", escapedPath, "memory", "MEMORY.md");
+  try {
+    if ((0, import_fs5.existsSync)((0, import_path4.join)((0, import_os.homedir)(), ".claude", "projects", escapedPath, "memory"))) {
+      syncToMemoryMd(memoryMdPath);
+    }
+  } catch {
+  }
+  const platform = detectPlatform();
+  const branchKeywords = extractBranchKeywords();
+  const fileKeywords = getRecentFileKeywords();
+  const allKeywords = [.../* @__PURE__ */ new Set([...branchKeywords, ...fileKeywords])];
+  const sources = [];
+  const sections = [];
+  let totalChars = 0;
+  const pitfalls = loadPlatformPitfalls(platform, BUDGET_PITFALLS);
+  if (pitfalls) {
+    sections.push(`### ${platform.toUpperCase()} Pitfalls
+${pitfalls}`);
+    sources.push(`platforms/${platform}/pitfalls.md`);
+    totalChars += pitfalls.length;
+  }
+  if (allKeywords.length > 0) {
+    const taskKnowledge = queryKnowledgeFts(allKeywords, BUDGET_TASK);
+    if (taskKnowledge) {
+      sections.push(`### Related Knowledge
+Keywords: ${allKeywords.join(", ")}
+${taskKnowledge}`);
+      sources.push("FTS5 query");
+      totalChars += taskKnowledge.length;
+    }
+  }
+  const recent = loadRecentDiscoveries(BUDGET_RECENT);
+  if (recent) {
+    sections.push(`### Recent Discoveries
+${recent}`);
+    sources.push("discoveries/");
+    totalChars += recent.length;
+  }
+  const execCtx = buildExecutionContext();
+  if (execCtx) {
+    sections.push(`### Execution History
+${execCtx}`);
+    sources.push("ledger/execution");
+    totalChars += execCtx.length;
+  }
+  if (sections.length === 0) {
+    return { context: "", sources: [], totalChars: 0 };
+  }
+  let context = "## Relevant Knowledge\n\n" + sections.join("\n\n");
+  if (context.length > BUDGET_TOTAL) {
+    context = context.slice(0, BUDGET_TOTAL);
+    const lastNewline = context.lastIndexOf("\n");
+    if (lastNewline > BUDGET_TOTAL * 0.8) {
+      context = context.slice(0, lastNewline);
+    }
+  }
+  return { context, sources, totalChars: context.length };
+}
+
+// src/continuity/execution-report.ts
+var import_child_process12 = require("child_process");
+var import_fs6 = require("fs");
+var import_path5 = require("path");
+function getCwd6() {
+  try {
+    return (0, import_child_process12.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
+  } catch {
+    return process.cwd();
+  }
+}
+function loadProofManifests(proofDir) {
+  if (!(0, import_fs6.existsSync)(proofDir)) return [];
+  const manifests = [];
+  for (const file2 of (0, import_fs6.readdirSync)(proofDir)) {
+    if (!file2.endsWith(".json")) continue;
+    try {
+      const content = (0, import_fs6.readFileSync)((0, import_path5.join)(proofDir, file2), "utf-8");
+      manifests.push(JSON.parse(content));
+    } catch {
+    }
+  }
+  return manifests;
+}
+function generateExecutionReport(ledgerPath) {
+  const cwd = getCwd6();
+  const proofDir = (0, import_path5.join)(cwd, ".proof");
+  if (!(0, import_fs6.existsSync)(ledgerPath)) {
+    return { reportPath: "", summary: "Ledger not found" };
+  }
+  const content = (0, import_fs6.readFileSync)(ledgerPath, "utf-8");
+  const entries = parseLedgerV2(content);
+  const done = entries.filter((e) => e.status === "done").length;
+  const skipped = entries.filter((e) => e.status === "pending").length;
+  const inProgress = entries.filter((e) => e.status === "in_progress").length;
+  const total = entries.length;
+  const gateStats = {};
+  for (const entry of entries) {
+    for (const g of entry.gates || []) {
+      if (!gateStats[g.gate]) gateStats[g.gate] = { pass: 0, fail: 0, skip: 0, total: 0 };
+      gateStats[g.gate].total++;
+      if (g.result === "pass") gateStats[g.gate].pass++;
+      else if (g.result === "fail") gateStats[g.gate].fail++;
+      else if (g.result === "skip") gateStats[g.gate].skip++;
+    }
+  }
+  let totalRetries = 0;
+  let tasksWithRetries = 0;
+  for (const entry of entries) {
+    if (entry.retries && entry.retries > 0) {
+      totalRetries += entry.retries;
+      tasksWithRetries++;
+    }
+  }
+  let totalDecisions = 0;
+  let escalatedDecisions = 0;
+  for (const entry of entries) {
+    if (entry.decisions) {
+      totalDecisions += entry.decisions.length;
+      escalatedDecisions += entry.decisions.filter((d) => d.escalated).length;
+    }
+  }
+  const pitfalls = [];
+  for (const entry of entries) {
+    const specGate = (entry.gates || []).find((g) => g.gate === "spec");
+    if (specGate) {
+      const failRounds = specGate.detail?.match(/r(\d+)/) ? parseInt(specGate.detail.match(/r(\d+)/)[1], 10) : 0;
+      if (failRounds > 1) {
+        pitfalls.push(`Task ${entry.id} (${entry.name}): spec-review failed ${failRounds} rounds`);
+      }
+    }
+    if (entry.retries && entry.retries > 1) {
+      pitfalls.push(`Task ${entry.id} (${entry.name}): ${entry.retries} verify retries`);
+    }
+  }
+  const manifests = loadProofManifests(proofDir);
+  const verifiedTasks = manifests.filter((m) => m.verdict === "pass").length;
+  const lines = [
+    "# Execution Report",
+    "",
+    `Generated: ${(/* @__PURE__ */ new Date()).toISOString()}`,
+    "",
+    "## Task Completion",
+    "",
+    `- Total: ${total}`,
+    `- Done: ${done}`,
+    `- In Progress: ${inProgress}`,
+    `- Skipped/Pending: ${skipped}`,
+    ...manifests.length > 0 ? [`- Verified via .proof/: ${verifiedTasks}/${manifests.length}`] : [],
+    "",
+    "## Gate Pass Rates",
+    ""
+  ];
+  if (Object.keys(gateStats).length > 0) {
+    for (const [gate, stats] of Object.entries(gateStats)) {
+      const pct = stats.total > 0 ? Math.round(stats.pass / stats.total * 100) : 0;
+      const bar = pct >= 80 ? "\u2705" : pct >= 50 ? "\u26A0\uFE0F" : "\u274C";
+      lines.push(`- ${gate}: ${stats.pass}/${stats.total} pass (${pct}%) ${bar}`);
+    }
+  } else {
+    lines.push("- No gate data (v1 ledger or no tasks with gates)");
+  }
+  lines.push("");
+  lines.push("## Self-Healing Stats");
+  lines.push("");
+  lines.push(`- Total retries: ${totalRetries} across ${tasksWithRetries} tasks`);
+  lines.push("");
+  lines.push("## Decision Agent Usage");
+  lines.push("");
+  if (totalDecisions > 0) {
+    lines.push(`- Decisions made: ${totalDecisions}`);
+    lines.push(`- Escalated to human: ${escalatedDecisions}`);
+  } else {
+    lines.push("- No decision agent invocations recorded");
+  }
+  if (pitfalls.length > 0) {
+    lines.push("");
+    lines.push("## Top Pitfalls Encountered");
+    lines.push("");
+    for (const p of pitfalls.slice(0, 5)) {
+      lines.push(`- ${p}`);
+    }
+  }
+  const report = lines.join("\n") + "\n";
+  (0, import_fs6.mkdirSync)(proofDir, { recursive: true });
+  const reportPath = (0, import_path5.join)(proofDir, "execution-report.md");
+  (0, import_fs6.writeFileSync)(reportPath, report, "utf-8");
+  const gateLines = Object.entries(gateStats).map(([gate, s]) => `${gate}:${Math.round(s.pass / s.total * 100)}%`).join(" ");
+  const summary = `${done}/${total} tasks done | ${gateLines || "no gates"} | ${totalRetries} retries`;
+  return { reportPath, summary };
+}
 
 // src/coordination/coordinator.ts
+var fs5 = __toESM(require("fs"));
+var path4 = __toESM(require("path"));
 var TaskCoordinator = class {
   tasks = /* @__PURE__ */ new Map();
+  persistPath;
+  constructor(projectDir) {
+    const base = projectDir || process.cwd();
+    this.persistPath = path4.join(base, "thoughts", ".dev-flow-cache", "coordinator.json");
+    this.load();
+  }
+  load() {
+    try {
+      if (!fs5.existsSync(this.persistPath)) return;
+      const raw = fs5.readFileSync(this.persistPath, "utf-8");
+      const data = JSON.parse(raw);
+      this.tasks = new Map(data.map((t) => [t.id, t]));
+    } catch {
+      this.tasks = /* @__PURE__ */ new Map();
+    }
+  }
+  save() {
+    try {
+      const dir = path4.dirname(this.persistPath);
+      if (!fs5.existsSync(dir)) {
+        fs5.mkdirSync(dir, { recursive: true });
+      }
+      const data = JSON.stringify(Array.from(this.tasks.values()), null, 2);
+      const tmpPath = this.persistPath + ".tmp";
+      fs5.writeFileSync(tmpPath, data, "utf-8");
+      fs5.renameSync(tmpPath, this.persistPath);
+    } catch {
+    }
+  }
   enqueue(task) {
     this.tasks.set(task.id, task);
+    this.save();
   }
   detectConflicts(tasks) {
     const fileToTasks = /* @__PURE__ */ new Map();
@@ -22885,6 +23861,14 @@ var TaskCoordinator = class {
         break;
       }
     }
+    this.save();
+  }
+  cancel(taskId) {
+    const task = this.tasks.get(taskId);
+    if (!task) return false;
+    this.tasks.set(taskId, { ...task, status: "cancelled" });
+    this.save();
+    return true;
   }
   getStatus() {
     const tasks = Array.from(this.tasks.values());
@@ -22897,18 +23881,19 @@ var TaskCoordinator = class {
   }
   clear() {
     this.tasks.clear();
+    this.save();
   }
 };
 
 // src/coordination/handoff-hub.ts
-var fs5 = __toESM(require("fs"));
-var path4 = __toESM(require("path"));
+var fs6 = __toESM(require("fs"));
+var path5 = __toESM(require("path"));
 var HandoffHub = class {
   baseDir;
   constructor(baseDir) {
-    this.baseDir = baseDir || path4.join(process.cwd(), "thoughts", "handoffs");
-    if (!fs5.existsSync(this.baseDir)) {
-      fs5.mkdirSync(this.baseDir, { recursive: true });
+    this.baseDir = baseDir || path5.join(process.cwd(), "thoughts", "handoffs");
+    if (!fs6.existsSync(this.baseDir)) {
+      fs6.mkdirSync(this.baseDir, { recursive: true });
     }
   }
   write(handoff) {
@@ -22916,32 +23901,58 @@ var HandoffHub = class {
     const pad = (n, len = 2) => String(n).padStart(len, "0");
     const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}-${pad(now.getMilliseconds(), 3)}`;
     const handoffId = `handoff-${timestamp}.md`;
-    const filePath = path4.join(this.baseDir, handoffId);
+    const filePath = path5.join(this.baseDir, handoffId);
     const content = this.serializeHandoff(handoff);
-    fs5.writeFileSync(filePath, content, "utf-8");
+    fs6.writeFileSync(filePath, content, "utf-8");
     return handoffId;
   }
   read(handoffId) {
-    const filePath = path4.join(this.baseDir, handoffId);
-    if (!fs5.existsSync(filePath)) {
+    const filePath = path5.join(this.baseDir, handoffId);
+    if (!fs6.existsSync(filePath)) {
       throw new Error(`Handoff not found: ${handoffId}`);
     }
-    const content = fs5.readFileSync(filePath, "utf-8");
+    const content = fs6.readFileSync(filePath, "utf-8");
     return this.parseHandoff(content);
   }
   readChain(taskId) {
-    const files = fs5.readdirSync(this.baseDir).filter((f) => f.endsWith(".md")).sort();
-    const handoffs = [];
+    return this.readChainWithIds(taskId).map(({ handoff }) => handoff);
+  }
+  readChainWithIds(taskId) {
+    if (!fs6.existsSync(this.baseDir)) return [];
+    const files = fs6.readdirSync(this.baseDir).filter((f) => f.endsWith(".md")).sort();
+    const results = [];
     for (const file2 of files) {
       try {
         const handoff = this.read(file2);
         if (handoff.task_id === taskId) {
-          handoffs.push(handoff);
+          results.push({ handoffId: file2, handoff });
         }
-      } catch (err) {
+      } catch {
       }
     }
-    return handoffs;
+    return results;
+  }
+  search(keyword) {
+    if (!fs6.existsSync(this.baseDir)) return [];
+    const files = fs6.readdirSync(this.baseDir).filter((f) => f.endsWith(".md")).sort();
+    const lowerKeyword = keyword.toLowerCase();
+    const results = [];
+    for (const file2 of files) {
+      try {
+        const content = fs6.readFileSync(path5.join(this.baseDir, file2), "utf-8");
+        if (content.toLowerCase().includes(lowerKeyword)) {
+          const handoff = this.parseHandoff(content);
+          results.push({
+            handoffId: file2,
+            agentId: handoff.agent_id,
+            taskId: handoff.task_id,
+            summary: handoff.summary
+          });
+        }
+      } catch {
+      }
+    }
+    return results;
   }
   aggregate(handoffIds) {
     const handoffs = handoffIds.map((id) => this.read(id));
@@ -23072,13 +24083,13 @@ ${handoff.open_questions.map((q) => `- [ ] ${q}`).join("\n")}
 };
 
 // src/git/commit.ts
-var import_child_process12 = require("child_process");
+var import_child_process13 = require("child_process");
 var import_crypto = require("crypto");
 var activeSession = null;
 var SESSION_TTL = 10 * 60 * 1e3;
 function execCommand4(cmd) {
   try {
-    return (0, import_child_process12.execSync)(cmd, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+    return (0, import_child_process13.execSync)(cmd, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
   } catch {
     return "";
   }
@@ -23091,7 +24102,7 @@ function getReviewLogMtime() {
   const branch = execCommand4("git branch --show-current");
   const logPath = `.git/claude/review-session-${branch}.md`;
   try {
-    const stat = (0, import_child_process12.execSync)(`/usr/bin/stat -f %m "${logPath}" 2>/dev/null`, {
+    const stat = (0, import_child_process13.execSync)(`/usr/bin/stat -f %m "${logPath}" 2>/dev/null`, {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"]
     }).trim();
@@ -23188,15 +24199,15 @@ ${result.diff_stat}`
 }
 
 // src/notion.ts
-var fs6 = __toESM(require("fs"));
-var path5 = __toESM(require("path"));
+var fs7 = __toESM(require("fs"));
+var path6 = __toESM(require("path"));
 function getNotionConfig(projectDir) {
-  const configPath = path5.join(projectDir, ".dev-flow.json");
-  if (!fs6.existsSync(configPath)) {
+  const configPath = path6.join(projectDir, ".dev-flow.json");
+  if (!fs7.existsSync(configPath)) {
     return null;
   }
   try {
-    const content = fs6.readFileSync(configPath, "utf-8");
+    const content = fs7.readFileSync(configPath, "utf-8");
     const config2 = JSON.parse(content);
     const notion = config2.notion;
     if (!notion?.database_id) {
@@ -23286,7 +24297,7 @@ function normalizeType(raw) {
 // src/index.ts
 var server = new Server(
   { name: "dev-flow-mcp", version: "2.1.0" },
-  { capabilities: { tools: {}, prompts: {}, resources: {} } }
+  { capabilities: { tools: {}, resources: {} } }
 );
 var toolCache = /* @__PURE__ */ new Map();
 var CACHE_TTL = {
@@ -23405,14 +24416,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           action: {
             type: "string",
-            enum: ["status", "list", "create", "update", "archive", "search"],
+            enum: ["status", "list", "create", "update", "task_update", "archive", "search"],
             description: "Action to perform"
           },
-          taskId: { type: "string", description: "Task ID (TASK-XXX) for create/archive" },
+          taskId: { type: "string", description: "Task ID (TASK-XXX) for create/archive/task_update" },
+          taskName: { type: "string", description: "Task name (for task_update)" },
+          gate: { type: "string", description: "Gate name (for task_update: self|spec|quality|verify|ui)" },
+          gateResult: { type: "string", description: "Gate result (for task_update: pass|fail|skip)" },
+          gateDetail: { type: "string", description: "Gate detail string (for task_update, optional)" },
           branch: { type: "string", description: "Branch name (for create)" },
           keyword: { type: "string", description: "Search keyword" },
           commitHash: { type: "string", description: "Commit hash (for update)" },
-          commitMessage: { type: "string", description: "Commit message (for update)" }
+          commitMessage: { type: "string", description: "Commit message (for update)" },
+          gates: { type: "string", description: "JSON array of gate records (for update, optional v2)" },
+          retries: { type: "number", description: "Retry count (for update, optional v2)" },
+          duration_ms: { type: "number", description: "Task duration in ms (for update, optional v2)" }
         }
       }
     },
@@ -23510,7 +24528,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           action: {
             type: "string",
-            enum: ["status", "save", "search", "get", "list", "prune", "reindex"],
+            enum: ["status", "save", "search", "query", "get", "list", "prune", "reindex"],
             description: "Action to perform"
           },
           query: { type: "string", description: "Search query (for search action)" },
@@ -23647,7 +24665,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return platformConfig(args?.format);
       // Continuity tools
       case "dev_ledger":
-        return ledgerTool(args?.action, args?.taskId, args?.branch, args?.keyword, args?.commitHash, args?.commitMessage);
+        return ledgerTool(args?.action, args?.taskId, args?.branch, args?.keyword, args?.commitHash, args?.commitMessage, args?.taskName, args?.gate, args?.gateResult, args?.gateDetail, args?.gates, args?.retries, args?.duration_ms);
       case "dev_branch":
         return branchTool(args?.action, args?.target, args?.days, args?.dryRun);
       case "dev_defaults":
@@ -24064,7 +25082,7 @@ function platformConfig(format) {
     }]
   };
 }
-function ledgerTool(action, taskId, branch, keyword, commitHash, commitMessage) {
+function ledgerTool(action, taskId, branch, keyword, commitHash, commitMessage, taskName, gate, gateResult, gateDetail, gatesJson, retries, duration_ms) {
   switch (action) {
     case "status":
       return { content: [{ type: "text", text: ledgerStatus().message }] };
@@ -24075,9 +25093,30 @@ function ledgerTool(action, taskId, branch, keyword, commitHash, commitMessage) 
       if (!taskId) return { content: [{ type: "text", text: "\u274C taskId required (e.g., TASK-123)" }] };
       const branchName = branch || `feature/${taskId}-new`;
       return { content: [{ type: "text", text: ledgerCreate(taskId, branchName).message }] };
-    case "update":
+    case "update": {
       if (!commitHash || !commitMessage) return { content: [{ type: "text", text: "\u274C commitHash and commitMessage required for update" }] };
-      return { content: [{ type: "text", text: ledgerUpdate(commitHash, commitMessage).message }] };
+      let gateOpts;
+      if (gatesJson || retries !== void 0 || duration_ms !== void 0) {
+        gateOpts = {};
+        if (gatesJson) {
+          try {
+            gateOpts.gates = JSON.parse(gatesJson);
+          } catch {
+          }
+        }
+        if (retries !== void 0) gateOpts.retries = retries;
+        if (duration_ms !== void 0) gateOpts.duration_ms = duration_ms;
+      }
+      return { content: [{ type: "text", text: ledgerUpdate(commitHash, commitMessage, gateOpts).message }] };
+    }
+    case "task_update": {
+      if (!taskId) return { content: [{ type: "text", text: "\u274C taskId required for task_update" }] };
+      if (!gate) return { content: [{ type: "text", text: "\u274C gate required for task_update" }] };
+      if (!gateResult) return { content: [{ type: "text", text: "\u274C gateResult required for task_update (pass|fail|skip)" }] };
+      const result = gateResult === "pass" || gateResult === "fail" || gateResult === "skip" ? gateResult : "fail";
+      const res = ledgerTaskUpdate(taskId, taskName || taskId, gate, result, gateDetail);
+      return { content: [{ type: "text", text: res.message }] };
+    }
     case "archive":
       return { content: [{ type: "text", text: ledgerArchive(taskId).message }] };
     case "search":
@@ -24085,7 +25124,7 @@ function ledgerTool(action, taskId, branch, keyword, commitHash, commitMessage) 
       const search = ledgerSearch(keyword);
       return { content: [{ type: "text", text: search.message }] };
     default:
-      return { content: [{ type: "text", text: "\u274C Action required: status|list|create|update|archive|search" }] };
+      return { content: [{ type: "text", text: "\u274C Action required: status|list|create|update|task_update|archive|search" }] };
   }
 }
 function branchTool(action, target, days, dryRun) {
@@ -24128,22 +25167,22 @@ function defaultsTool(action) {
   }
 }
 function tasksTool(action, ledgerPath) {
-  const path6 = ledgerPath || getActiveLedgerPath?.() || "";
-  if (!path6) {
+  const path7 = ledgerPath || getActiveLedgerPath?.() || "";
+  if (!path7) {
     return { content: [{ type: "text", text: 'NO_LEDGER|Create with dev_ledger(action:"create")' }] };
   }
   switch (action) {
     case "summary":
-      return { content: [{ type: "text", text: getTaskSyncSummary(path6) }] };
+      return { content: [{ type: "text", text: getTaskSyncSummary(path7) }] };
     case "export":
-      const exported = exportLedgerAsJson(path6);
+      const exported = exportLedgerAsJson(path7);
       if (!exported) {
         return { content: [{ type: "text", text: "\u274C Failed to export ledger" }] };
       }
       const commands = generateTaskCommands(exported.tasks);
       return { content: [{ type: "text", text: commands || "NO_TASKS|All completed or empty" }] };
     case "sync":
-      const tasks = parseLedgerState(path6);
+      const tasks = parseLedgerState(path7);
       return { content: [{ type: "text", text: formatTasksAsMarkdown(tasks) }] };
     default:
       return { content: [{ type: "text", text: "\u274C Action required: summary|export|sync" }] };
@@ -24264,6 +25303,10 @@ Tasks: ${tasks.length}
       if (!taskId) {
         return { content: [{ type: "text", text: "\u274C taskId required for cancel" }] };
       }
+      const cancelled = taskCoordinator.cancel(taskId);
+      if (!cancelled) {
+        return { content: [{ type: "text", text: `\u274C Task not found: ${taskId}` }] };
+      }
       return { content: [{ type: "text", text: `\u2705 Cancelled task ${taskId}` }] };
     }
     default:
@@ -24300,7 +25343,13 @@ function handoffTool(action, handoffJson, handoffId, taskId, keyword) {
       if (!keyword) {
         return { content: [{ type: "text", text: "\u274C keyword required for search" }] };
       }
-      return { content: [{ type: "text", text: `Searching for: ${keyword}` }] };
+      const matches = handoffHub.search(keyword);
+      if (matches.length === 0) {
+        return { content: [{ type: "text", text: `No handoffs found for: ${keyword}` }] };
+      }
+      const lines = matches.map((m) => `${m.handoffId} | ${m.agentId} | ${m.taskId} | ${m.summary}`);
+      return { content: [{ type: "text", text: `Found:${matches.length}
+${lines.join("\n")}` }] };
     }
     default:
       return { content: [{ type: "text", text: "\u274C Action required: write|read|chain|search" }] };
@@ -24311,8 +25360,8 @@ function aggregateTool(action, handoffIdsJson, taskId) {
   if (handoffIdsJson) {
     handoffIds = JSON.parse(handoffIdsJson);
   } else if (taskId) {
-    const chain = handoffHub.readChain(taskId);
-    handoffIds = chain.map((h) => `handoff-${h.timestamp}.md`);
+    const chain = handoffHub.readChainWithIds(taskId);
+    handoffIds = chain.map(({ handoffId }) => handoffId);
   } else {
     return { content: [{ type: "text", text: "\u274C handoffIds or taskId required" }] };
   }
@@ -24362,6 +25411,22 @@ ${result.summary}
 `;
       Object.entries(result.keyDecisions).forEach(([k, v]) => text += `- **${k}**: ${v}
 `);
+      try {
+        const { getActiveLedgerPath: getActiveLedgerPath2, generateExecutionReport: generateExecutionReport2 } = continuity_exports;
+        const ledgerPath = getActiveLedgerPath2();
+        if (ledgerPath) {
+          const report = generateExecutionReport2(ledgerPath);
+          if (report.summary && report.summary !== "Ledger not found") {
+            text += `
+### Execution Stats
+${report.summary}
+`;
+            text += `Full report: ${report.reportPath}
+`;
+          }
+        }
+      } catch {
+      }
       return { content: [{ type: "text", text }] };
     }
     default:
