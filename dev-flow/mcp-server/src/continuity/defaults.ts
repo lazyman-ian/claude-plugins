@@ -4,13 +4,19 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
+import { join, basename } from 'path';
 
 interface DefaultsResult {
   success: boolean;
   message: string;
   data?: any;
+}
+
+interface DevFlowConfig {
+  scopes?: string[];
+  platform?: string;
+  [key: string]: any;
 }
 
 function getCwd(): string {
@@ -42,6 +48,77 @@ function getChangedFiles(): string[] {
   }
 }
 
+function loadDevFlowConfig(cwd: string): DevFlowConfig | null {
+  const configPath = join(cwd, '.dev-flow.json');
+  if (!existsSync(configPath)) return null;
+  try {
+    return JSON.parse(readFileSync(configPath, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get top-level directory candidates from the repo root.
+ * Skips hidden dirs and common non-scope dirs (node_modules, dist, etc).
+ */
+function inferScopesFromDirectories(cwd: string): string[] {
+  const skipDirs = new Set([
+    'node_modules', 'dist', 'build', '.git', '.github', 'coverage',
+    'tmp', 'temp', '.cache', 'vendor', '__pycache__',
+  ]);
+  try {
+    return readdirSync(cwd)
+      .filter(entry => {
+        if (entry.startsWith('.')) return false;
+        if (skipDirs.has(entry)) return false;
+        try {
+          return statSync(join(cwd, entry)).isDirectory();
+        } catch {
+          return false;
+        }
+      });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Infer scope for a file path given a list of candidate scope names.
+ * Matches by: file path prefix, generic keyword patterns, file type.
+ */
+function matchScope(file: string, candidates: string[]): string {
+  // Candidate prefix match (longest prefix wins)
+  const fileNorm = file.toLowerCase();
+  let bestScope = '';
+  let bestLen = 0;
+  for (const scope of candidates) {
+    const scopeNorm = scope.toLowerCase();
+    if (fileNorm.startsWith(scopeNorm + '/') && scopeNorm.length > bestLen) {
+      bestLen = scopeNorm.length;
+      bestScope = scope;
+    }
+  }
+  if (bestScope) return bestScope;
+
+  // Generic keyword-based patterns (platform-agnostic)
+  if (file.match(/Auth|Login|Token/i)) return 'auth';
+  if (file.match(/(test|spec)/i)) return 'test';
+  if (file.match(/^\.github\//)) return 'ci';
+  if (file.match(/(package|Podfile|build\.gradle|Cargo|requirements|pyproject)/)) return 'deps';
+  if (file.match(/(README|CHANGELOG|\.md$)/)) return 'docs';
+
+  // Match against scope names as keywords anywhere in path
+  for (const scope of candidates) {
+    const scopeNorm = scope.toLowerCase();
+    if (fileNorm.includes('/' + scopeNorm + '/') || fileNorm.includes('/' + scopeNorm + '.')) {
+      return scope;
+    }
+  }
+
+  return '';
+}
+
 export function inferScope(files?: string[]): DefaultsResult {
   const changedFiles = files || getChangedFiles();
 
@@ -49,39 +126,21 @@ export function inferScope(files?: string[]): DefaultsResult {
     return { success: false, message: 'No changes' };
   }
 
+  const cwd = getCwd();
+  const config = loadDevFlowConfig(cwd);
+
+  // Primary: use scopes from .dev-flow.json
+  // Fallback: infer from directory structure
+  const scopeCandidates: string[] =
+    (config?.scopes && config.scopes.length > 0)
+      ? config.scopes
+      : inferScopesFromDirectories(cwd);
+
   // Count files per component
   const componentCounts: Record<string, number> = {};
 
   for (const file of changedFiles) {
-    let component = '';
-
-    // iOS/Swift patterns
-    if (file.match(/^HouseSigma\/UI\//)) component = 'ui';
-    else if (file.match(/^HouseSigma\/Network/)) component = 'network';
-    else if (file.match(/^HouseSigma\/Model\//)) component = 'model';
-    else if (file.match(/^HouseSigma\/Helper\//)) component = 'helper';
-    else if (file.match(/^HouseSigma\/Router\//)) component = 'router';
-    else if (file.match(/Auth|Login|Token/i)) component = 'auth';
-    else if (file.match(/Home|Dashboard/i)) component = 'home';
-    else if (file.match(/Search/i)) component = 'search';
-    else if (file.match(/Map/i)) component = 'map';
-    else if (file.match(/Property|Listing/i)) component = 'property';
-    // Android patterns
-    else if (file.match(/^app\/src\/main\/java\/.*\/ui\//)) component = 'ui';
-    else if (file.match(/^app\/src\/main\/java\/.*\/network\//)) component = 'network';
-    else if (file.match(/^app\/src\/main\/java\/.*\/data\//)) component = 'data';
-    // Web patterns
-    else if (file.match(/^src\/components\//)) component = 'components';
-    else if (file.match(/^src\/pages\//)) component = 'pages';
-    else if (file.match(/^src\/api\//)) component = 'api';
-    else if (file.match(/^src\/hooks\//)) component = 'hooks';
-    else if (file.match(/^src\/utils\//)) component = 'utils';
-    // Config files
-    else if (file.match(/^\.github\//)) component = 'ci';
-    else if (file.match(/(package|Podfile|build\.gradle|Cargo)/)) component = 'deps';
-    else if (file.match(/(README|CHANGELOG|\.md$)/)) component = 'docs';
-    else if (file.match(/(test|spec|Test)/i)) component = 'test';
-
+    const component = matchScope(file, scopeCandidates);
     if (component) {
       componentCounts[component] = (componentCounts[component] || 0) + 1;
     }
