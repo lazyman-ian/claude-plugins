@@ -35,6 +35,25 @@ Run checklist silently. Do NOT output each checkbox. Only report if an issue is 
 
 **Iron Law**: Do NOT report completion until all items checked. Fix issues first.
 
+## Gate Reporting
+
+Record self-review result in the handoff `gates` array — even when passing:
+
+```json
+{
+  "gate": "self-review",
+  "result": "pass",
+  "detail": "all 5 checklist items verified",
+  "duration_ms": 0
+}
+```
+
+For verify gate, record both attempts if retry was needed:
+```json
+{ "gate": "verify", "result": "fail", "detail": "<error message>", "attempt": 1, "duration_ms": 800 }
+{ "gate": "verify", "result": "pass", "detail": "fixed: <what changed>", "attempt": 2, "duration_ms": 950 }
+```
+
 ## Handoff Format
 
 ```markdown
@@ -42,10 +61,22 @@ Run checklist silently. Do NOT output each checkbox. Only report if an issue is 
 date: [ISO timestamp]
 task_number: [N]
 status: [success | partial | blocked]
+gates:
+  - gate: self-review
+    result: pass | fail
+    detail: "..."
+    duration_ms: 0
+  - gate: verify
+    result: pass | fail
+    detail: "..."
+    attempt: 1
+    duration_ms: 0
 ---
 # Task Handoff: [Description]
 ## What Was Done / Files Modified / Decisions Made / For Next Task
 ```
+
+The orchestrator reads `gates` from the handoff and calls `dev_ledger(action='task_update')` per gate entry.
 
 ## Boundaries
 
