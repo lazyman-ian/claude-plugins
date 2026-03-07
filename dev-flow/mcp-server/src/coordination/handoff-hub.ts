@@ -41,23 +41,59 @@ export class HandoffHub {
   }
 
   readChain(taskId: string): Handoff[] {
+    return this.readChainWithIds(taskId).map(({ handoff }) => handoff);
+  }
+
+  readChainWithIds(taskId: string): Array<{ handoffId: string; handoff: Handoff }> {
+    if (!fs.existsSync(this.baseDir)) return [];
+
     const files = fs.readdirSync(this.baseDir)
       .filter(f => f.endsWith('.md'))
       .sort();
 
-    const handoffs: Handoff[] = [];
+    const results: Array<{ handoffId: string; handoff: Handoff }> = [];
     for (const file of files) {
       try {
         const handoff = this.read(file);
         if (handoff.task_id === taskId) {
-          handoffs.push(handoff);
+          results.push({ handoffId: file, handoff });
         }
-      } catch (err) {
+      } catch {
         // Skip invalid files
       }
     }
 
-    return handoffs;
+    return results;
+  }
+
+  search(keyword: string): Array<{ handoffId: string; agentId: string; taskId: string; summary: string }> {
+    if (!fs.existsSync(this.baseDir)) return [];
+
+    const files = fs.readdirSync(this.baseDir)
+      .filter(f => f.endsWith('.md'))
+      .sort();
+
+    const lowerKeyword = keyword.toLowerCase();
+    const results: Array<{ handoffId: string; agentId: string; taskId: string; summary: string }> = [];
+
+    for (const file of files) {
+      try {
+        const content = fs.readFileSync(path.join(this.baseDir, file), 'utf-8');
+        if (content.toLowerCase().includes(lowerKeyword)) {
+          const handoff = this.parseHandoff(content);
+          results.push({
+            handoffId: file,
+            agentId: handoff.agent_id,
+            taskId: handoff.task_id,
+            summary: handoff.summary,
+          });
+        }
+      } catch {
+        // Skip invalid files
+      }
+    }
+
+    return results;
   }
 
   aggregate(handoffIds: string[]): AggregatedResult {

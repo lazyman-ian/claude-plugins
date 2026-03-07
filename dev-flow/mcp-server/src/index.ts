@@ -250,7 +250,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           action: {
             type: 'string',
-            enum: ['status', 'save', 'search', 'get', 'list', 'prune', 'reindex'],
+            enum: ['status', 'save', 'search', 'query', 'get', 'list', 'prune', 'reindex'],
             description: 'Action to perform',
           },
           query: { type: 'string', description: 'Search query (for search action)' },
@@ -1103,7 +1103,10 @@ function coordinateTool(action: string, mode?: string, tasksJson?: string, taskI
       if (!taskId) {
         return { content: [{ type: 'text', text: '❌ taskId required for cancel' }] };
       }
-      // Implementation would mark task as cancelled
+      const cancelled = taskCoordinator.cancel(taskId);
+      if (!cancelled) {
+        return { content: [{ type: 'text', text: `❌ Task not found: ${taskId}` }] };
+      }
       return { content: [{ type: 'text', text: `✅ Cancelled task ${taskId}` }] };
     }
     default:
@@ -1141,8 +1144,12 @@ function handoffTool(action: string, handoffJson?: string, handoffId?: string, t
       if (!keyword) {
         return { content: [{ type: 'text', text: '❌ keyword required for search' }] };
       }
-      // Search implementation would scan handoff files
-      return { content: [{ type: 'text', text: `Searching for: ${keyword}` }] };
+      const matches = handoffHub.search(keyword);
+      if (matches.length === 0) {
+        return { content: [{ type: 'text', text: `No handoffs found for: ${keyword}` }] };
+      }
+      const lines = matches.map(m => `${m.handoffId} | ${m.agentId} | ${m.taskId} | ${m.summary}`);
+      return { content: [{ type: 'text', text: `Found:${matches.length}\n${lines.join('\n')}` }] };
     }
     default:
       return { content: [{ type: 'text', text: '❌ Action required: write|read|chain|search' }] };
@@ -1155,9 +1162,8 @@ function aggregateTool(action: string, handoffIdsJson?: string, taskId?: string)
   if (handoffIdsJson) {
     handoffIds = JSON.parse(handoffIdsJson);
   } else if (taskId) {
-    const chain = handoffHub.readChain(taskId);
-    // Would need to extract IDs from chain
-    handoffIds = chain.map(h => `handoff-${h.timestamp}.md`);
+    const chain = handoffHub.readChainWithIds(taskId);
+    handoffIds = chain.map(({ handoffId }) => handoffId);
   } else {
     return { content: [{ type: 'text', text: '❌ handoffIds or taskId required' }] };
   }
