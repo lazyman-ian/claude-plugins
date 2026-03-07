@@ -7,6 +7,7 @@ import { execSync } from 'child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'fs';
 import { join, basename } from 'path';
 import type { GateRecord, DecisionRecord, LedgerTaskEntry } from './ledger-types';
+import { memorySave } from './memory';
 
 const LEDGERS_DIR = 'thoughts/ledgers';
 const ARCHIVE_DIR = 'thoughts/ledgers/archive';
@@ -576,6 +577,111 @@ export function ledgerAddPr(prUrl: string): LedgerResult {
   };
 }
 
+/**
+ * Extract learning patterns from v2 gate data and save to knowledge vault.
+ * v1 ledgers (no gate data) are skipped.
+ * Returns a summary of extracted candidates.
+ */
+export function extractLedgerPatterns(content: string, taskId: string): { extracted: number; summary: string } {
+  const entries = parseLedgerV2(content);
+
+  // Only process v2 ledgers (at least one entry has gate data)
+  const hasGateData = entries.some(e => e.gates && e.gates.length > 0);
+  if (!hasGateData) {
+    return { extracted: 0, summary: 'v1 ledger: skipped' };
+  }
+
+  const candidates: Array<{ text: string; type: string; title: string; tags: string[] }> = [];
+
+  // Per-task pattern extraction
+  for (const entry of entries) {
+    if (!entry.gates || entry.gates.length === 0) continue;
+
+    // Pitfall: spec-review fail > 1 round (detail contains "r2" or higher)
+    const specGate = entry.gates.find(g => g.gate === 'spec');
+    if (specGate) {
+      const failRounds = specGate.detail?.match(/r(\d+)/) ? parseInt(specGate.detail!.match(/r(\d+)/)![1], 10) : 0;
+      if (failRounds > 1) {
+        candidates.push({
+          type: 'pitfall',
+          title: `Requirement clarity issue in task ${entry.id}: ${entry.name}`,
+          text: `Task "${entry.name}" (${entry.id}) required ${failRounds} spec-review rounds. Indicates requirement clarity issues. Spec gate detail: ${specGate.detail || 'none'}. Review spec/contract thoroughness before implementation.`,
+          tags: ['spec-review', 'requirement-clarity', taskId],
+        });
+      }
+    }
+
+    // Pitfall: verify retry > 0
+    if (entry.retries && entry.retries > 0) {
+      const verifyGate = entry.gates.find(g => g.gate === 'verify');
+      const retryReason = verifyGate?.detail || 'unknown failure';
+      candidates.push({
+        type: 'pitfall',
+        title: `Verify retry in task ${entry.id}: ${entry.name}`,
+        text: `Task "${entry.name}" (${entry.id}) had ${entry.retries} verify retry. Retry reason: ${retryReason}. Check for similar patterns before implementation.`,
+        tags: ['verify-retry', 'self-healing', taskId],
+      });
+    }
+
+    // Pattern: decision-agent escalation
+    if (entry.decisions && entry.decisions.length > 0) {
+      const escalated = entry.decisions.filter(d => d.escalated);
+      if (escalated.length > 0) {
+        for (const dec of escalated) {
+          candidates.push({
+            type: 'pattern',
+            title: `Decision escalation in ${entry.id}: ${dec.question.slice(0, 40)}`,
+            text: `Task "${entry.name}" (${entry.id}) escalated decision to human: "${dec.question}" → "${dec.decision}". Record as architectural decision.`,
+            tags: ['decision-agent', 'escalation', taskId],
+          });
+        }
+      }
+    }
+  }
+
+  // Overall gate pass rate per phase → habit if < 80%
+  const gatesByType: Record<string, { pass: number; total: number }> = {};
+  for (const entry of entries) {
+    for (const g of (entry.gates || [])) {
+      if (!gatesByType[g.gate]) gatesByType[g.gate] = { pass: 0, total: 0 };
+      gatesByType[g.gate].total++;
+      if (g.result === 'pass') gatesByType[g.gate].pass++;
+    }
+  }
+
+  for (const [gate, stats] of Object.entries(gatesByType)) {
+    if (stats.total >= 2) {
+      const rate = stats.pass / stats.total;
+      if (rate < 0.8) {
+        candidates.push({
+          type: 'habit',
+          title: `Low ${gate} gate pass rate in ${taskId}`,
+          text: `Gate "${gate}" passed only ${stats.pass}/${stats.total} (${Math.round(rate * 100)}%) in ${taskId}. Below 80% threshold — review ${gate} quality habits.`,
+          tags: [gate, 'gate-rate', taskId],
+        });
+      }
+    }
+  }
+
+  // Save each candidate through quality gate
+  let saved = 0;
+  const rejected: string[] = [];
+  for (const c of candidates) {
+    const result = memorySave(c.text, c.title, c.tags, c.type);
+    if (result.saved) {
+      saved++;
+    } else {
+      rejected.push(c.title);
+    }
+  }
+
+  const summary = candidates.length === 0
+    ? 'no patterns extracted'
+    : `extracted ${candidates.length} candidates, saved ${saved}` + (rejected.length > 0 ? `, rejected ${rejected.length}` : '');
+
+  return { extracted: saved, summary };
+}
+
 export function ledgerArchive(taskId?: string): LedgerResult {
   const cwd = getCwd();
   const ledgersPath = join(cwd, LEDGERS_DIR);
@@ -607,12 +713,16 @@ export function ledgerArchive(taskId?: string): LedgerResult {
 
   try {
     const content = readFileSync(srcPath, 'utf-8');
+
+    // Extract learning patterns before archiving
+    const extraction = extractLedgerPatterns(content, targetLedger.taskId);
+
     writeFileSync(destPath, content);
     execSync(`rm "${srcPath}"`);
 
     return {
       success: true,
-      message: `Archived:${targetLedger.taskId}`,
+      message: `Archived:${targetLedger.taskId}|patterns:${extraction.summary}`,
     };
   } catch (error: any) {
     return { success: false, message: error.message };
