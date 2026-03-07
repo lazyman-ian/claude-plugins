@@ -348,9 +348,25 @@ export function ledgerStatus(): LedgerResult {
   const p = ledger.progress!;
   const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
 
+  // Build gate summary for v2 ledgers
+  let gateSummary = '';
+  const content = readFileSync(ledger.path, 'utf-8');
+  const entries = parseLedgerV2(content);
+  if (entries.some(e => e.gates && e.gates.length > 0)) {
+    let totalGates = 0;
+    let passGates = 0;
+    for (const entry of entries) {
+      for (const g of (entry.gates || [])) {
+        totalGates++;
+        if (g.result === 'pass') passGates++;
+      }
+    }
+    gateSummary = `|gates:${passGates}/${totalGates} pass`;
+  }
+
   return {
     success: true,
-    message: `${ledger.taskId}|${pct}%|D:${p.done}|N:${p.inProgress}|P:${p.pending}`,
+    message: `${ledger.taskId}|${pct}%|D:${p.done}|N:${p.inProgress}|P:${p.pending}${gateSummary}`,
     data: ledger,
   };
 }
@@ -441,7 +457,52 @@ ${desc}
   };
 }
 
-export function ledgerUpdate(commitHash: string, commitMessage: string): LedgerResult {
+/**
+ * Upsert a single gate result into the active ledger's task entry.
+ * Creates a minimal in-progress entry if taskId not found.
+ */
+export function ledgerTaskUpdate(taskId: string, taskName: string, gate: string, result: GateRecord['result'], detail?: string): LedgerResult {
+  const ledger = findActiveLedger();
+  if (!ledger) {
+    return { success: false, message: 'No active ledger' };
+  }
+
+  const content = readFileSync(ledger.path, 'utf-8');
+  const entries = parseLedgerV2(content);
+
+  let entry = entries.find(e => e.id === taskId);
+  if (!entry) {
+    entry = { id: taskId, name: taskName, status: 'in_progress', gates: [] };
+  }
+
+  if (!entry.gates) entry.gates = [];
+
+  const existingIdx = entry.gates.findIndex(g => g.gate === gate);
+  const gateRecord: GateRecord = { gate, result, ...(detail !== undefined ? { detail } : {}) };
+  if (existingIdx >= 0) {
+    entry.gates[existingIdx] = gateRecord;
+  } else {
+    entry.gates.push(gateRecord);
+  }
+
+  writeLedgerTaskEntry(ledger.path, entry);
+  return {
+    success: true,
+    message: `TaskUpdate:${taskId}|gate:${gate}=${result}`,
+    data: entry,
+  };
+}
+
+export function ledgerUpdate(
+  commitHash: string,
+  commitMessage: string,
+  options?: {
+    gates?: GateRecord[];
+    retries?: number;
+    duration_ms?: number;
+    decisions?: DecisionRecord[];
+  }
+): LedgerResult {
   const ledger = findActiveLedger();
 
   if (!ledger) {
@@ -470,6 +531,20 @@ export function ledgerUpdate(commitHash: string, commitMessage: string): LedgerR
   }
 
   writeFileSync(ledger.path, content);
+
+  // If v2 gate data provided, write structured entry
+  if (options?.gates || options?.retries !== undefined || options?.duration_ms !== undefined) {
+    const entries = parseLedgerV2(content);
+    // Find the most recent in_progress entry to update, or create a new one
+    const inProgress = entries.find(e => e.status === 'in_progress');
+    if (inProgress) {
+      if (options.gates) inProgress.gates = options.gates;
+      if (options.retries !== undefined) inProgress.retries = options.retries;
+      if (options.duration_ms !== undefined) inProgress.duration_ms = options.duration_ms;
+      if (options.decisions) inProgress.decisions = options.decisions;
+      writeLedgerTaskEntry(ledger.path, inProgress);
+    }
+  }
 
   return {
     success: true,

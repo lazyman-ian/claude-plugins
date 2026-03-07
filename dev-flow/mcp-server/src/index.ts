@@ -143,14 +143,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           action: {
             type: 'string',
-            enum: ['status', 'list', 'create', 'update', 'archive', 'search'],
+            enum: ['status', 'list', 'create', 'update', 'task_update', 'archive', 'search'],
             description: 'Action to perform',
           },
-          taskId: { type: 'string', description: 'Task ID (TASK-XXX) for create/archive' },
+          taskId: { type: 'string', description: 'Task ID (TASK-XXX) for create/archive/task_update' },
+          taskName: { type: 'string', description: 'Task name (for task_update)' },
+          gate: { type: 'string', description: 'Gate name (for task_update: self|spec|quality|verify|ui)' },
+          gateResult: { type: 'string', description: 'Gate result (for task_update: pass|fail|skip)' },
+          gateDetail: { type: 'string', description: 'Gate detail string (for task_update, optional)' },
           branch: { type: 'string', description: 'Branch name (for create)' },
           keyword: { type: 'string', description: 'Search keyword' },
           commitHash: { type: 'string', description: 'Commit hash (for update)' },
           commitMessage: { type: 'string', description: 'Commit message (for update)' },
+          gates: { type: 'string', description: 'JSON array of gate records (for update, optional v2)' },
+          retries: { type: 'number', description: 'Retry count (for update, optional v2)' },
+          duration_ms: { type: 'number', description: 'Task duration in ms (for update, optional v2)' },
         },
       },
     },
@@ -393,7 +400,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return platformConfig(args?.format as string);
       // Continuity tools
       case 'dev_ledger':
-        return ledgerTool(args?.action as string, args?.taskId as string, args?.branch as string, args?.keyword as string, args?.commitHash as string, args?.commitMessage as string);
+        return ledgerTool(args?.action as string, args?.taskId as string, args?.branch as string, args?.keyword as string, args?.commitHash as string, args?.commitMessage as string, args?.taskName as string, args?.gate as string, args?.gateResult as string, args?.gateDetail as string, args?.gates as string, args?.retries as number, args?.duration_ms as number);
       case 'dev_branch':
         return branchTool(args?.action as string, args?.target as string, args?.days as number, args?.dryRun as boolean);
       case 'dev_defaults':
@@ -898,7 +905,7 @@ function platformConfig(format?: string) {
 
 // Continuity tool handlers
 
-function ledgerTool(action?: string, taskId?: string, branch?: string, keyword?: string, commitHash?: string, commitMessage?: string) {
+function ledgerTool(action?: string, taskId?: string, branch?: string, keyword?: string, commitHash?: string, commitMessage?: string, taskName?: string, gate?: string, gateResult?: string, gateDetail?: string, gatesJson?: string, retries?: number, duration_ms?: number) {
   switch (action) {
     case 'status':
       return { content: [{ type: 'text', text: continuity.ledgerStatus().message }] };
@@ -909,9 +916,27 @@ function ledgerTool(action?: string, taskId?: string, branch?: string, keyword?:
       if (!taskId) return { content: [{ type: 'text', text: '❌ taskId required (e.g., TASK-123)' }] };
       const branchName = branch || `feature/${taskId}-new`;
       return { content: [{ type: 'text', text: continuity.ledgerCreate(taskId, branchName).message }] };
-    case 'update':
+    case 'update': {
       if (!commitHash || !commitMessage) return { content: [{ type: 'text', text: '❌ commitHash and commitMessage required for update' }] };
-      return { content: [{ type: 'text', text: continuity.ledgerUpdate(commitHash, commitMessage).message }] };
+      let gateOpts: Parameters<typeof continuity.ledgerUpdate>[2] | undefined;
+      if (gatesJson || retries !== undefined || duration_ms !== undefined) {
+        gateOpts = {};
+        if (gatesJson) {
+          try { gateOpts.gates = JSON.parse(gatesJson); } catch { /* ignore invalid JSON */ }
+        }
+        if (retries !== undefined) gateOpts.retries = retries;
+        if (duration_ms !== undefined) gateOpts.duration_ms = duration_ms;
+      }
+      return { content: [{ type: 'text', text: continuity.ledgerUpdate(commitHash, commitMessage, gateOpts).message }] };
+    }
+    case 'task_update': {
+      if (!taskId) return { content: [{ type: 'text', text: '❌ taskId required for task_update' }] };
+      if (!gate) return { content: [{ type: 'text', text: '❌ gate required for task_update' }] };
+      if (!gateResult) return { content: [{ type: 'text', text: '❌ gateResult required for task_update (pass|fail|skip)' }] };
+      const result = (gateResult === 'pass' || gateResult === 'fail' || gateResult === 'skip') ? gateResult : 'fail';
+      const res = continuity.ledgerTaskUpdate(taskId, taskName || taskId, gate, result, gateDetail);
+      return { content: [{ type: 'text', text: res.message }] };
+    }
     case 'archive':
       return { content: [{ type: 'text', text: continuity.ledgerArchive(taskId).message }] };
     case 'search':
@@ -919,7 +944,7 @@ function ledgerTool(action?: string, taskId?: string, branch?: string, keyword?:
       const search = continuity.ledgerSearch(keyword);
       return { content: [{ type: 'text', text: search.message }] };
     default:
-      return { content: [{ type: 'text', text: '❌ Action required: status|list|create|update|archive|search' }] };
+      return { content: [{ type: 'text', text: '❌ Action required: status|list|create|update|task_update|archive|search' }] };
   }
 }
 

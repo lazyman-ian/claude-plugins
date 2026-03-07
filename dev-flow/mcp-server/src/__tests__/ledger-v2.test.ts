@@ -1,5 +1,5 @@
 /**
- * Ledger v2 tests: schema, parser, round-trip, backward compat
+ * Ledger v2 tests: schema, parser, round-trip, backward compat, task_update
  */
 
 import { tmpdir } from 'os';
@@ -10,6 +10,7 @@ import {
   parseLedgerV2,
   serializeLedgerTaskEntry,
   writeLedgerTaskEntry,
+  ledgerTaskUpdate,
 } from '../continuity/ledger';
 import type { LedgerTaskEntry } from '../continuity/ledger';
 
@@ -306,5 +307,103 @@ describe('writeLedgerTaskEntry', () => {
     const matches = content.match(/- \[[x ]\] 1\.1:/g);
     expect(matches).toHaveLength(1);
     expect(content).toContain('- [x] 1.1: Setup auth');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 1.2: ledgerTaskUpdate (unit test without active git ledger)
+// Tests the lower-level writeLedgerTaskEntry + parseLedgerV2 used by ledgerTaskUpdate
+// ---------------------------------------------------------------------------
+
+describe('task_update flow (writeLedgerTaskEntry gate upsert)', () => {
+  let testDir: string;
+
+  beforeEach(() => {
+    testDir = join(tmpdir(), `ledger-task-update-${Date.now()}`);
+    mkdirSync(testDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(testDir, { recursive: true, force: true });
+  });
+
+  function makeTestLedger(): string {
+    const p = join(testDir, 'CONTINUITY_CLAUDE-test.md');
+    writeFileSync(p, `# Session: TASK-1-test\nUpdated: 2026-01-01T00:00:00.000Z\n\n## State\n\n## Goal\ntest\n`);
+    return p;
+  }
+
+  test('adds gate to new entry', () => {
+    const filePath = makeTestLedger();
+    // Simulate task_update by writing a new entry with a gate
+    const entry: LedgerTaskEntry = {
+      id: '1.1',
+      name: 'Setup auth',
+      status: 'in_progress',
+      gates: [{ gate: 'self', result: 'pass' }],
+    };
+    writeLedgerTaskEntry(filePath, entry);
+
+    const content = readFileSync(filePath, 'utf-8');
+    const entries = parseLedgerV2(content);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].gates).toHaveLength(1);
+    expect(entries[0].gates![0]).toEqual({ gate: 'self', result: 'pass' });
+  });
+
+  test('upserts gate on existing entry', () => {
+    const filePath = makeTestLedger();
+    const entry: LedgerTaskEntry = {
+      id: '1.1',
+      name: 'Setup auth',
+      status: 'in_progress',
+      gates: [{ gate: 'self', result: 'pass' }],
+    };
+    writeLedgerTaskEntry(filePath, entry);
+
+    // Update with additional gate
+    const updated: LedgerTaskEntry = {
+      id: '1.1',
+      name: 'Setup auth',
+      status: 'in_progress',
+      gates: [{ gate: 'self', result: 'pass' }, { gate: 'spec', result: 'pass' }],
+    };
+    writeLedgerTaskEntry(filePath, updated);
+
+    const content = readFileSync(filePath, 'utf-8');
+    const entries = parseLedgerV2(content);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].gates).toHaveLength(2);
+  });
+
+  test('gate summary detection: entries with gates produce summary string', () => {
+    const contentWithGates = `## State\n- [x] 1.1: Test (10:00, 2min)\n  gates: self:pass spec:pass verify:pass\n  retries: 0\n`;
+    const entries = parseLedgerV2(contentWithGates);
+    expect(entries[0].gates).toHaveLength(3);
+
+    // All gates pass => 3/3
+    let totalGates = 0;
+    let passGates = 0;
+    for (const e of entries) {
+      for (const g of (e.gates || [])) {
+        totalGates++;
+        if (g.result === 'pass') passGates++;
+      }
+    }
+    expect(`gates:${passGates}/${totalGates} pass`).toBe('gates:3/3 pass');
+  });
+
+  test('gate summary with mixed results', () => {
+    const content = `## State\n- [x] 1.1: Test\n  gates: self:pass spec:fail verify:pass\n`;
+    const entries = parseLedgerV2(content);
+    let totalGates = 0;
+    let passGates = 0;
+    for (const e of entries) {
+      for (const g of (e.gates || [])) {
+        totalGates++;
+        if (g.result === 'pass') passGates++;
+      }
+    }
+    expect(`gates:${passGates}/${totalGates} pass`).toBe('gates:2/3 pass');
   });
 });
