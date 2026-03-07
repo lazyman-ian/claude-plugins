@@ -3,7 +3,7 @@
  * Type definitions for multi-agent collaboration
  */
 
-export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'failed';
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'failed' | 'cancelled';
 export type HandoffStatus = 'success' | 'partial' | 'blocked' | 'failed';
 export type CollaborationMode = 'pipeline' | 'fan-out' | 'master-worker' | 'review-chain';
 
