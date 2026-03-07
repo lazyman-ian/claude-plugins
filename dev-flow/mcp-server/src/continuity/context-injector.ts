@@ -10,10 +10,11 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readFileSync, writeFileSync, readdirSync } from 'fs';
+import { join, basename } from 'path';
 import { homedir } from 'os';
 import { detectPlatformSimple } from '../detector';
+import { parseLedgerV2 } from './ledger';
 
 const BUDGET_TOTAL = 2500;
 const BUDGET_PITFALLS = 600;
@@ -167,6 +168,133 @@ function esc(s: string): string {
   return (s || '').replace(/'/g, "''");
 }
 
+// --- Execution History ---
+
+const BUDGET_EXECUTION = 500;
+
+/**
+ * Build execution context from active ledger v2 gate data and archive history.
+ * Returns a compact string (max 500 chars) for SessionStart injection.
+ */
+export function buildExecutionContext(): string {
+  const cwd = getCwd();
+  const ledgersPath = join(cwd, 'thoughts', 'ledgers');
+  const archivePath = join(cwd, 'thoughts', 'ledgers', 'archive');
+
+  const lines: string[] = [];
+
+  // 1. Active ledger: in-progress task with last gate status + last failure
+  if (existsSync(ledgersPath)) {
+    const branch = getCurrentBranch();
+    const taskId = extractTaskIdFromBranch(branch);
+
+    if (taskId) {
+      const files = readdirSync(ledgersPath)
+        .filter(f => f.startsWith(taskId) && f.endsWith('.md') && !f.startsWith('.'));
+      if (files.length > 0) {
+        try {
+          const content = readFileSync(join(ledgersPath, files[0]), 'utf-8');
+          const entries = parseLedgerV2(content);
+          const inProgress = entries.find(e => e.status === 'in_progress');
+
+          if (inProgress) {
+            const gates = inProgress.gates || [];
+            const lastGate = gates[gates.length - 1];
+            const gateStatus = lastGate ? `${lastGate.gate}:${lastGate.result}` : 'no gates yet';
+            lines.push(`Resume: Task ${inProgress.id} (${gateStatus})`);
+
+            if (inProgress.retries && inProgress.retries > 0) {
+              const verifyGate = gates.find(g => g.gate === 'verify');
+              const failReason = verifyGate?.detail || 'verify fail';
+              lines.push(`Last failure: ${failReason}`);
+            }
+          }
+        } catch { /* skip on error */ }
+      }
+    }
+  }
+
+  // 2. Archive: search for same TASK-id or similar branch keywords
+  if (existsSync(archivePath)) {
+    const branch = getCurrentBranch();
+    const taskId = extractTaskIdFromBranch(branch);
+    const branchKeywords = branch
+      .replace(/^(feature|bugfix|hotfix|release)\//, '')
+      .replace(/TASK-\d+-?/i, '')
+      .split(/[-_/]/)
+      .filter(p => p.length > 2 && !/^\d+$/.test(p))
+      .slice(0, 3);
+
+    try {
+      const archivedFiles = readdirSync(archivePath).filter(f => f.endsWith('.md'));
+
+      for (const file of archivedFiles) {
+        // Match by TASK-id prefix or branch keyword overlap
+        const fileLower = file.toLowerCase();
+        const taskMatch = taskId && file.startsWith(taskId);
+        const keywordMatch = branchKeywords.some(k => fileLower.includes(k.toLowerCase()));
+
+        if (taskMatch || keywordMatch) {
+          try {
+            const content = readFileSync(join(archivePath, file), 'utf-8');
+            const entries = parseLedgerV2(content);
+            const hasGates = entries.some(e => e.gates && e.gates.length > 0);
+            if (!hasGates) continue;
+
+            // Compute overall retry count and low-pass-rate gates
+            let totalRetries = 0;
+            const gateStats: Record<string, { pass: number; total: number }> = {};
+            for (const entry of entries) {
+              totalRetries += entry.retries || 0;
+              for (const g of (entry.gates || [])) {
+                if (!gateStats[g.gate]) gateStats[g.gate] = { pass: 0, total: 0 };
+                gateStats[g.gate].total++;
+                if (g.result === 'pass') gateStats[g.gate].pass++;
+              }
+            }
+
+            const notableGates = Object.entries(gateStats)
+              .filter(([, s]) => s.total >= 2 && s.pass / s.total < 0.8)
+              .map(([gate]) => gate);
+
+            if (totalRetries > 0 || notableGates.length > 0) {
+              const archiveName = basename(file, '.md');
+              const parts: string[] = [];
+              if (totalRetries > 0) parts.push(`${totalRetries} retries`);
+              if (notableGates.length > 0) parts.push(`low pass: ${notableGates.join(',')}`);
+              lines.push(`Archive match (${archiveName}): ${parts.join(', ')}`);
+            }
+            break; // Only one archive match to stay within budget
+          } catch { /* skip on error */ }
+        }
+      }
+    } catch { /* skip on error */ }
+  }
+
+  if (lines.length === 0) return '';
+
+  let result = lines.join('\n');
+  if (result.length > BUDGET_EXECUTION) {
+    result = result.slice(0, BUDGET_EXECUTION);
+    const lastNl = result.lastIndexOf('\n');
+    if (lastNl > BUDGET_EXECUTION * 0.7) result = result.slice(0, lastNl);
+  }
+  return result;
+}
+
+function getCurrentBranch(): string {
+  try {
+    return execSync('git branch --show-current', { encoding: 'utf-8' }).trim();
+  } catch {
+    return '';
+  }
+}
+
+function extractTaskIdFromBranch(branch: string): string | null {
+  const match = branch.match(/TASK-(\d+)/i);
+  return match ? `TASK-${match[1]}` : null;
+}
+
 // --- Public API ---
 
 const MEMORY_MARKER_START = '<!-- DEV-MEMORY-START -->';
@@ -297,6 +425,14 @@ export function injectKnowledgeContext(): InjectionResult {
     sections.push(`### Recent Discoveries\n${recent}`);
     sources.push('discoveries/');
     totalChars += recent.length;
+  }
+
+  // 4. Execution history (active ledger gate status + archive matches)
+  const execCtx = buildExecutionContext();
+  if (execCtx) {
+    sections.push(`### Execution History\n${execCtx}`);
+    sources.push('ledger/execution');
+    totalChars += execCtx.length;
   }
 
   if (sections.length === 0) {
