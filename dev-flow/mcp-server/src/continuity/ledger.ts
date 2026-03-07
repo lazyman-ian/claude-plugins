@@ -6,9 +6,226 @@
 import { execSync } from 'child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'fs';
 import { join, basename } from 'path';
+import type { GateRecord, DecisionRecord, LedgerTaskEntry } from './ledger-types';
 
 const LEDGERS_DIR = 'thoughts/ledgers';
 const ARCHIVE_DIR = 'thoughts/ledgers/archive';
+
+// Re-export types for consumers
+export type { GateRecord, DecisionRecord, LedgerTaskEntry } from './ledger-types';
+
+/**
+ * Parse gate notation from a v2 ledger gates line.
+ * Format: `  gates: self:pass spec:pass quality:pass(P2x1) verify:pass`
+ * Parenthesized suffixes are opaque — we do NOT split on colons inside parens.
+ */
+export function parseGateLine(line: string): GateRecord[] {
+  const records: GateRecord[] = [];
+  // Strip leading "gates:" label
+  const raw = line.replace(/^\s*gates:\s*/, '');
+  if (!raw.trim()) return records;
+
+  // Tokenise: split on whitespace BUT preserve paren-enclosed content
+  // We split on spaces that are NOT inside parentheses
+  const tokens: string[] = [];
+  let current = '';
+  let depth = 0;
+  for (const ch of raw.trim()) {
+    if (ch === '(') { depth++; current += ch; }
+    else if (ch === ')') { depth--; current += ch; }
+    else if (ch === ' ' && depth === 0) {
+      if (current) { tokens.push(current); current = ''; }
+    } else {
+      current += ch;
+    }
+  }
+  if (current) tokens.push(current);
+
+  for (const token of tokens) {
+    // Find first colon that is NOT inside parentheses
+    let colonIdx = -1;
+    let depth = 0;
+    for (let i = 0; i < token.length; i++) {
+      if (token[i] === '(') depth++;
+      else if (token[i] === ')') depth--;
+      else if (token[i] === ':' && depth === 0) { colonIdx = i; break; }
+    }
+    if (colonIdx === -1) continue;
+
+    const gate = token.slice(0, colonIdx);
+    const rest = token.slice(colonIdx + 1);
+
+    // result may be `pass`, `fail`, `skip`, `fail>pass`, etc.
+    // detail is everything inside trailing parens
+    const detailMatch = rest.match(/\(([^)]*)\)$/);
+    const detail = detailMatch ? detailMatch[1] : undefined;
+    const resultRaw = rest.replace(/\([^)]*\)$/, '');
+    // Normalize result: take last segment after `>` (e.g. `fail>pass` → `pass`)
+    const resultSegments = resultRaw.split('>');
+    const resultStr = resultSegments[resultSegments.length - 1];
+    const result: GateRecord['result'] =
+      resultStr === 'pass' ? 'pass' : resultStr === 'skip' ? 'skip' : 'fail';
+
+    records.push({ gate, result, ...(detail !== undefined ? { detail } : {}) });
+  }
+  return records;
+}
+
+/**
+ * Parse ## State section of a ledger, supporting both v1 and v2 formats.
+ * v2 entries have structured gate/retry lines beneath them.
+ * v1 entries are simple checkbox lines.
+ */
+export function parseLedgerV2(content: string): LedgerTaskEntry[] {
+  const entries: LedgerTaskEntry[] = [];
+
+  const stateMatch = content.match(/## State\s*\n([\s\S]*?)(?=\n## |\n# |$)/);
+  if (!stateMatch) return entries;
+
+  const stateBlock = stateMatch[1];
+  const lines = stateBlock.split('\n');
+
+  let current: LedgerTaskEntry | null = null;
+
+  for (const line of lines) {
+    // v2 task line: `- [x] id: name (timestamp, dur)` or `- [→] ...` or `- [->] ...` or `- [ ] ...`
+    // v1 task line: `- Done: [x] subject (time)` or plain `- [x] subject`
+    const taskMatch = line.match(/^- \[(x|→|->| )\]\s+(.+)$/);
+    if (taskMatch) {
+      if (current) entries.push(current);
+
+      const marker = taskMatch[1];
+      const rest = taskMatch[2];
+
+      // Determine status
+      const status: LedgerTaskEntry['status'] =
+        marker === 'x' ? 'done' : (marker === '→' || marker === '->') ? 'in_progress' : 'pending';
+
+      // Extract id: name if present — id is a dotted number prefix before colon
+      // but NOT a colon inside parens
+      const idNameMatch = rest.match(/^(\d+(?:\.\d+)*(?:-\d+)?)\s*:\s*(.+)$/);
+      let id: string;
+      let name: string;
+      let timestamp: string | undefined;
+
+      if (idNameMatch) {
+        id = idNameMatch[1];
+        const nameAndMeta = idNameMatch[2];
+        // Strip trailing (timestamp, duration) — must be last paren group
+        const metaMatch = nameAndMeta.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+        if (metaMatch) {
+          name = metaMatch[1].trim();
+          timestamp = metaMatch[2];
+        } else {
+          name = nameAndMeta.trim();
+        }
+      } else {
+        // v1 fallback: whole rest is the name
+        id = '';
+        const metaMatch = rest.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+        if (metaMatch) {
+          name = metaMatch[1].trim();
+          timestamp = metaMatch[2];
+        } else {
+          name = rest.trim();
+        }
+      }
+
+      current = { id, name, status, ...(timestamp !== undefined ? { timestamp } : {}) };
+      continue;
+    }
+
+    if (!current) continue;
+
+    // Gates line
+    if (/^\s+gates:\s/.test(line)) {
+      current.gates = parseGateLine(line);
+      continue;
+    }
+
+    // Retries line
+    const retriesMatch = line.match(/^\s+retries:\s*(\d+)/);
+    if (retriesMatch) {
+      current.retries = parseInt(retriesMatch[1], 10);
+      continue;
+    }
+
+    // Duration line
+    const durationMatch = line.match(/^\s+duration_ms:\s*(\d+)/);
+    if (durationMatch) {
+      current.duration_ms = parseInt(durationMatch[1], 10);
+      continue;
+    }
+  }
+
+  if (current) entries.push(current);
+  return entries;
+}
+
+/**
+ * Serialize a single LedgerTaskEntry into v2 markdown lines.
+ */
+export function serializeLedgerTaskEntry(entry: LedgerTaskEntry): string {
+  const marker = entry.status === 'done' ? 'x' : entry.status === 'in_progress' ? '→' : ' ';
+  const idPrefix = entry.id ? `${entry.id}: ` : '';
+  const meta = entry.timestamp ? ` (${entry.timestamp})` : '';
+  let out = `- [${marker}] ${idPrefix}${entry.name}${meta}\n`;
+
+  if (entry.gates && entry.gates.length > 0) {
+    const gateParts = entry.gates.map(g => {
+      const detail = g.detail !== undefined ? `(${g.detail})` : '';
+      return `${g.gate}:${g.result}${detail}`;
+    });
+    out += `  gates: ${gateParts.join(' ')}\n`;
+  }
+
+  if (entry.retries !== undefined) {
+    out += `  retries: ${entry.retries}\n`;
+  }
+
+  if (entry.duration_ms !== undefined) {
+    out += `  duration_ms: ${entry.duration_ms}\n`;
+  }
+
+  return out;
+}
+
+/**
+ * Append or update a task entry in the ## State section of a ledger file.
+ * If an entry with the same id already exists, it is replaced; otherwise appended.
+ */
+export function writeLedgerTaskEntry(filePath: string, entry: LedgerTaskEntry): void {
+  let content = readFileSync(filePath, 'utf-8');
+  const serialized = serializeLedgerTaskEntry(entry);
+
+  // Update timestamp
+  content = content.replace(/^Updated:\s*.+$/m, `Updated: ${new Date().toISOString()}`);
+
+  if (!content.includes('## State')) {
+    content += `\n## State\n${serialized}`;
+    writeFileSync(filePath, content);
+    return;
+  }
+
+  // If entry has an id, try to replace existing entry block
+  if (entry.id) {
+    // Match existing entry block: the task line plus any indented continuation lines
+    const escapedId = entry.id.replace(/\./g, '\\.');
+    const entryRegex = new RegExp(
+      `- \\[[x →\\-]\\] ${escapedId}:[^\\n]*\\n(?:  [^\\n]*\\n)*`,
+      'g'
+    );
+    if (entryRegex.test(content)) {
+      content = content.replace(entryRegex, serialized);
+      writeFileSync(filePath, content);
+      return;
+    }
+  }
+
+  // Append after ## State header
+  content = content.replace(/## State\n/, `## State\n${serialized}`);
+  writeFileSync(filePath, content);
+}
 
 interface LedgerInfo {
   name: string;
@@ -199,13 +416,11 @@ ${desc}
 ## Key Decisions
 
 ## State
-- Done:
-  - [ ] 初始化
-- Now:
-  - [→] 开发功能
-- Next:
-  - [ ] 代码审查
-  - [ ] 测试
+<!-- Gate notation: gate:result(detail) — results: pass|fail|skip, e.g. quality:pass(P2x1) verify:fail>pass(r1: msg) -->
+- [ ] 1.1: 初始化
+- [→] 1.2: 开发功能
+- [ ] 1.3: 代码审查
+- [ ] 1.4: 测试
 
 ## Open Questions
 
