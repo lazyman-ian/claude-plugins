@@ -12,7 +12,8 @@
 #   --with-global  Also compile ~/.claude/rules/ → ~/.codex/AGENTS.md
 #
 # GENERATES:
-#   .agents/skills/*           Symlinks to plugin skills
+#   ~/.agents/skills/*         Global symlinks to installed plugin skills (--project)
+#   .agents/skills/*           Project-level symlinks (marketplace or .claude/skills/)
 #   AGENTS.md                  Project instructions + behavioral rules for Codex
 #   .codex/config.toml         MCP server + agent roles
 #   .codex/rules/safety.rules  Starlark safety rules
@@ -262,15 +263,16 @@ latest_version() {
   ls -t "$1" 2>/dev/null | head -1
 }
 
-# Project mode: Symlink installed plugin skills + .claude/skills/
+# Project mode: Symlink installed plugin skills (global) + .claude/skills/ (project)
 sync_skills_project() {
-  local target="$REPO_ROOT/.agents/skills"
-  [[ $CLEAN -eq 1 ]] && rm -rf "$target"
-  mkdir -p "$target"
+  local global_target="${HOME}/.agents/skills"
+  local project_target="$REPO_ROOT/.agents/skills"
+  [[ $CLEAN -eq 1 ]] && rm -rf "$global_target" "$project_target"
+  mkdir -p "$global_target"
 
   local new=0 unchanged=0 total=0
 
-  # Plugin cache skills (absolute symlinks)
+  # Plugin cache skills → ~/.agents/skills/ (global, all projects share)
   if [[ -d "$PLUGIN_CACHE" ]]; then
     for author_dir in "$PLUGIN_CACHE"/*/; do
       [[ -d "$author_dir" ]] || continue
@@ -286,40 +288,49 @@ sync_skills_project() {
           local abs_path="$skill_dir"
           ((total++))
 
-          if [[ -L "$target/$name" ]] && [[ "$(readlink "$target/$name")" == "$abs_path" ]]; then
+          if [[ -L "$global_target/$name" ]] && [[ "$(readlink "$global_target/$name")" == "$abs_path" ]]; then
             ((unchanged++)); continue
           fi
-          [[ -e "$target/$name" ]] && rm -rf "$target/$name"
+          [[ -e "$global_target/$name" ]] && rm -rf "$global_target/$name"
 
           if [[ $DRY_RUN -eq 0 ]]; then
-            ln -sf "$abs_path" "$target/$name"
+            ln -sf "$abs_path" "$global_target/$name"
           fi
-          log "+ $name -> $abs_path"
+          log "+ $name -> $abs_path (global)"
           ((new++))
         done
       done
     done
   fi
 
-  # Project-local skills (.claude/skills/)
+  # Project-local skills (.claude/skills/) → .agents/skills/ (project-level)
+  local has_local=0
   for skill_dir in "$REPO_ROOT"/.claude/skills/*/; do
     [[ -f "$skill_dir/SKILL.md" ]] || continue
-    local name
-    name=$(basename "$skill_dir")
-    local rel="../../.claude/skills/$name"
-    ((total++))
-
-    if [[ -L "$target/$name" ]] && [[ "$(readlink "$target/$name")" == "$rel" ]]; then
-      ((unchanged++)); continue
-    fi
-    [[ -e "$target/$name" ]] && rm -rf "$target/$name"
-
-    if [[ $DRY_RUN -eq 0 ]]; then
-      ln -sf "$rel" "$target/$name"
-    fi
-    log "+ $name -> $rel (local)"
-    ((new++))
+    has_local=1; break
   done
+
+  if [[ $has_local -eq 1 ]]; then
+    mkdir -p "$project_target"
+    for skill_dir in "$REPO_ROOT"/.claude/skills/*/; do
+      [[ -f "$skill_dir/SKILL.md" ]] || continue
+      local name
+      name=$(basename "$skill_dir")
+      local rel="../../.claude/skills/$name"
+      ((total++))
+
+      if [[ -L "$project_target/$name" ]] && [[ "$(readlink "$project_target/$name")" == "$rel" ]]; then
+        ((unchanged++)); continue
+      fi
+      [[ -e "$project_target/$name" ]] && rm -rf "$project_target/$name"
+
+      if [[ $DRY_RUN -eq 0 ]]; then
+        ln -sf "$rel" "$project_target/$name"
+      fi
+      log "+ $name -> $rel (local)"
+      ((new++))
+    done
+  fi
 
   echo "  Skills: $total total, $new new, $unchanged unchanged"
 }
@@ -344,18 +355,25 @@ collect_agent_rows() {
   echo "$rows"
 }
 
-# Collect skill rows from .agents/skills/ symlinks
+# Collect skill rows from .agents/skills/ (global + project)
 collect_skill_rows() {
-  local target="$REPO_ROOT/.agents/skills"
   local rows=""
-  for skill_dir in "$target"/*/; do
-    [[ -f "$skill_dir/SKILL.md" ]] || continue
-    local name
-    name=$(extract_name "$skill_dir/SKILL.md")
-    [[ -z "$name" ]] && name=$(basename "$skill_dir")
-    local desc
-    desc=$(truncate_desc "$(extract_desc "$skill_dir/SKILL.md")")
-    rows+="| \`\$${name}\` | $desc |\n"
+  local seen=""
+  # Scan both global and project skill dirs (dedup by name)
+  for target in "${HOME}/.agents/skills" "$REPO_ROOT/.agents/skills"; do
+    [[ -d "$target" ]] || continue
+    for skill_dir in "$target"/*/; do
+      [[ -f "$skill_dir/SKILL.md" ]] || continue
+      local name
+      name=$(extract_name "$skill_dir/SKILL.md")
+      [[ -z "$name" ]] && name=$(basename "$skill_dir")
+      # Dedup: project-level overrides global
+      echo "$seen" | /usr/bin/grep -q "^${name}$" && continue
+      seen+="$name"$'\n'
+      local desc
+      desc=$(truncate_desc "$(extract_desc "$skill_dir/SKILL.md")")
+      rows+="| \`\$${name}\` | $desc |\n"
+    done
   done
   echo "$rows"
 }

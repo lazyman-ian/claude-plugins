@@ -35,7 +35,8 @@ Auto-detects mode when flag is omitted (marketplace if `.claude-plugin/marketpla
 
 | Output | Marketplace | Project | Flag |
 |--------|-------------|---------|------|
-| `.agents/skills/*` | Relative symlinks to `*/skills/` | Absolute symlinks to cache | always |
+| `~/.agents/skills/*` | — | Global symlinks to installed plugins | `--project` |
+| `.agents/skills/*` | Relative symlinks to `*/skills/` | Project-local `.claude/skills/` only | always |
 | `AGENTS.md` | Project info + catalog + behavioral rules | Rules compiled + catalog + behavioral rules | always |
 | `.codex/config.toml` | Hardcoded MCP + agents | Parsed from `.mcp.json` + cache agents | always |
 | `.codex/rules/safety.rules` | 6 Starlark safety rules | Same | always |
