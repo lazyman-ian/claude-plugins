@@ -5,8 +5,6 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  ListPromptsRequestSchema,
-  GetPromptRequestSchema,
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
@@ -24,7 +22,7 @@ import { getNotionConfig, buildInboxFilter, formatTaskSummary, extractSpecFields
 
 const server = new Server(
   { name: 'dev-flow-mcp', version: '2.1.0' },
-  { capabilities: { tools: {}, prompts: {}, resources: {} } }
+  { capabilities: { tools: {}, resources: {} } }
 );
 
 // Per-tool cache with separate TTLs

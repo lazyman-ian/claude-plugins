@@ -50,7 +50,7 @@ Single-file bundle architecture using `@modelcontextprotocol/sdk`:
 | `git/version.ts` | Version info, release notes |
 | `platforms/ios.ts` | SwiftLint, SwiftFormat, test/verify |
 | `platforms/android.ts` | ktlint, ktfmt, test/verify |
-| `continuity/` | Ledgers, reasoning, branch, task-sync, memory, instincts, product-brain, context-injector, embeddings |
+| `continuity/` | Ledgers, branch, defaults, task-sync, memory, context-injector |
 | `coordination/` | Multi-agent coordination, handoffs, aggregation |
 
 ### Platform Extension
