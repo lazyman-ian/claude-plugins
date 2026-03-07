@@ -12,8 +12,8 @@
 #   --with-global  Also compile ~/.claude/rules/ → ~/.codex/AGENTS.md
 #
 # GENERATES:
-#   ~/.agents/skills/*         Global symlinks to installed plugin skills (--project)
-#   .agents/skills/*           Project-level symlinks (marketplace or .claude/skills/)
+#   ~/.agents/skills/*         User-scope symlinks to plugin skills (both modes)
+#   .agents/skills/*           Project-scope .claude/skills/ symlinks (both modes)
 #   AGENTS.md                  Project instructions + behavioral rules for Codex
 #   .codex/config.toml         MCP server + agent roles
 #   .codex/rules/safety.rules  Starlark safety rules
@@ -71,32 +71,56 @@ escape_toml() {
 }
 
 # ────────────────────────────────────────────────
-# 1. Skills: Symlink to .agents/skills/
+# 1. Skills: plugin skills → ~/.agents/skills/ (user scope)
+#            .claude/skills/ → .agents/skills/ (project scope)
 # ────────────────────────────────────────────────
 sync_skills() {
-  local target="$REPO_ROOT/.agents/skills"
-  [[ $CLEAN -eq 1 ]] && rm -rf "$target"
-  mkdir -p "$target"
+  local global_target="${HOME}/.agents/skills"
+  local project_target="$REPO_ROOT/.agents/skills"
+  [[ $CLEAN -eq 1 ]] && rm -rf "$global_target" "$project_target"
+  mkdir -p "$global_target"
 
   local new=0 unchanged=0 total=0
+
+  # Plugin skills (*/skills/) → ~/.agents/skills/ (user scope, shared across projects)
   for skill_dir in "$REPO_ROOT"/*/skills/*/; do
     [[ -f "$skill_dir/SKILL.md" ]] || continue
     local name
     name=$(basename "$skill_dir")
-    local plugin="${skill_dir#$REPO_ROOT/}"
-    plugin="${plugin%%/*}"
-    local rel="../../$plugin/skills/$name"
+    local abs_path
+    abs_path=$(cd "$skill_dir" && pwd)
     ((total++))
 
-    if [[ -L "$target/$name" ]] && [[ "$(readlink "$target/$name")" == "$rel" ]]; then
+    if [[ -L "$global_target/$name" ]] && [[ "$(readlink "$global_target/$name")" == "$abs_path" ]]; then
       ((unchanged++)); continue
     fi
-    [[ -e "$target/$name" ]] && rm -rf "$target/$name"
+    [[ -e "$global_target/$name" ]] && rm -rf "$global_target/$name"
 
     if [[ $DRY_RUN -eq 0 ]]; then
-      ln -sf "$rel" "$target/$name"
+      ln -sf "$abs_path" "$global_target/$name"
     fi
-    log "+ $name -> $rel"
+    log "+ $name -> $abs_path (user)"
+    ((new++))
+  done
+
+  # Project-local skills (.claude/skills/) → .agents/skills/ (project scope)
+  for skill_dir in "$REPO_ROOT"/.claude/skills/*/; do
+    [[ -f "$skill_dir/SKILL.md" ]] || continue
+    mkdir -p "$project_target"
+    local name
+    name=$(basename "$skill_dir")
+    local rel="../../.claude/skills/$name"
+    ((total++))
+
+    if [[ -L "$project_target/$name" ]] && [[ "$(readlink "$project_target/$name")" == "$rel" ]]; then
+      ((unchanged++)); continue
+    fi
+    [[ -e "$project_target/$name" ]] && rm -rf "$project_target/$name"
+
+    if [[ $DRY_RUN -eq 0 ]]; then
+      ln -sf "$rel" "$project_target/$name"
+    fi
+    log "+ $name -> $rel (project)"
     ((new++))
   done
 
@@ -123,17 +147,9 @@ generate_agents_md() {
     agent_rows+="| $name | $desc |\n"
   done
 
-  # Collect skill rows
-  local skill_rows=""
-  for f in "$REPO_ROOT"/*/skills/*/SKILL.md; do
-    [[ -f "$f" ]] || continue
-    local name
-    name=$(extract_name "$f")
-    [[ -z "$name" ]] && continue
-    local desc
-    desc=$(truncate_desc "$(extract_desc "$f")")
-    skill_rows+="| \`\$${name}\` | $desc |\n"
-  done
+  # Collect skill rows (both user-scope and project-scope)
+  local skill_rows
+  skill_rows=$(collect_skill_rows)
 
   if [[ $DRY_RUN -eq 1 ]]; then
     echo "  AGENTS.md: would generate"
@@ -196,7 +212,7 @@ EOF
 
 ## Skills
 
-Invoke with `$skill-name`. Skills are in `.agents/skills/`.
+Invoke with `$skill-name`. User-scope skills in `~/.agents/skills/`, project-scope in `.agents/skills/`.
 
 | Skill | Description |
 |-------|-------------|

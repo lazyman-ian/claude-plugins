@@ -33,14 +33,14 @@ Auto-detects mode when flag is omitted (marketplace if `.claude-plugin/marketpla
 
 ## What Gets Generated
 
-| Output | Marketplace | Project | Flag |
-|--------|-------------|---------|------|
-| `~/.agents/skills/*` | — | Global symlinks to installed plugins | `--project` |
-| `.agents/skills/*` | Relative symlinks to `*/skills/` | Project-local `.claude/skills/` only | always |
-| `AGENTS.md` | Project info + catalog + behavioral rules | Rules compiled + catalog + behavioral rules | always |
-| `.codex/config.toml` | Hardcoded MCP + agents | Parsed from `.mcp.json` + cache agents | always |
-| `.codex/rules/safety.rules` | 6 Starlark safety rules | Same | always |
-| `~/.codex/AGENTS.md` | Global behavioral rules (10/17) | Same | `--with-global` |
+| Output | Scope | Marketplace | Project |
+|--------|-------|-------------|---------|
+| `~/.agents/skills/*` | User | Plugin `*/skills/` symlinks | Installed plugin cache symlinks |
+| `.agents/skills/*` | Project | `.claude/skills/` symlinks | `.claude/skills/` symlinks |
+| `AGENTS.md` | Project | Info + catalog + behavioral rules | Rules + catalog + behavioral rules |
+| `.codex/config.toml` | Project | Hardcoded MCP + agents | Parsed from `.mcp.json` + agents |
+| `.codex/rules/safety.rules` | Project | 6 Starlark safety rules | Same |
+| `~/.codex/AGENTS.md` | User | Global behavioral rules (10/17) | Same (`--with-global`) |
 
 ## Behavioral Rules
 
