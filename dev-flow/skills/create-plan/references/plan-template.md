@@ -28,6 +28,7 @@ phases:
         type: logic-task   # logic-task | ui-task
         description: "..."
         estimated_minutes: 3
+        risk: medium       # optional: low | medium | high (default: medium)
         autonomy: 1        # 0 | 1 | 2 (default: 1)
         contract: |
           - Acceptance criterion one
@@ -159,8 +160,9 @@ key_decisions: {}           # populated during design exploration
 - **`tasks`** optional: fine-grained breakdown for complex phases. Enables 5-gate pipeline in implement-plan.
 - **`tasks.type`**: `logic-task` (complete code, 2-5 min) or `ui-task` (Figma ref, 5-15 min)
 - **`tasks.autonomy`**: execution autonomy level (0/1/2, default: 1). Missing field = Level 1 behavior.
+- **`tasks.risk`**: optional risk level that determines which quality gates run. Missing field = medium default.
 - **`tasks.contract`**: multi-line acceptance criteria (YAML block scalar). Agent must satisfy all items before marking done.
-- **Backward compatible**: `implement-plan` checks `plan_version`; if absent, falls back to legacy parsing
+- **Backward compatible**: `implement-plan` checks `plan_version`; if absent, falls back to legacy parsing. v2.0 plans (missing `risk` field) default to medium risk.
 
 ## Autonomy Levels
 
@@ -171,6 +173,19 @@ key_decisions: {}           # populated during design exploration
 | 2 | Full autonomy — no pauses, best-effort on ambiguity |
 
 Missing `autonomy` field = Level 1. Use Level 0 for risky/irreversible tasks (migrations, deletes). Use Level 2 for routine, well-specified tasks.
+
+## Risk Levels (v2.1)
+
+| Level | Gates Run | When to Use |
+|-------|-----------|-------------|
+| `low` | Self-Review, Verify | Docs, config UI, renames, deletes |
+| `medium` | Fresh Subagent, Self-Review, Quality Review, Verify | Feature code (default) |
+| `high` | All 5 gates including Spec Review | auth/*, migration/*, security/*, data models |
+
+Missing `risk` field = medium (v2.0 backward compatible). When creating tasks, suggest `risk: high` for:
+- Files under `auth/`, `security/`, `migration/` paths
+- New data model or schema changes
+- New API endpoints with auth requirements
 
 ---
 
