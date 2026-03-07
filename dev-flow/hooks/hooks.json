@@ -130,6 +130,16 @@
             "statusMessage": "Batch checkpoint check..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/quality-gate-check.sh",
+            "timeout": 5,
+            "statusMessage": "Quality gate check..."
+          }
+        ]
       }
     ],
     "PostToolUse": [
