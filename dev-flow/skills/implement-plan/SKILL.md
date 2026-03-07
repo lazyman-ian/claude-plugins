@@ -1,6 +1,6 @@
 ---
 name: implement-plan
-description: Executes approved implementation plans from thoughts/shared/plans/ using a 5-gate quality pipeline with optional TDD mode and agent orchestration. This skill should be used when the user has an approved plan and wants to implement it step-by-step with verification gates (fresh subagent, self-review, spec review, quality review). Triggers on "implement plan", "execute plan", "follow the plan", "run the plan", "start implementation", "use tdd", "test driven", "按计划实现", "执行方案", "按计划执行", "测试驱动", "执行计划", "实施方案", "分阶段实现". Do NOT use for general development workflow (commit/PR/release) — use "dev" instead.
+description: Executes approved implementation plans from thoughts/shared/plans/ using an adaptive execution engine with risk-based quality gates. This skill should be used when the user has an approved plan and wants to implement it step-by-step with verification gates (fresh subagent, self-review, spec review, quality review). Triggers on "implement plan", "execute plan", "follow the plan", "run the plan", "start implementation", "use tdd", "test driven", "按计划实现", "执行方案", "按计划执行", "测试驱动", "执行计划", "实施方案", "分阶段实现". Do NOT use for general development workflow (commit/PR/release) — use "dev" instead.
 model: opus
 memory: project
 context: fork
@@ -9,7 +9,7 @@ allowed-tools: [Read, Glob, Grep, Edit, Write, Bash, Task, TaskCreate, TaskUpdat
 
 # Implement Plan
 
-Execute approved technical plans from `thoughts/shared/plans/` with optional TDD mode.
+Execute approved technical plans from `thoughts/shared/plans/` with adaptive quality gates.
 
 ## When to Use
 
@@ -18,38 +18,59 @@ Execute approved technical plans from `thoughts/shared/plans/` with optional TDD
 - 按计划实现, 执行方案
 - "use tdd", "test driven", "测试驱动开发" (enables TDD mode)
 
-## Architecture
+## Execution Engine
 
-### Primary: Agentic Loop
+Single entry point for all plan execution. The orchestrator:
 
-The default execution mode. Each task follows: Contract → Verify → Self-Heal → Next Task.
-
-1. Read plan state (check `[x]` marks for completed tasks)
-2. Pick next incomplete task
-3. Execute per task contract (acceptance criteria)
-4. Run verify command → pass: commit + mark done → continue
-5. Verify fail: diagnose → fix → re-verify (max 2 retries)
-6. Context > 70%: save state, prepare handoff
-
-**Output Levels** (from task `autonomy` field):
-
-| Level | Output |
-|-------|--------|
-| 1 (milestone) | `[Task N/M] name done (X files, verify pass)` |
-| 2 (final only) | `Done: N/M tasks, X files, all pass. Proof: .proof/` |
+1. Call `dev_ledger(action='status')` — check for in-progress tasks from previous session
+2. Read plan file completely (check `[x]` marks + frontmatter tasks array)
+3. Pick the first incomplete task
+4. Assess risk per task → determine gate set → run gates
+5. After each gate: `dev_ledger(action='task_update', taskId, gate, result)`
+6. Verify pass → commit → mark `[x]` → continue
+7. Context > 70% → save state to ledger → generate Ralph prompt → output handoff
 
 **Continue** (ALL AND): verify pass + changes within scope + context < 70%
 **Stop** (ANY OR): verify fail 2x + out-of-scope changes + context > 80% + security/architecture issue
 
-**Uncertainty**: Runtime questions → spawn Decision Agent → get answer → continue. Security/architecture → escalate to Human.
+**Uncertainty**: Runtime questions → spawn Decision Agent → answer → continue. Security/architecture → escalate to Human.
 
-### Persistence: Ralph Loop
+See `references/execution-engine.md` for detailed engine mechanics.
 
-For plans that may exceed context limits. Uses Stop hook re-injection to continue across sessions.
+## Risk-Adaptive Gates
 
-`/dev ralph-implement [plan-path]` generates optimal prompt and starts loop. See `references/ralph-loop-mode.md`.
+Each task's risk level (explicit `risk:` field > file path pattern > change type) determines which gates run:
 
-### Execution Strategy (auto-selected by orchestrator)
+| Gate | low | medium | high |
+|------|-----|--------|------|
+| 1. Fresh Subagent | — | run | run |
+| 2. Self-Review | run | run | run |
+| 3. Spec Review | — | — | run |
+| 4. Quality Review | — | run | run |
+| 5. Verify | run | run | run |
+
+Default risk when not specified: **medium**.
+
+See `references/risk-assessment.md` for file path patterns and change type inference rules.
+
+## Plan Frontmatter v2.1
+
+Tasks gain optional `risk` field (backward compatible — missing = medium):
+
+```yaml
+tasks:
+  - id: "1.1"
+    type: logic-task
+    risk: high        # optional: low | medium | high
+    contract: |
+      - Acceptance criterion
+    verify: "make test"
+    commit: "feat(scope): description"
+```
+
+Plans without `risk` field follow v2.0 format — no changes needed.
+
+## Execution Strategy
 
 | Condition | Strategy |
 |-----------|----------|
@@ -57,234 +78,140 @@ For plans that may exceed context limits. Uses Stop hook re-injection to continu
 | 4+ tasks, sequential | Subagent per task — fresh context isolation |
 | 3+ tasks, parallelizable, no file overlap | Agent Teams — true parallelism |
 
-### Flags
+For Agent Teams: `dev_coordinate(action='plan', mode='fan-out')` detects `target_files` overlaps before spawning.
 
-- **TDD**: Add `--tdd` or plan marks `tdd: true`. Any strategy supports RED-GREEN-REFACTOR cycle. See TDD Mode section below.
-- **5-Gate Pipeline**: Auto-enabled when phase has `tasks` array in frontmatter. See next section.
+## Output Levels (from task `autonomy` field)
 
-## 5-Gate Per-Task Pipeline (v5.0.0)
+| Level | Output |
+|-------|--------|
+| 1 (milestone) | `[Task N/M] name done (X files, verify pass)` |
+| 2 (final only) | `Done: N/M tasks, X files, all pass. Proof: .proof/` |
 
-When a plan phase has `tasks` array in frontmatter, each task goes through 5 quality gates:
+## Ralph: Persistence Fallback
 
+Ralph Loop is not an alternative path — it is a **fallback for when context limits prevent completing the plan in a single session**.
+
+When context approaches 70%, the orchestrator saves state to ledger and outputs:
 ```
-Task → [Figma Pre-fetch] → Fresh Subagent → Self-Review → Spec Review → [UI Verify] → Quality Review → Complete
+Context limit approaching. Resume options:
+  /dev ralph-implement {plan_path}    ← continues via Stop hook across sessions
+  new session → /dev implement-plan {plan_path}  ← ledger auto-resume
 ```
 
-| Gate | Mechanism | Blocker? |
-|------|-----------|----------|
-| 0. Figma Pre-fetch | Orchestrator fetches design specs via Figma MCP (ui-task only) | — |
-| 1. Fresh Context | New subagent per task (context isolation) | — |
-| 2. Self-Review | 11-point checklist in implement-agent | Fix before reporting |
-| 3. Spec Review | spec-reviewer agent checks requirement match | REQUEST CHANGES → retry (max 2) |
-| 3.5 UI Verify | ui-verify measures rendered CSS vs Figma specs (ui-task only) | ❌ delta > 2px → auto-correct |
-| 4. Quality Review | code-reviewer agent P0-P3 | P0/P1 → block, P2/P3 → note |
-| 5. Verification | verify skill (run verify command) | Fail → stay in_progress |
+`/dev ralph-implement` as explicit invocation works the same way — it reads ledger progress to find the next task.
 
-**When to use 5-gate**: Phases with `tasks` array (fine-grained plan).
-**When to skip**: Simple phases without tasks → standard phase-level execution with commit-time review only.
-
-See `references/task-executor.md` for detailed per-task workflow.
-
+See `references/ralph-loop-mode.md` for Stop hook mechanics and configuration.
 
 ## TDD Mode (RED-GREEN-REFACTOR)
 
 **Triggers**: "use tdd", "test driven", "测试驱动", "red green refactor"
 
-When TDD mode is detected, follow this cycle for each feature:
+For each feature:
 
 ### RED: Write Failing Test
-
-1. Write a test for the next small behavior
-2. Run the test - it should FAIL
+1. Write test for the next small behavior
+2. Run — it MUST fail
 3. Commit: `test(scope): add test for [feature]`
 
 ### GREEN: Make It Pass
-
-1. Write minimal code to make the test pass
-2. Run the test - it should PASS
+1. Write minimal code to pass the test
+2. Run — it MUST pass
 3. Commit: `feat(scope): implement [feature]`
 
 ### REFACTOR: Clean Up
-
-1. Improve code structure without changing behavior
-2. Run all tests - they should still pass
+1. Improve structure, no behavior change
+2. Run all tests — still pass
 3. Commit: `refactor(scope): [description]`
 
-### TDD Principles
-
-- **Small steps**: Each cycle 5-15 minutes
-- **Fast feedback**: Tests should run quickly
-- **No premature optimization**: Get it working first
-- **Test behavior, not implementation**: Focus on what, not how
-
-### TDD Checklist
-
-- [ ] Test is written before implementation
-- [ ] Test fails before implementation (RED)
-- [ ] Minimal code to pass (GREEN)
-- [ ] Refactor while tests pass
-- [ ] All tests pass after refactor
+**TDD Principles**: Small steps (5-15 min cycles). Test behavior, not implementation. No premature optimization.
 
 ## Getting Started
 
-### Detect Mode
-
-Check user input for TDD keywords:
-- Contains "tdd", "test driven", "测试驱动" → **TDD Mode**
-- Otherwise → **Standard Mode**
-
-### Standard Mode Steps
-
-1. Read plan completely (check existing `[x]` marks)
-2. If plan has frontmatter (`plan_version: "2.0"`): auto-create tasks from phases metadata
-3. Read original ticket + all mentioned files (FULLY)
-4. Create tasks with `TaskCreate` for each phase (set dependencies)
-5. Start implementing (update task status as you go)
-
-### TDD Mode Steps
-
-1. Read plan and identify testable units
-2. For each unit:
-   - **RED**: Write failing test
-   - **GREEN**: Implement to pass
-   - **REFACTOR**: Clean up code
-3. Verify all tests pass
-4. Update plan checkboxes
-
-## Reference Menu
-
-| Reference | Load When |
-|-----------|-----------|
-| `references/task-management.md` | Task creation/tracking patterns |
-| `references/agent-orchestration.md` | Using agent mode (4+ tasks) |
-| `references/task-executor.md` | Single task TDD workflow |
-| `references/receiving-review.md` | How to handle review feedback |
-| `references/ralph-loop-mode.md` | Ralph Loop execution mode |
-
-## Direct Implementation
-
-For small plans (≤3 tasks):
-
 ### Standard Mode
 
-1. Implement each phase yourself
-2. Run success criteria checks
-3. Update checkboxes in plan
-4. Auto-continue if verify passes (pause only if manual verification items exist)
+1. Check `dev_ledger(action='status')` for resume state
+2. Read plan completely (check existing `[x]` marks)
+3. If plan has `plan_version: "2.0"` or `"2.1"`: auto-create tasks from phases `tasks` array
+4. Create TaskCreate entries for phases, set dependencies
+5. Execute per engine loop (see above)
 
 ### TDD Mode
 
-1. Break down into testable units
-2. For each unit, cycle through RED-GREEN-REFACTOR
-3. Commit after each phase (RED/GREEN/REFACTOR)
-4. Run full test suite after refactor
-5. Update checkboxes in plan
-
-### Verification Flow
-
-```
-Phase N Complete
-Automated: [passed checks]
-Manual (if any): [items]
-→ Auto-continuing to Phase N+1
-```
+1. Read plan, identify testable units
+2. For each unit: RED → GREEN → REFACTOR
+3. Verify all tests pass after each cycle
+4. Update plan checkboxes
 
 ## Progress Tracking
 
-After each phase completes, output progress:
+After each task:
+```
+[Task N/M] name done (X files, verify pass)
+```
 
+After each phase:
 ```
 Phase 2/5 complete (40%)
 - [x] Phase 1: Schema
 - [x] Phase 2: API endpoints
 - [ ] Phase 3: UI components
-- [ ] Phase 4: Tests
-- [ ] Phase 5: Integration
 ```
 
 Update plan checkboxes and `TaskUpdate(status: 'completed')` for each finished phase.
-
----
-
-## Agent Orchestration
-
-For larger plans (4+ tasks), use agent orchestration:
-
-```
-"I'll use agent orchestration for this plan"
-```
-
-Then follow `references/agent-orchestration.md`.
-
-### Conflict Detection
-
-Before parallel execution, use `dev_coordinate(action='plan', mode='fan-out')` to detect `target_files` overlaps. Conflicting phases are serialized via `TaskUpdate(addBlockedBy)`.
-
-### Quick Setup
-
-Handoffs managed via `dev_handoff` MCP tool (auto-creates directory). See `references/task-executor.md` for TDD workflow.
-
-## Agent Teams Mode
-
-**Trigger**: 3+ phases with `parallelizable: true` in frontmatter, no `target_files` overlap.
-
-### Decision Logic
-
-| Condition | Recommended Mode |
-|-----------|-----------------|
-| ≤3 phases, sequential | Direct |
-| 4+ phases, sequential | Agent Orchestration |
-| 3+ phases, parallelizable, no file overlap | Agent Teams |
-| Complex coordination, shared state | Agent Orchestration |
-
-### Workflow
-
-1. `dev_coordinate(action='plan', mode='fan-out')` → detect conflicts
-2. Confirm with user: "3 phases are parallelizable. Use Agent Teams?"
-3. `TeamCreate` → spawn teammates → assign phases via `TaskUpdate(owner)`
-4. Each teammate: implement → `dev_handoff(action='write')` → complete
-5. `dev_aggregate(action='pr_ready', taskId=...)` → unified summary
-6. `SendMessage(type='shutdown_request')` → `TeamDelete`
-
-See `references/agent-orchestration.md` "Agent Teams Alternative" for details.
-
----
 
 ## Resuming Work
 
 If plan has existing `[x]` marks:
 - Trust completed work is done
 - Pick up from first unchecked item
-- Verify previous work only if something seems off
+- Cross-reference ledger state for gate results
+
+## Conflict Detection
+
+Before parallel execution:
+```
+dev_coordinate(action='plan', mode='fan-out', tasks=[
+  { id: 't1', targetFiles: ['src/auth.ts'] },
+  { id: 't2', targetFiles: ['src/auth.ts'] }  // conflict → serialize
+])
+```
+Conflicting phases: `TaskUpdate({ taskId: 't2', addBlockedBy: ['t1'] })`.
+
+## Agent Teams Mode
+
+**Trigger**: 3+ phases with `parallelizable: true` in frontmatter, no `target_files` overlap.
+
+1. `dev_coordinate(action='plan', mode='fan-out')` → confirm no conflicts
+2. Confirm with user: "3 phases are parallelizable. Use Agent Teams?"
+3. `TeamCreate` → spawn teammates → assign phases via `TaskUpdate(owner)`
+4. Each teammate: implement → `dev_handoff(action='write')` → complete
+5. `dev_aggregate(action='pr_ready', taskId=...)` → unified summary
+6. `SendMessage(type='shutdown_request')` → `TeamDelete`
 
 ## If Things Don't Match
 
 ```
-Issue in Phase [N]:
-Expected: [what the plan says]
+Issue in Task [N]:
+Expected: [what the contract says]
 Found: [actual situation]
-Why this matters: [explanation]
-
 → Route to Decision Agent for resolution
 ```
 
-## Resumable Agents
-
-Check `.claude/cache/agents/agent-log.jsonl` for agent IDs.
-
-```
-Task(
-  resume="<agentId>",
-  prompt="Phase 2 isn't matching. Can you clarify..."
-)
-```
-
----
-
 ## Plan Closure
 
-When all phases complete:
+When all tasks complete:
+1. Update plan frontmatter `status: completed`
+2. `dev_aggregate(action='pr_ready', taskId=...)` → final summary
+3. Auto-commit after final verify pass
 
-1. Update plan frontmatter `status: completed` (if plan has frontmatter)
-2. `dev_aggregate(action='pr_ready', taskId=...)` → generate final summary of all changes and decisions
-3. Auto-commit after final verify pass (no confirmation needed)
+## Reference Menu
+
+| Reference | Load When |
+|-----------|-----------|
+| `references/execution-engine.md` | Engine mechanics, ledger API, proof manifest format |
+| `references/risk-assessment.md` | Risk signals, file path patterns, gate matrix |
+| `references/task-management.md` | Task creation/tracking patterns |
+| `references/agent-orchestration.md` | Agent mode (4+ tasks) |
+| `references/task-executor.md` | Single task TDD workflow |
+| `references/receiving-review.md` | How to handle review feedback |
+| `references/ralph-loop-mode.md` | Ralph Loop Stop hook mechanics |
