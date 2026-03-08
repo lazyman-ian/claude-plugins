@@ -9,26 +9,14 @@
             "timeout": 3
           }
         ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/url-reader.sh",
-            "timeout": 3,
-            "statusMessage": "Detecting URLs..."
-          }
-        ]
       },
       {
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/intent-router.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/subagent-start.sh",
             "timeout": 3,
-            "statusMessage": "Analyzing intent..."
+            "statusMessage": "Injecting context..."
           }
         ]
       }
@@ -71,18 +59,6 @@
             "once": true
           }
         ]
-      },
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/memory-sync.sh",
-            "timeout": 5,
-            "statusMessage": "Syncing memory...",
-            "once": true
-          }
-        ]
       }
     ],
     "PreCompact": [
@@ -102,46 +78,10 @@
       {
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "A Claude Code session is ending. FIRST: Check if an auto-pipeline is active by looking for .claude/cache/.auto-pipeline-*.done.json (done file) — if it exists and current_stage is 'done', return {\"ok\": true} immediately without further evaluation.\n\nOtherwise evaluate TWO things:\n\n1) COMPLETION: Did Claude fully address the user's original request? All changes made? Any steps skipped?\n2) SUMMARY: If the session involved meaningful work (code changes, research, planning), Claude should save a session summary.\n\nFor trivial sessions (greeting, single question, no real work), return {\"ok\": true}.\n\nIf incomplete work remains, return {\"ok\": false, \"reason\": \"Remaining: [specific steps]. Then update MEMORY.md Last Session section.\"}.\n\nIf work is complete but summary not yet saved, return {\"ok\": false, \"reason\": \"Before stopping, update MEMORY.md Last Session section (between <!-- LAST-SESSION-START --> and <!-- LAST-SESSION-END --> markers) with:\\n## Last Session\\n- Next: [what should happen next, 1 sentence]\\n- Learned: [key insight, 1 sentence]\\n<!-- AUTO-UPDATED by session-summary.sh -->\"}.",
-            "timeout": 15,
-            "once": true,
-            "statusMessage": "Verifying completion..."
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-summary.sh",
             "timeout": 15,
             "statusMessage": "Saving session summary..."
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "matcher": "implement-agent|plan-agent",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "A subagent just finished. Evaluate the output quality: 1) Does it answer the assigned task with specific, actionable information? 2) Is the output concrete (file paths, code snippets, clear recommendations) rather than vague? 3) Are there obvious errors, unsupported claims, or hallucinated file paths? If the output is acceptable, return {\"ok\": true}. If quality is poor (vague, incomplete, or contains errors), return {\"ok\": false, \"reason\": \"[what's wrong and how to ask better]\"}.",
-            "timeout": 15,
-            "statusMessage": "Checking subagent output..."
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-end.sh",
-            "timeout": 10,
-            "statusMessage": "Saving session state..."
           }
         ]
       }
@@ -156,18 +96,38 @@
             "statusMessage": "Checkpointing task..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/task-completed.sh",
+            "timeout": 10,
+            "statusMessage": "Verifying task..."
+          }
+        ]
+      }
+    ],
+    "TeammateIdle": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/teammate-idle.sh",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/scope-drift-check.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/post-tool-use.sh",
             "timeout": 5,
-            "async": true,
-            "statusMessage": "Checking scope drift..."
+            "statusMessage": "Checking code..."
           }
         ]
       },
@@ -191,17 +151,6 @@
             "timeout": 10,
             "async": true,
             "statusMessage": "Auto-formatting..."
-          }
-        ]
-      },
-      {
-        "matcher": "Bash(git *)|Bash(gh *)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/dev-workflow.sh",
-            "timeout": 10,
-            "statusMessage": "Checking dev workflow..."
           }
         ]
       },
