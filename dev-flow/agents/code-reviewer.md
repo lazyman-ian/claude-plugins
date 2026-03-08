@@ -46,18 +46,34 @@ check whether Auth + CORS interact correctly.
 
 ### Step 1: Get the Diff + Auto-Classify Risk
 
-Get the diff based on mode:
+Check your spawn prompt for the `BASE_COMMIT=<hash>` parameter to determine mode:
+
 - Commit gate: `git diff --cached`
-- PR/branch: `git diff master...HEAD`
+- PR/branch (full): `git diff master...HEAD`
+- Re-review (fix-diff): `git diff <BASE_COMMIT>..HEAD` — only reviews changes since that commit, preventing re-flagging existing code
+
+```bash
+# Detect mode from spawn prompt
+if echo "$SPAWN_CONTEXT" | grep -q 'BASE_COMMIT='; then
+  BASE_COMMIT=$(echo "$SPAWN_CONTEXT" | grep -oP 'BASE_COMMIT=\K[a-f0-9]+')
+  DIFF_CMD="git diff ${BASE_COMMIT}..HEAD"
+  MODE="fix-diff"
+else
+  DIFF_CMD="git diff master...HEAD"
+  MODE="pr-review"
+fi
+```
+
+If `BASE_COMMIT` is present in the spawn prompt, use fix-diff mode. If absent, fall back to PR/branch mode.
 
 Then **auto-classify** risk level from the diff itself:
 
 ```bash
-# Collect signals
-CHANGED_FILES=$(git diff --cached --name-only)          # or master...HEAD
-CHANGED_LINES=$(git diff --cached --stat | tail -1)
+# Collect signals (use $DIFF_CMD from mode detection above)
+CHANGED_FILES=$(eval "$DIFF_CMD" --name-only)
+CHANGED_LINES=$(eval "$DIFF_CMD" --stat | tail -1)
 SENSITIVE=$(echo "$CHANGED_FILES" | grep -iE '(auth|cors|guard|middleware|security|\.env|config\.(ts|js|json))')
-NEW_FILES=$(git diff --cached --name-only --diff-filter=A)
+NEW_FILES=$(eval "$DIFF_CMD" --name-only --diff-filter=A)
 DOCS_ONLY=$(echo "$CHANGED_FILES" | grep -vE '\.(md|txt|json|yaml)$' | wc -l)  # 0 = all docs
 ```
 
@@ -97,7 +113,7 @@ For each file in scope, check applicable dimensions. Use `Grep` to find related 
 ## Code Review Report
 
 **Scope**: [N files, M lines changed]
-**Mode**: [commit-gate | pr-review | standalone]
+**Mode**: [commit-gate | pr-review | fix-diff | standalone]
 **Risk**: [🔴 High | 🟡 Medium | 🟢 Low | ⚪ Minimal]
 
 ### P0 Critical (BLOCKS commit/merge)
