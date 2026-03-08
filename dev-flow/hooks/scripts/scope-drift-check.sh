@@ -34,7 +34,7 @@ if [[ ! -f "$CACHE_FILE" ]]; then
   done < <(ls -t "$PLANS_DIR"/*.md 2>/dev/null)
 
   if [[ -z "$ACTIVE_PLAN" ]]; then
-    echo "" > "$CACHE_FILE"
+    > "$CACHE_FILE"
     exit 0
   fi
 

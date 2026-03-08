@@ -934,7 +934,7 @@ function ledgerTool(action?: string, taskId?: string, branch?: string, keyword?:
       if (!gate) return { content: [{ type: 'text', text: '❌ gate required for task_update' }] };
       if (!gateResult) return { content: [{ type: 'text', text: '❌ gateResult required for task_update (pass|fail|skip)' }] };
       const result = (gateResult === 'pass' || gateResult === 'fail' || gateResult === 'skip') ? gateResult : 'fail';
-      const res = continuity.ledgerTaskUpdate(taskId, taskName || taskId, gate, result, gateDetail);
+      const res = continuity.ledgerTaskUpdate(taskId, taskName || taskId, gate, result, gateDetail, duration_ms);
       return { content: [{ type: 'text', text: res.message }] };
     }
     case 'archive':

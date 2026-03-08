@@ -30,7 +30,7 @@ done < <(ls -t "$PLANS_DIR"/*.md 2>/dev/null)
 [[ -z "$ACTIVE_PLAN" ]] && { echo '{"continue":true}'; exit 0; }
 
 # Count tasks in active plan (lines with 'id:' under tasks: block)
-TASK_COUNT=$(grep -c $'^\t\+id:' "$ACTIVE_PLAN" 2>/dev/null || echo "")
+TASK_COUNT=$(grep -cE '^\s+- id:' "$ACTIVE_PLAN" 2>/dev/null || echo "")
 TASK_COUNT=$(echo "$TASK_COUNT" | tr -d '[:space:]')
 [[ ! "$TASK_COUNT" =~ ^[0-9]+$ ]] && TASK_COUNT=0
 

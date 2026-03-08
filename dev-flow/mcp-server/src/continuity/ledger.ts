@@ -157,6 +157,20 @@ export function parseLedgerV2(content: string): LedgerTaskEntry[] {
       current.duration_ms = parseInt(durationMatch[1], 10);
       continue;
     }
+
+    // Decisions line
+    if (/^\s+decisions:\s/.test(line)) {
+      const raw = line.replace(/^\s+decisions:\s*/, '');
+      const parts = raw.split(';').map(s => s.trim()).filter(Boolean);
+      current.decisions = parts.map(part => {
+        const escalated = part.includes('!escalated');
+        const clean = part.replace(/!escalated$/, '');
+        const pipeIdx = clean.indexOf('|');
+        if (pipeIdx === -1) return { question: clean, decision: '', escalated };
+        return { question: clean.slice(0, pipeIdx), decision: clean.slice(pipeIdx + 1), escalated };
+      });
+      continue;
+    }
   }
 
   if (current) entries.push(current);
@@ -188,6 +202,14 @@ export function serializeLedgerTaskEntry(entry: LedgerTaskEntry): string {
     out += `  duration_ms: ${entry.duration_ms}\n`;
   }
 
+  if (entry.decisions && entry.decisions.length > 0) {
+    const parts = entry.decisions.map(d => {
+      const esc = d.escalated ? '!escalated' : '';
+      return `${d.question.replace(/\|/g, '/')}|${d.decision.replace(/\|/g, '/')}${esc}`;
+    });
+    out += `  decisions: ${parts.join('; ')}\n`;
+  }
+
   return out;
 }
 
@@ -213,7 +235,7 @@ export function writeLedgerTaskEntry(filePath: string, entry: LedgerTaskEntry): 
     // Match existing entry block: the task line plus any indented continuation lines
     const escapedId = entry.id.replace(/\./g, '\\.');
     const entryRegex = new RegExp(
-      `- \\[[x →\\-]\\] ${escapedId}:[^\\n]*\\n(?:  [^\\n]*\\n)*`,
+      `- \\[(?:x|→|->| )\\] ${escapedId}:[^\\n]*\\n(?:  [^\\n]*\\n)*`,
       'g'
     );
     if (entryRegex.test(content)) {
@@ -462,7 +484,7 @@ ${desc}
  * Upsert a single gate result into the active ledger's task entry.
  * Creates a minimal in-progress entry if taskId not found.
  */
-export function ledgerTaskUpdate(taskId: string, taskName: string, gate: string, result: GateRecord['result'], detail?: string): LedgerResult {
+export function ledgerTaskUpdate(taskId: string, taskName: string, gate: string, result: GateRecord['result'], detail?: string, duration_ms?: number): LedgerResult {
   const ledger = findActiveLedger();
   if (!ledger) {
     return { success: false, message: 'No active ledger' };
@@ -479,7 +501,7 @@ export function ledgerTaskUpdate(taskId: string, taskName: string, gate: string,
   if (!entry.gates) entry.gates = [];
 
   const existingIdx = entry.gates.findIndex(g => g.gate === gate);
-  const gateRecord: GateRecord = { gate, result, ...(detail !== undefined ? { detail } : {}) };
+  const gateRecord: GateRecord = { gate, result, ...(detail !== undefined ? { detail } : {}), ...(duration_ms !== undefined ? { duration_ms } : {}) };
   if (existingIdx >= 0) {
     entry.gates[existingIdx] = gateRecord;
   } else {

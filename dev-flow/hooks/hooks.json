@@ -126,7 +126,7 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/batch-checkpoint.sh",
-            "timeout": 5,
+            "timeout": 5000,
             "statusMessage": "Batch checkpoint check..."
           }
         ]
@@ -136,7 +136,7 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/quality-gate-check.sh",
-            "timeout": 5,
+            "timeout": 5000,
             "statusMessage": "Quality gate check..."
           }
         ]

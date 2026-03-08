@@ -22296,6 +22296,18 @@ function parseLedgerV2(content) {
       current.duration_ms = parseInt(durationMatch[1], 10);
       continue;
     }
+    if (/^\s+decisions:\s/.test(line)) {
+      const raw = line.replace(/^\s+decisions:\s*/, "");
+      const parts = raw.split(";").map((s) => s.trim()).filter(Boolean);
+      current.decisions = parts.map((part) => {
+        const escalated = part.includes("!escalated");
+        const clean = part.replace(/!escalated$/, "");
+        const pipeIdx = clean.indexOf("|");
+        if (pipeIdx === -1) return { question: clean, decision: "", escalated };
+        return { question: clean.slice(0, pipeIdx), decision: clean.slice(pipeIdx + 1), escalated };
+      });
+      continue;
+    }
   }
   if (current) entries.push(current);
   return entries;
@@ -22322,6 +22334,14 @@ function serializeLedgerTaskEntry(entry) {
     out += `  duration_ms: ${entry.duration_ms}
 `;
   }
+  if (entry.decisions && entry.decisions.length > 0) {
+    const parts = entry.decisions.map((d) => {
+      const esc4 = d.escalated ? "!escalated" : "";
+      return `${d.question.replace(/\|/g, "/")}|${d.decision.replace(/\|/g, "/")}${esc4}`;
+    });
+    out += `  decisions: ${parts.join("; ")}
+`;
+  }
   return out;
 }
 function writeLedgerTaskEntry(filePath, entry) {
@@ -22338,7 +22358,7 @@ ${serialized}`;
   if (entry.id) {
     const escapedId = entry.id.replace(/\./g, "\\.");
     const entryRegex = new RegExp(
-      `- \\[[x \u2192\\-]\\] ${escapedId}:[^\\n]*\\n(?:  [^\\n]*\\n)*`,
+      `- \\[(?:x|\u2192|->| )\\] ${escapedId}:[^\\n]*\\n(?:  [^\\n]*\\n)*`,
       "g"
     );
     if (entryRegex.test(content)) {
@@ -22510,7 +22530,7 @@ ${desc}
     data: { path: filePath, taskId }
   };
 }
-function ledgerTaskUpdate(taskId, taskName, gate, result, detail) {
+function ledgerTaskUpdate(taskId, taskName, gate, result, detail, duration_ms) {
   const ledger = findActiveLedger();
   if (!ledger) {
     return { success: false, message: "No active ledger" };
@@ -22523,7 +22543,7 @@ function ledgerTaskUpdate(taskId, taskName, gate, result, detail) {
   }
   if (!entry.gates) entry.gates = [];
   const existingIdx = entry.gates.findIndex((g) => g.gate === gate);
-  const gateRecord = { gate, result, ...detail !== void 0 ? { detail } : {} };
+  const gateRecord = { gate, result, ...detail !== void 0 ? { detail } : {}, ...duration_ms !== void 0 ? { duration_ms } : {} };
   if (existingIdx >= 0) {
     entry.gates[existingIdx] = gateRecord;
   } else {
@@ -25114,7 +25134,7 @@ function ledgerTool(action, taskId, branch, keyword, commitHash, commitMessage, 
       if (!gate) return { content: [{ type: "text", text: "\u274C gate required for task_update" }] };
       if (!gateResult) return { content: [{ type: "text", text: "\u274C gateResult required for task_update (pass|fail|skip)" }] };
       const result = gateResult === "pass" || gateResult === "fail" || gateResult === "skip" ? gateResult : "fail";
-      const res = ledgerTaskUpdate(taskId, taskName || taskId, gate, result, gateDetail);
+      const res = ledgerTaskUpdate(taskId, taskName || taskId, gate, result, gateDetail, duration_ms);
       return { content: [{ type: "text", text: res.message }] };
     }
     case "archive":
