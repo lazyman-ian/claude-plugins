@@ -57,8 +57,17 @@ mkdir -p "$REVIEW_DIR" 2>/dev/null || true
 BRANCH=$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null || echo "detached")
 SAFE_BRANCH=$(echo "$BRANCH" | /usr/bin/sed 's/\//-/g')
 REVIEW_LOG="$REVIEW_DIR/review-session-${SAFE_BRANCH}.md"
-# Fresh log per session (same branch, new session = reset)
-printf "# Review Session: %s\n\nBranch: %s\nCreated: %s\n\n" "$BRANCH" "$BRANCH" "$(date '+%Y-%m-%d %H:%M')" > "$REVIEW_LOG"
+# Append to existing log with session separator; create fresh if not exists
+if [[ ! -f "$REVIEW_LOG" ]]; then
+  printf "# Review Session: %s\n\nBranch: %s\nCreated: %s\n\n" "$BRANCH" "$BRANCH" "$(date '+%Y-%m-%d %H:%M')" > "$REVIEW_LOG"
+else
+  # Enforce max size: if > 50KB, truncate to last 20KB
+  REVIEW_LOG_SIZE=$(wc -c < "$REVIEW_LOG" 2>/dev/null || echo "0")
+  if (( REVIEW_LOG_SIZE > 51200 )); then
+    tail -c 20480 "$REVIEW_LOG" > "${REVIEW_LOG}.tmp" && mv "${REVIEW_LOG}.tmp" "$REVIEW_LOG"
+  fi
+  printf "\n---\n## Session: %s\n\n" "$(date '+%Y-%m-%d %H:%M')" >> "$REVIEW_LOG"
+fi
 # Cleanup: delete review logs older than 7 days (stale branches)
 /usr/bin/find "$REVIEW_DIR" -name "review-session-*.md" -mtime +7 -delete 2>/dev/null || true
 

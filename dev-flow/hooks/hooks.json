@@ -48,9 +48,9 @@
         "matcher": "Edit|Write",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Permission requested to modify a file. Check scope alignment: 1) Is there an active implementation plan in thoughts/shared/plans/ with status 'in_progress'? 2) Is the target file listed in any phase's target_files or tasks' files arrays? 3) Is the operation consistent with the current task? If the file is clearly within the active plan's scope, return {\"decision\": \"approve\", \"reason\": \"File in active plan scope\"}. If clearly outside scope or no active plan, return {\"decision\": \"ask\"}. NEVER auto-approve if uncertain — default to {\"decision\": \"ask\"} for the standard permission dialog.",
-            "timeout": 10,
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/plan-scope-check.sh",
+            "timeout": 5,
             "statusMessage": "Checking plan scope..."
           }
         ]
