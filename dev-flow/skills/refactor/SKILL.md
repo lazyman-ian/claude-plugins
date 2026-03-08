@@ -11,7 +11,6 @@ description: >-
   Do NOT use for fixing bugs — use "debugging" instead.
 model: sonnet
 context: fork
-memory: project
 allowed-tools: [Read, Write, Edit, Bash, Glob, Grep, mcp__plugin_dev-flow_dev-flow__dev_config, mcp__plugin_dev-flow_dev-flow__dev_memory]
 ---
 

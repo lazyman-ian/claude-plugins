@@ -12,8 +12,7 @@ description: >-
   Do NOT use for skill quality audit — use "skill-stocktake".
 model: opus
 context: fork
-memory: project
-allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, Task, TaskCreate, TaskUpdate, TaskList, AskUserQuestion]
+allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, Agent, TaskCreate, TaskUpdate, TaskList, AskUserQuestion]
 ---
 
 # Prompt Optimizer - A/B Test All Prompt Artifacts

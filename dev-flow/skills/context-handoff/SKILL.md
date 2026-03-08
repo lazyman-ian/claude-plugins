@@ -10,7 +10,6 @@ description: >-
   "上下文交接", "清理会话", "保存进度", "交接文档".
   Do NOT use for regular task tracking — use TaskCreate directly instead.
 model: sonnet
-memory: project
 allowed-tools: [Read, Glob, Grep, Bash, TaskCreate, TaskList, mcp__plugin_dev-flow_dev-flow__dev_ledger, mcp__plugin_dev-flow_dev-flow__dev_handoff, mcp__plugin_dev-flow_dev-flow__dev_memory, mcp__plugin_dev-flow_dev-flow__dev_status]
 ---
 

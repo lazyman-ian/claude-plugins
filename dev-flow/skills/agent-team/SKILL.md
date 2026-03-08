@@ -1,9 +1,8 @@
 ---
 name: agent-team
 description: Orchestrates parallel agent teams for multi-phase development tasks with automatic model selection, task graphs, and teammate coordination. This skill should be used when the user needs parallel development with multiple agents, team-based task execution, or fan-out workflows within a single repository. Key capabilities include team lifecycle management, conflict detection, handoff aggregation, and dynamic scaling. Triggers on "agent team", "team up", "parallel agents", "fan-out", "master-worker", "organize team", "spawn agents", "组队开发", "并行开发", "多agent协作", "团队协作", "Agent团队", "多人协作", "任务分配", "团队编排". Do NOT use for cross-platform multi-repo workflows spanning iOS/Android/Web — use "cross-platform-team" instead.
-memory: user
 context: fork
-allowed-tools: [Read, Glob, Grep, Bash, Skill, Task, TeamCreate, TeamDelete, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet, AskUserQuestion, mcp__plugin_dev-flow_dev-flow__*]
+allowed-tools: [Read, Glob, Grep, Bash, Skill, Agent, TeamCreate, TeamDelete, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet, AskUserQuestion, mcp__plugin_dev-flow_dev-flow__*]
 ---
 
 # Agent Team

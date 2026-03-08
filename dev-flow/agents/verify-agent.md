@@ -1,6 +1,6 @@
 ---
 name: verify-agent
-description: Verification agent that verifies improvement effects after changes are applied. Triggers on "verify the improvements worked", "check if changes are effective", "验证改进效果", "检查优化结果".
+description: Verification agent that verifies improvement effects after changes are applied. Triggers on "verify the improvements worked", "check if changes are effective", "验证改进效果", "检查优化结果". Do NOT use directly — spawned by meta-iterate skill.
 model: sonnet
 memory: user
 allowed-tools: [Read, Bash, Glob]

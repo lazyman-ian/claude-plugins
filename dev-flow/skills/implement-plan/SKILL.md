@@ -2,9 +2,8 @@
 name: implement-plan
 description: Executes approved implementation plans from thoughts/shared/plans/ using an adaptive execution engine with risk-based quality gates. This skill should be used when the user has an approved plan and wants to implement it step-by-step with verification gates (fresh subagent, self-review, spec review, quality review). Triggers on "implement plan", "execute plan", "follow the plan", "run the plan", "start implementation", "use tdd", "test driven", "按计划实现", "执行方案", "按计划执行", "测试驱动", "执行计划", "实施方案", "分阶段实现". Do NOT use for general development workflow (commit/PR/release) — use "dev" instead.
 model: opus
-memory: project
 context: fork
-allowed-tools: [Read, Glob, Grep, Edit, Write, Bash, Task, TaskCreate, TaskUpdate, TaskList, TaskGet, mcp__plugin_dev-flow_dev-flow__*, mcp__figma__get_design_context, mcp__figma__get_screenshot, mcp__figma__get_metadata]
+allowed-tools: [Read, Glob, Grep, Edit, Write, Bash, Agent, TaskCreate, TaskUpdate, TaskList, TaskGet, mcp__plugin_dev-flow_dev-flow__*, mcp__figma__get_design_context, mcp__figma__get_screenshot, mcp__figma__get_metadata]
 ---
 
 # Implement Plan

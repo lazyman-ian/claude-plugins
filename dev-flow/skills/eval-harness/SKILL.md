@@ -13,7 +13,6 @@ description: >-
   Do NOT use for simple one-shot verification — use "verify" skill instead.
 allowed-tools: [Read, Bash, Glob, Grep, Write]
 model: sonnet
-memory: project
 ---
 
 # Eval Harness - Structured Task Evaluation

@@ -1,6 +1,6 @@
 ---
 name: implement-agent
-description: Implementation agent that executes plan phases with TDD and creates handoffs. Triggers on "implement phase 1 from the plan", "execute the implementation plan", "按计划实现", "执行方案".
+description: Implementation agent that executes plan phases with TDD and creates handoffs. Triggers on "implement phase 1 from the plan", "execute the implementation plan", "按计划实现", "执行方案". Do NOT use directly — spawned by implement-plan skill.
 model: sonnet
 color: green
 isolation: worktree

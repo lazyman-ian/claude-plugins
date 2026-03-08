@@ -9,8 +9,7 @@ description: >-
   "创建计划", "技术设计", "任务规划", "实施计划".
   Do NOT use for open-ended design exploration or brainstorming — use "brainstorm" instead.
 model: opus
-memory: project
-allowed-tools: [Read, Glob, Grep, WebSearch, Task, TaskCreate, TaskUpdate]
+allowed-tools: [Read, Glob, Grep, WebSearch, Agent, TaskCreate, TaskUpdate]
 ---
 
 # Implementation Plan

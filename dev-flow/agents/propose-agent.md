@@ -1,6 +1,6 @@
 ---
 name: propose-agent
-description: Proposal agent that generates improvement proposals for components. Triggers on "propose improvements for this agent", "suggest fixes for performance issues", "提出改进建议", "生成优化方案".
+description: Proposal agent that generates improvement proposals for components. Triggers on "propose improvements for this agent", "suggest fixes for performance issues", "提出改进建议", "生成优化方案". Do NOT use directly — spawned by meta-iterate skill.
 model: sonnet
 color: purple
 ---

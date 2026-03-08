@@ -2,9 +2,8 @@
 name: meta-iterate
 description: Analyzes Claude Code session performance and iterates on agent/skill prompts to improve workflow effectiveness. This skill should be used when the user wants to review session insights, improve existing prompts, develop new skills, audit skill quality, or compound learnings into permanent artifacts. Triggers on "improve prompts", "analyze sessions", "self-improve", "meta iterate", "skill development", "discover skills", "insights analysis", "优化工作流", "迭代agent", "分析session", "开发skill", "审计技能", "分析性能", "优化Agent", "会话分析", "迭代改进". Do NOT use for initial skill creation — use "skill-creator" or "skill-development" instead.
 model: opus
-memory: user
 context: fork
-allowed-tools: [Read, Glob, Grep, Write, Edit, Bash, WebSearch, Task, TaskCreate, TaskUpdate, TaskList, AskUserQuestion]
+allowed-tools: [Read, Glob, Grep, Write, Edit, Bash, WebSearch, Agent, TaskCreate, TaskUpdate, TaskList, AskUserQuestion]
 ---
 
 # meta-iterate - Self-Improvement & Skill Development

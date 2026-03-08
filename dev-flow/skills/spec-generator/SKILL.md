@@ -10,7 +10,6 @@ description: >-
   Do NOT use for brainstorming (use brainstorm skill instead).
 allowed-tools: [Read, Write, Glob, Grep, Bash]
 model: sonnet
-memory: project
 ---
 
 # Spec Generator

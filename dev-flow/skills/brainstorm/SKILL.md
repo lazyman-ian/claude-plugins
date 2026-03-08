@@ -2,8 +2,7 @@
 name: brainstorm
 description: Explores design options and clarifies requirements through structured Socratic questioning before any creative work begins. This skill should be used when the user wants to brainstorm approaches, evaluate multiple implementation options, clarify vague requirements, or make technical decisions before committing to a plan. One question at a time, options over open-ended, YAGNI-strict. Triggers on "brainstorm", "explore options", "design discussion", "evaluate approaches", "compare options", "think through", "头脑风暴", "设计讨论", "细化方案", "探索方案", "对比方案", "方案讨论", "需求分析", "技术选型", "方案对比". Do NOT use for creating concrete implementation plans — use "create-plan" instead.
 model: opus
-memory: project
-allowed-tools: [Read, Glob, Grep, WebSearch, Task, AskUserQuestion, mcp__plugin_dev-flow_dev-flow__dev_memory, mcp__plugin_dev-flow_dev-flow__dev_handoff]
+allowed-tools: [Read, Glob, Grep, WebSearch, TaskCreate, TaskUpdate, AskUserQuestion, mcp__plugin_dev-flow_dev-flow__dev_memory, mcp__plugin_dev-flow_dev-flow__dev_handoff]
 ---
 
 # Brainstorm — Design Exploration

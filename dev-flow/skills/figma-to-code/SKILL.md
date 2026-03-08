@@ -11,7 +11,6 @@ description: >-
   Do NOT use for creating designs — only converting existing Figma designs to code.
 model: sonnet
 context: fork
-memory: project
 allowed-tools:
   - Read
   - Write

@@ -9,7 +9,6 @@ description: >-
   "插件发布", "版本升级", "发布插件", "版本管理".
   Do NOT use for git tag releases — use "dev" skill with /dev release instead.
 model: sonnet
-memory: project
 allowed-tools: [Read, Edit, Glob, Grep, Bash, mcp__plugin_dev-flow_dev-flow__dev_version, mcp__plugin_dev-flow_dev-flow__dev_config]
 ---
 

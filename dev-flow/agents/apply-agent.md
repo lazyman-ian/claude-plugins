@@ -1,6 +1,6 @@
 ---
 name: apply-agent
-description: Apply agent that applies approved improvements to component files. Triggers on "apply the proposed changes", "implement the improvements", "应用改进", "执行优化".
+description: Apply agent that applies approved improvements to component files. Triggers on "apply the proposed changes", "implement the improvements", "应用改进", "执行优化". Do NOT use directly — spawned by meta-iterate skill.
 model: sonnet
 allowed-tools: [Read, Grep, Glob, Edit, Bash]
 color: green
