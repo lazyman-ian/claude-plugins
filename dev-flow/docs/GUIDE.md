@@ -106,7 +106,7 @@ start → [brainstorm] → [create-plan] → [validate] → implement-plan → v
 每个步骤：
 - `start` — 创建分支 + Ledger
 - `brainstorm` — 苏格拉底式探索（需求不清晰时）
-- `create-plan` — 研究 → 结构化计划 → `thoughts/shared/plans/`
+- `create-plan` — 研究 → 结构化计划 → `thoughts/plans/`
 - `validate` — 验证技术选型
 - `implement-plan` — 5-gate pipeline 执行
 - `verify` — VDD 验证（exit code 0）
@@ -721,7 +721,7 @@ dev_coordinate(action="replan")           # 重新规划（串行化冲突任务
 |------|------|---------|
 | **v7.1.0** | 2026-03-08 | **Autonomous Pipeline**: `/dev start --auto` 全自主流水线；spec-generator 重构（纯函数）；spec-validator + 确定性脚本（`validate-spec.sh` + `detect-escalation.sh`）；Review Gate Loop；Proof Manifest 强制（TaskCompleted hook）；`/dev spec` 变为 Notion 适配器 |
 | **v7.0.0** | 2026-02-27 | **Closed-Loop Learning Engine**: Ledger v2（gate tracking + 结构化状态）；Adaptive Execution Engine（L1/L2/L3 决策）；Execution Report（`.proof/execution-report.md`）；泛化 scope 推断（`dev_defaults` 读 `.dev-flow.json` 或目录结构）；176 个测试 |
-| **v6.3.0** | 2026-02-22 | **Agentic Engineering**: Task Contracts + Proof Manifest；Decision Agent（Sonnet）；三层决策架构；Self-Healing Retry；Silent Execution；Auto-Resume（`.resume-directive.md`）；Context Diet（仅注入 critical 知识） |
+| **v6.3.0** | 2026-02-22 | **Agentic Engineering**: Task Contracts + Proof Manifest；Decision Agent（Sonnet）；三层决策架构；Self-Healing Retry；Silent Execution；Auto-Resume（`.claude/state/pipeline/{task_id}.json`）；Context Diet（仅注入 critical 知识） |
 | **v6.0.0** | 2026-02-15 | **Notion Pipeline**（inbox + spec 适配器）；**Rules 分发系统**（12 个模板）；vitest + 98 个测试；Hook 系统升级；安全扫描 skill |
 | **v5.0.0** | 2026-02-12 | **5-Gate Execution Pipeline**（Fresh Subagent → Self-Review → Spec Review → Quality Review → Verify）；brainstorm skill；spec-reviewer agent；自适应 plan 粒度 |
 | **v4.0.0** | 2026-02-09 | **Knowledge Vault**（Markdown-first，SQLite FTS5，priority + decay）；quality gate；path-scoped pitfall 模板 |

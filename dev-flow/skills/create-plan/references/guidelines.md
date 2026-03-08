@@ -176,7 +176,7 @@ Task(
 
   **Context:** Planning real-time notification system
 
-  **Handoff Directory:** thoughts/shared/handoffs/notification-feature/
+  **Handoff Directory:** thoughts/handoffs/notification-feature/
   **Handoff Filename:** research-01-websocket-patterns.md
 
   ---

@@ -1,14 +1,17 @@
 {
   "name": "utils",
-  "version": "1.3.0",
-  "description": "Utility tools for code quality, search, and safety hooks",
+  "version": "1.4.0",
+  "description": "Utility tools: code quality (deslop), external research (Perplexity, Context7, Nia), codebase exploration (RepoPrompt), session analysis (Braintrust), and safety hooks",
   "author": {
     "name": "lazyman"
   },
   "license": "MIT",
   "keywords": [
     "deslop",
-    "search",
+    "research",
+    "perplexity",
+    "braintrust",
+    "repoprompt",
     "code-quality",
     "safety",
     "hooks"

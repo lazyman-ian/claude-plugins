@@ -26,10 +26,10 @@ npm test --prefix mcp-server                  # All 176 tests
 ```
 .claude-plugin/plugin.json  # Plugin manifest (v7.1.0)
 .mcp.json                   # MCP server config → scripts/mcp-server.cjs
-skills/                     # 25 skills (SKILL.md + references/)
-commands/                   # 30 command definitions
-agents/                     # 15 agent prompts + references/ (security/quality checklists)
-hooks/hooks.json            # 20 hooks across 9 types (PreToolUse, PostToolUse, SessionStart, SessionEnd, PreCompact, Stop, SubagentStart, UserPromptSubmit, TaskCompleted)
+skills/                     # 11 skills (SKILL.md + references/)
+commands/                   # 14 command definitions
+agents/                     # 9 agent prompts + references/ (security/quality checklists)
+hooks/hooks.json            # 20 hooks across 11 types
 scripts/track-team.sh       # Session→team mapping for StatusLine
 scripts/validate-spec.sh    # Deterministic spec quality check (5 criteria, exit 0/1/2)
 scripts/detect-escalation.sh # L3 escalation detection (auth/migration/deps/API/infra)
@@ -157,7 +157,8 @@ ls -l hooks/dist/*.mjs
 
 ### Continuity System
 
-- **Ledgers**: `thoughts/ledgers/CONTINUITY_CLAUDE-*.md` - Track task state across sessions
+- **Ledgers**: `thoughts/ledgers/TASK-XXX.md` - Track task state across sessions
+- **Registry**: `.claude/state/context.json` - Active ledger registry, avoids CONTINUITY_CLAUDE-* filename pattern
 - **Task Sync**: Bridge ledger state with Claude Code Task Management tools
 - Stored in git for persistence
 
@@ -254,7 +255,7 @@ Agents in `agents/` are spawned via Task tool for complex operations:
 - `implement-agent.md` - TDD execution + 11-point self-review
 - `spec-reviewer.md` - Verify implementation matches spec exactly
 - `code-reviewer.md` - Multi-dimensional review with P0-P3 severity + review session log
-- `evaluate/diagnose/propose/apply/verify-agent.md` - Meta-iterate cycle
+- `debug-agent.md` - Investigate and fix issues using logs, code, and git history
 - `spec-validator.md` - Deterministic spec quality validation + self-heal
 - `validate-agent.md` - Validate plan tech choices (mandatory, with escalation detection)
 - `decision-agent.md` - Runtime uncertainty routing (Sonnet, fork context)
@@ -310,17 +311,16 @@ dev_config → python|fix:black .|check:ruff .|scopes:api,models|src:custom
 ### Closed-Loop Learning Engine
 - **Ledger v2**: Structured task state with gate tracking (`gates: self:pass spec:fail>pass(r1: err)`), retry counts, timestamps
 - **Adaptive Execution Engine**: L1 hooks enforce scope/context limits; L2 decision-agent routes uncertainty; L3 human escalation for security/architecture
-- **Execution Report**: `continuity/execution-report.ts` generates `.proof/execution-report.md` from ledger gate data — task completion, gate pass rates, self-healing stats, top pitfalls
+- **Execution Report**: `continuity/execution-report.ts` generates execution report from ledger gate data — task completion, gate pass rates, self-healing stats, top pitfalls
 - **Generalized Scope Inference**: `defaults.ts` reads `scopes` from `.dev-flow.json` (primary) or infers from top-level directory structure (fallback); no hardcoded project-specific patterns
 
 ### Agentic Engineering (v6.3.0)
 - **Task Contracts**: Plan tasks include `contract:` with explicit acceptance criteria and `autonomy: 1|2` levels
-- **Proof Manifest**: Structured evidence per task at `.proof/{task-id}.json` (verdict, commands, diff_stats)
 - **Decision Agent**: Lightweight Sonnet agent (`decision-agent.md`) for runtime uncertainty routing — security/architecture escalates to human
 - **Three-Layer Decision Architecture**: L1 Environment auto-judge → L2 Decision Agent (Sonnet) → L3 Human (PR only)
 - **Self-Healing Retry**: verify fail → diagnose → fix implementation (never modify verify command) → re-verify (max 2)
 - **Silent Execution**: No explanatory text during implementation; output only at milestones or final
-- **Auto-Resume**: `thoughts/ledgers/.resume-directive.md` written by context-handoff, injected by SessionStart
+- **Auto-Resume**: Auto-pipeline state file (`.claude/state/pipeline/{task_id}.json`) injected by SessionStart
 - **Context Diet**: SessionStart injects only `priority='critical'` knowledge entries
 
 ### Ralph Loop Integration
@@ -368,7 +368,7 @@ Full autonomous execution from requirements to PR — human only at entry (provi
 │  implement-plan (5-gate pipeline)        │
 │  Per-task: subagent → self-review →      │
 │    spec-review → quality-review → verify │
-│  verify pass → .proof/ → commit → next   │
+│  verify pass → commit → next              │
 └──────────────────────┬───────────────────┘
                        ▼
 ┌──────────────────────────────────────────┐
@@ -388,7 +388,7 @@ Full autonomous execution from requirements to PR — human only at entry (provi
 - Deterministic scripts (`validate-spec.sh`, `detect-escalation.sh`) for hard judgments — zero token cost, agents for self-heal
 - L3 escalation (security/architecture) is the only path that pulls in a human mid-pipeline — false positives expected
 - Review Gate is a pre-requisite for PR, not a post-PR step
-- Proof manifest (`.proof/`) enforced by TaskCompleted hook — tasks cannot complete without it
+- Ledger gate records are the single source of truth for task completion evidence
 
 ### Notion Pipeline
 Task triage (`/dev inbox`), spec generation (`/dev spec` as Notion adapter → `spec-generator`), and post-merge Notion status update hook. `/dev spec` extracts Notion content to plain text, then delegates to `spec-generator` (source-agnostic). Configured via `notion` section in `.dev-flow.json`.

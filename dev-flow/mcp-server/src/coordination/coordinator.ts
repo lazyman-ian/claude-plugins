@@ -21,14 +21,18 @@ export class TaskCoordinator {
 
   constructor(projectDir?: string) {
     const base = projectDir || process.cwd();
-    this.persistPath = path.join(base, 'thoughts', '.dev-flow-cache', 'coordinator.json');
-    this.load();
+    this.persistPath = path.join(base, '.claude', 'state', 'coordinator.json');
+    this.load(path.join(base, 'thoughts', '.dev-flow-cache', 'coordinator.json'));
   }
 
-  private load(): void {
+  private load(legacyPath?: string): void {
     try {
-      if (!fs.existsSync(this.persistPath)) return;
-      const raw = fs.readFileSync(this.persistPath, 'utf-8');
+      let loadPath = this.persistPath;
+      if (!fs.existsSync(loadPath) && legacyPath && fs.existsSync(legacyPath)) {
+        loadPath = legacyPath;
+      }
+      if (!fs.existsSync(loadPath)) return;
+      const raw = fs.readFileSync(loadPath, 'utf-8');
       const data: TaskItem[] = JSON.parse(raw);
       this.tasks = new Map(data.map(t => [t.id, t]));
     } catch {
@@ -44,7 +48,7 @@ export class TaskCoordinator {
         fs.mkdirSync(dir, { recursive: true });
       }
       const data = JSON.stringify(Array.from(this.tasks.values()), null, 2);
-      const tmpPath = this.persistPath + '.tmp';
+      const tmpPath = this.persistPath + '.tmp.' + process.pid;
       fs.writeFileSync(tmpPath, data, 'utf-8');
       fs.renameSync(tmpPath, this.persistPath);
     } catch {

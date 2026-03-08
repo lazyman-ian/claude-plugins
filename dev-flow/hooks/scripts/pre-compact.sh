@@ -1,6 +1,9 @@
 #!/bin/bash
 set -o pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/registry.sh"
+
 INPUT=$(cat)
 TRIGGER=$(echo "$INPUT" | jq -r '.trigger // "auto"' 2>/dev/null)
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
@@ -9,6 +12,7 @@ CUSTOM_INST=$(echo "$INPUT" | jq -r '.custom_instructions // empty' 2>/dev/null)
 
 project_dir="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 LEDGER_DIR="$project_dir/thoughts/ledgers"
+mkdir -p "$project_dir/.claude/state"
 
 # --- Layer 1: Filesystem state ---
 BRANCH=$(git -C "$project_dir" branch --show-current 2>/dev/null || echo "detached")
@@ -18,13 +22,17 @@ RECENT_COMMITS=$(git -C "$project_dir" log --oneline -5 2>/dev/null)
 
 LEDGER_STATE=""
 OPEN_QUESTIONS=""
-if [[ -d "$LEDGER_DIR" ]]; then
-  ACTIVE_LEDGER=$(ls -t "$LEDGER_DIR"/CONTINUITY_CLAUDE-*.md 2>/dev/null | head -1)
-  if [[ -n "$ACTIVE_LEDGER" && -f "$ACTIVE_LEDGER" ]]; then
-    LEDGER_STATE=$(grep -A 20 '## State' "$ACTIVE_LEDGER" 2>/dev/null | head -20)
-    OPEN_QUESTIONS=$(grep -A 10 '## Open Questions' "$ACTIVE_LEDGER" 2>/dev/null | head -10)
-    /usr/bin/sed -i '' "s/^Updated: .*/Updated: $(date -u +"%Y-%m-%dT%H:%M:%S.000Z")/" "$ACTIVE_LEDGER" 2>/dev/null || true
+ACTIVE_LEDGER=$(registry_resolve "$project_dir" 2>/dev/null || true)
+if [[ -n "$ACTIVE_LEDGER" ]]; then
+  # Resolve to absolute if relative
+  if [[ ! "$ACTIVE_LEDGER" = /* ]]; then
+    ACTIVE_LEDGER="$project_dir/$ACTIVE_LEDGER"
   fi
+fi
+if [[ -n "$ACTIVE_LEDGER" && -f "$ACTIVE_LEDGER" ]]; then
+  LEDGER_STATE=$(grep -A 20 '## State' "$ACTIVE_LEDGER" 2>/dev/null | head -20)
+  OPEN_QUESTIONS=$(grep -A 10 '## Open Questions' "$ACTIVE_LEDGER" 2>/dev/null | head -10)
+  /usr/bin/sed -i '' "s/^Updated: .*/Updated: $(date -u +"%Y-%m-%dT%H:%M:%S.000Z")/" "$ACTIVE_LEDGER" 2>/dev/null || true
 fi
 
 # --- Layer 2: Transcript state (via Node.js for large JSONL) ---
@@ -71,7 +79,7 @@ fi
 
 # --- Output 1: Compact Checkpoint (file) ---
 if [[ -d "$LEDGER_DIR" ]]; then
-  CHECKPOINT="$LEDGER_DIR/.compact-checkpoint.md"
+  CHECKPOINT="$project_dir/.claude/state/checkpoint.md"
   cat > "$CHECKPOINT" << HEREDOC
 # Compact Checkpoint
 **Branch**: ${BRANCH}

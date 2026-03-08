@@ -4,15 +4,14 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-lazyman-ian marketplace for Claude Code plugins. 5 plugins in a single repository.
+lazyman-ian marketplace for Claude Code plugins. 4 plugins in a single repository.
 
 | Plugin | Version | Purpose |
 |--------|---------|---------|
 | dev-flow | 7.1.0 | Autonomous dev workflow: pipeline, 5-gate quality, code review, knowledge vault |
 | ios-swift-plugin | 1.3.0 | iOS/Swift: SwiftUI, Concurrency, WidgetKit, Migration |
 | android-kotlin-plugin | 1.0.0 | Android/Kotlin: Compose, Coroutines, Architecture, Migration |
-| utils | 1.3.0 | Code quality: deslop, search-code, safety hooks |
-| research | 1.3.0 | Research: Perplexity AI, Braintrust, RepoPrompt |
+| utils | 1.4.0 | Code quality, research, codebase exploration, UI tools, plugin release |
 
 ## Build Commands
 
@@ -44,7 +43,7 @@ Run `/dev-flow:init` once per project to create `.dev-flow.json` and `thoughts/`
 ## Directory Structure
 
 ```
-├── dev-flow/                 # 25 skills, 30 commands, 15 agents, 21 MCP tools
+├── dev-flow/                 # 11 skills, 14 commands, 9 agents, 21 MCP tools
 │   ├── .claude-plugin/       # Plugin manifest (v7.1.0)
 │   ├── mcp-server/src/       # MCP server (TypeScript)
 │   │   ├── index.ts          # Entry, tool registration
@@ -62,8 +61,7 @@ Run `/dev-flow:init` once per project to create `.dev-flow.json` and `thoughts/`
 │   └── templates/rules/      # 12 rule templates
 ├── ios-swift-plugin/         # 16 skills, 4 agents
 ├── android-kotlin-plugin/    # 7 skills, 2 agents
-├── utils-plugin/             # 2 skills, safety hooks
-├── research-plugin/          # 3 skills, 3 agents
+├── utils-plugin/             # 3 skills, 1 agent, 5 hooks, 4 scripts
 ├── .claude-plugin/           # Marketplace registry
 └── thoughts/                 # Plans, specs, knowledge, ledgers
 ```

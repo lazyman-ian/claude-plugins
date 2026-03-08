@@ -131,12 +131,12 @@ for f in "${files[@]}"; do
   basename_f="$(basename "$f")"
   basename_lower="$(printf '%s' "$basename_f" | tr '[:upper:]' '[:lower:]')"
 
-  # Rule 1: auth/security paths
+  # Rule 1: auth/security paths and specific credential keywords
+  # Condition 1: path-segment match (auth/ or security/ directory)
+  # Condition 2: content-keyword match (specific terms only, not bare "auth" or "permission")
   if printf '%s' "$lower" | grep -qE '(^|/)auth(\/|$|\.)' || \
      printf '%s' "$lower" | grep -qE '(^|/)security(\/|$|\.)' || \
-     printf '%s' "$lower" | grep -qiE 'credential|encrypt|permission|authenti' || \
-     printf '%s' "$lower" | grep -qE 'auth[^o]' || \
-     printf '%s' "$lower" | grep -q 'security'; then
+     printf '%s' "$lower" | grep -qiE '\b(credential|encrypt(ion)?|authentication|authorization)\b'; then
     printf 'AUTH/SECURITY: %s\n' "$f" >> "$reasons_file"
   fi
 

@@ -8,6 +8,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, statSy
 import { join, basename } from 'path';
 import type { GateRecord, DecisionRecord, LedgerTaskEntry } from './ledger-types';
 import { memorySave } from './memory';
+import { registerBranch, unregisterBranch, lookupBranch, fallbackLedgerScan } from './registry';
 
 const LEDGERS_DIR = 'thoughts/ledgers';
 const ARCHIVE_DIR = 'thoughts/ledgers/archive';
@@ -288,34 +289,60 @@ function getCurrentBranch(): string {
 }
 
 function getTaskFromBranch(branch: string): string | null {
-  const match = branch.match(/TASK-(\d+)/);
-  return match ? `TASK-${match[1]}` : null;
+  // Support TASK-\d+ format and freeform IDs embedded in branch name
+  // e.g., feature/TASK-123-foo → TASK-123, fix/fix-auth-bug → fix-auth-bug
+  const taskMatch = branch.match(/TASK-\d+/i);
+  if (taskMatch) return taskMatch[0].toUpperCase();
+  // Strip common prefixes and return the remainder as ID
+  const stripped = branch.replace(/^(feature|fix|bugfix|refactor|perf|test|docs|hotfix)\//, '');
+  return stripped.length > 0 ? stripped : null;
 }
 
 function findActiveLedger(): LedgerInfo | null {
   const cwd = getCwd();
+
+  // 1. Registry lookup
+  const entry = lookupBranch(cwd);
+  if (entry) {
+    const absPath = join(cwd, entry.ledger);
+    if (existsSync(absPath)) return parseLedger(absPath);
+  }
+
+  // 2. Branch→taskId→prefix match fallback
   const branch = getCurrentBranch();
   const taskId = getTaskFromBranch(branch);
 
-  if (!taskId) return null;
+  if (taskId) {
+    const ledgersPath = join(cwd, LEDGERS_DIR);
+    if (existsSync(ledgersPath)) {
+      let files = readdirSync(ledgersPath).filter(f => f.startsWith(taskId) && f.endsWith('.md') && !f.startsWith('.'));
+      if (files.length === 0) {
+        const lowerTaskId = taskId.toLowerCase();
+        files = readdirSync(ledgersPath).filter(f => f.toLowerCase().startsWith(lowerTaskId) && f.endsWith('.md') && !f.startsWith('.'));
+      }
+      if (files.length > 0) {
+        return parseLedger(join(ledgersPath, files[0]));
+      }
+    }
+  }
 
-  const ledgersPath = join(cwd, LEDGERS_DIR);
-  if (!existsSync(ledgersPath)) return null;
+  // 3. Last resort: fallback scan by mtime
+  const rel = fallbackLedgerScan(cwd);
+  if (rel) {
+    const absPath = join(cwd, rel);
+    if (existsSync(absPath)) return parseLedger(absPath);
+  }
 
-  const files = readdirSync(ledgersPath).filter(f => f.startsWith(taskId) && f.endsWith('.md'));
-  if (files.length === 0) return null;
-
-  const ledgerPath = join(ledgersPath, files[0]);
-  return parseLedger(ledgerPath);
+  return null;
 }
 
 function parseLedger(path: string): LedgerInfo {
   const content = readFileSync(path, 'utf-8');
   const name = basename(path, '.md');
 
-  // Extract task ID
-  const taskMatch = name.match(/TASK-\d+/);
-  const taskId = taskMatch ? taskMatch[0] : '';
+  // Extract task ID: prefer TASK-\d+ format, otherwise use full name as ID
+  const taskMatch = name.match(/TASK-\d+/i);
+  const taskId = taskMatch ? taskMatch[0].toUpperCase() : name;
 
   // Extract updated timestamp
   const updatedMatch = content.match(/^Updated:\s*(.+)$/m);
@@ -404,7 +431,7 @@ export function ledgerList(): LedgerResult {
 
   if (existsSync(ledgersPath)) {
     active.push(...readdirSync(ledgersPath)
-      .filter(f => f.endsWith('.md') && f.startsWith('TASK-')));
+      .filter(f => f.endsWith('.md') && !f.startsWith('.')));
   }
 
   if (existsSync(archivePath)) {
@@ -423,13 +450,13 @@ export function ledgerCreate(taskId: string, branchName: string): LedgerResult {
   const cwd = getCwd();
   const ledgersPath = join(cwd, LEDGERS_DIR);
 
-  if (!taskId.match(/^TASK-\d+$/)) {
-    return { success: false, message: 'Invalid TASK format' };
+  if (!taskId.match(/^[a-zA-Z0-9][a-zA-Z0-9-]*$/)) {
+    return { success: false, message: 'Invalid task ID format (use alphanumeric + hyphens, e.g., TASK-123, fix-auth-bug)' };
   }
 
   // Extract description from branch name
   const desc = branchName
-    .replace(/^(feature|fix|refactor|perf|test|docs|hotfix)\/TASK-\d+-/, '')
+    .replace(/^(feature|fix|refactor|perf|test|docs|hotfix)\/([A-Z]+-\d+-)?/, '')
     .replace(/-/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase());
 
@@ -472,6 +499,7 @@ ${desc}
 `;
 
   writeFileSync(filePath, template);
+  registerBranch(cwd, branchName, join(LEDGERS_DIR, fileName), taskId);
 
   return {
     success: true,
@@ -741,6 +769,7 @@ export function ledgerArchive(taskId?: string): LedgerResult {
 
     writeFileSync(destPath, content);
     execSync(`rm "${srcPath}"`);
+    unregisterBranch(cwd, getCurrentBranch());
 
     return {
       success: true,
@@ -793,7 +822,7 @@ export function ledgerSearch(keyword: string): LedgerResult {
  */
 export function loadCompactCheckpoint(): string | null {
   const cwd = getCwd();
-  const checkpointPath = join(cwd, LEDGERS_DIR, '.compact-checkpoint.md');
+  const checkpointPath = join(cwd, '.claude/state/checkpoint.md');
   if (!existsSync(checkpointPath)) return null;
 
   try {

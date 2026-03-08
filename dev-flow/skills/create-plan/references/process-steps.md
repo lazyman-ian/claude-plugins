@@ -157,7 +157,7 @@ Get buy-in on structure before writing details.
 ### 4a. Ensure Directory Exists
 
 ```bash
-mkdir -p thoughts/shared/plans
+mkdir -p thoughts/plans
 ```
 
 ### 4b. Create Plan File
@@ -205,11 +205,22 @@ For each phase, decide whether to break into tasks:
 
 ## Step 5: Review
 
+### 5.0 Auto Mode Check
+
+If `.claude/state/pipeline/{task_id}.json` exists with `auto: true`:
+- Skip Step 5a-5c (interactive review)
+- Self-approve the plan
+- Proceed directly to validate-agent
+
+Auto mode trusts validate-agent as the quality gate instead of human review.
+
+Interactive mode (no state file) unchanged — still requires user approval.
+
 ### 5a. Present Draft Location
 
 ```
 I've created the initial implementation plan at:
-`thoughts/shared/plans/YYYY-MM-DD-description.md`
+`thoughts/plans/YYYY-MM-DD-description.md`
 
 Please review:
 - Are phases properly scoped?

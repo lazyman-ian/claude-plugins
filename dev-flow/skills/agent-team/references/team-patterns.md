@@ -146,7 +146,7 @@ dev_handoff(action='write', handoff={
   agent_id: 'planner',
   task_id: 'TASK-001',
   status: 'success',
-  summary: 'Plan created at thoughts/shared/plans/PLAN-TASK-001.md',
+  summary: 'Plan created at thoughts/plans/PLAN-TASK-001.md',
   for_next_agent: 'Implement Phase 1-3 from plan'
 })
 

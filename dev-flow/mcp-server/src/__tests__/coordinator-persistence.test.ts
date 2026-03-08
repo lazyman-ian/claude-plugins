@@ -42,7 +42,7 @@ describe('TaskCoordinator persistence', () => {
     expect(status.tasks.find(t => t.id === 'persist-1')).toBeDefined();
   });
 
-  test('uses project-scoped path thoughts/.dev-flow-cache/coordinator.json', () => {
+  test('uses project-scoped path .claude/state/coordinator.json', () => {
     const c = new TaskCoordinator(tmpDir);
     const task: TaskItem = {
       id: 'scope-1',
@@ -53,7 +53,7 @@ describe('TaskCoordinator persistence', () => {
     };
     c.enqueue(task);
 
-    const expectedPath = path.join(tmpDir, 'thoughts', '.dev-flow-cache', 'coordinator.json');
+    const expectedPath = path.join(tmpDir, '.claude', 'state', 'coordinator.json');
     expect(fs.existsSync(expectedPath)).toBe(true);
   });
 
@@ -61,12 +61,12 @@ describe('TaskCoordinator persistence', () => {
     const c = new TaskCoordinator(tmpDir);
     c.enqueue({ id: 'a1', description: 'x', targetFiles: [], dependencies: [], status: 'pending' });
 
-    const tmpFile = path.join(tmpDir, 'thoughts', '.dev-flow-cache', 'coordinator.json.tmp');
+    const tmpFile = path.join(tmpDir, '.claude', 'state', 'coordinator.json.tmp');
     expect(fs.existsSync(tmpFile)).toBe(false);
   });
 
   test('recovers gracefully from corrupt persist file', () => {
-    const cacheDir = path.join(tmpDir, 'thoughts', '.dev-flow-cache');
+    const cacheDir = path.join(tmpDir, '.claude', 'state');
     fs.mkdirSync(cacheDir, { recursive: true });
     fs.writeFileSync(path.join(cacheDir, 'coordinator.json'), 'not valid json{{{{');
 

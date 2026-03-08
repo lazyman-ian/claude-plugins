@@ -3,12 +3,13 @@ name: create-plan
 description: >-
   Creates detailed implementation plans with task breakdowns, dependency graphs, and verification
   criteria through interactive research. This skill should be used when the user has clear
-  requirements and needs a concrete, step-by-step technical plan saved to thoughts/shared/plans/.
+  requirements and needs a concrete, step-by-step technical plan saved to thoughts/plans/.
   Triggers on "create plan", "make a plan", "plan feature", "implementation plan", "technical plan",
   "write a plan", "制定计划", "设计方案", "规划功能", "技术方案", "写计划", "实现方案",
   "创建计划", "技术设计", "任务规划", "实施计划".
   Do NOT use for open-ended design exploration or brainstorming — use "brainstorm" instead.
 model: opus
+context: fork
 allowed-tools: [Read, Glob, Grep, WebSearch, Agent, TaskCreate, TaskUpdate]
 ---
 
@@ -62,7 +63,7 @@ CONTEXT GATHER → RESEARCH → STRUCTURE → WRITE PLAN → REVIEW
    - Query past patterns: `dev_memory(action="query", query="<feature-type> architecture")`
 2. **Research**: Parallel sub-tasks, verify findings
 3. **Structure**: Present outline, get buy-in
-4. **Write**: Create plan in `thoughts/shared/plans/`
+4. **Write**: Create plan in `thoughts/plans/`
 5. **Review**: Iterate until approved
 
 ### Task Granularity (v5.0.0)
@@ -104,7 +105,7 @@ Phases without `tasks` → implement-plan uses standard phase-level execution.
 ## Quick Reference
 
 ### Plan File Location
-`thoughts/shared/plans/YYYY-MM-DD-ENG-XXXX-description.md`
+`thoughts/plans/YYYY-MM-DD-ENG-XXXX-description.md`
 
 ### Plan Frontmatter (v2.1)
 
@@ -140,11 +141,11 @@ After plan is written and approved, **always** spawn `validate-agent` automatica
 
 | Result | Action |
 |--------|--------|
-| `VALIDATED` | If `--auto` flag present in context → auto-invoke `/dev implement-plan {plan_path}`. Without `--auto` → inform user plan is ready, await manual trigger. |
+| `VALIDATED` | Read `.claude/state/pipeline/{task_id}.json` — if `auto: true`, update state file (`current_stage → "implement"`, `plan_path → "{plan_path}"`) and auto-invoke `/dev implement-plan {plan_path}`. Without auto state → inform user plan is ready, await manual trigger. |
 | `NEEDS REVIEW` | Auto-modify plan based on findings, re-spawn `validate-agent` (max 2 attempts). If still `NEEDS REVIEW` after 2 attempts → treat as `MUST CHANGE`. |
 | `MUST CHANGE` | Stop. Output blocking problems clearly. Wait for human decision before proceeding. |
 
-**`--auto` flag**: Detected from user's prompt context (e.g., user included `--auto` in their request), not parsed as a CLI parameter.
+**Auto mode detection**: Read `.claude/state/pipeline/{task_id}.json` — if present and `auto: true`, skip confirmations and chain to next stage. Does not rely on LLM prompt context.
 
 ## Core Principles
 
@@ -152,6 +153,7 @@ After plan is written and approved, **always** spawn `validate-agent` automatica
 2. **Be Interactive**: Get buy-in at each step
 3. **Be Thorough**: Read files completely, include file:line refs
 4. **No Open Questions**: Resolve all questions before finalizing
+5. **Precise Specs**: Tasks must specify exact libraries, versions, and APIs — implementation agents execute, they don't research or choose technologies
 
 ## Example
 
@@ -162,5 +164,5 @@ User: /create_plan thoughts/tickets/eng_1478.md
 [Spawns parallel research tasks]
 [Presents informed understanding + questions]
 [Iterates with user]
-[Writes plan to thoughts/shared/plans/]
+[Writes plan to thoughts/plans/]
 ```

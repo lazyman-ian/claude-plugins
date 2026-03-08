@@ -80,7 +80,7 @@ You are executing plan: {plan_path}
 - Autonomy level: {autonomy} (1=milestone output per task, 2=final only)
 - Max 2 retries per verify failure
 - Stuck 3 iterations on same task: record guardrail in plan, skip to next
-- Write proof to .proof/{task-id}.json after each verify pass
+- Record gate results via dev_ledger after each verify pass
 - NEVER modify verify commands, only fix implementation code
 ```
 
@@ -123,6 +123,6 @@ If the same task fails verify 3 iterations in a row:
 
 - **Ledger**: Each iteration reads `dev_ledger(status)` to resume from correct task/gate
 - **Task Contract**: Contract fields become verification criteria in the prompt
-- **Proof Manifest**: Each successful verify writes `.proof/{task-id}.json`
+- **Completion Evidence**: Each successful verify is recorded in ledger gate entries
 - **Plan Checkboxes**: Tasks marked `[x]` after completion
 - **Git History**: Each task committed separately (one commit per task)

@@ -133,7 +133,7 @@ Or go fully autonomous:
 │                   /dev-flow:plan (optional)                      │
 │              Research → Design → Iterate → Generate plan         │
 │              logic-task (2-5min) + ui-task (5-15min)             │
-│              Output: thoughts/shared/plans/xxx.md                │
+│              Output: thoughts/plans/xxx.md                       │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
@@ -658,7 +658,7 @@ Auto-executes:
 1. Extract content to plain text (Notion MCP / clipboard / interactive)
 2. Delegate to `spec-generator` (source-agnostic pure function): classify → template → SPEC.md
 3. Auto-trigger `spec-validator` for quality verification
-4. Save to `thoughts/shared/specs/SPEC-{id}.md`
+4. Save to `thoughts/specs/SPEC-{id}.md`
 5. Validation pass → chain to `/dev create-plan` (`--auto` mode continues automatically)
 
 ### Rules Distribution
@@ -972,7 +972,7 @@ Bidirectional sync:
 - **Agentic Engineering**: Task contracts, proof manifests, decision-agent routing
 - **Self-Healing Retry**: verify fail → diagnose → fix → re-verify (max 2)
 - **Silent Execution**: No explanatory text during implementation
-- **Auto-Resume**: `thoughts/ledgers/.resume-directive.md` + SessionStart injection
+- **Auto-Resume**: `.claude/state/pipeline/{task_id}.json` + SessionStart injection
 
 ### v6.0.0 (2026-02-27)
 

@@ -14,12 +14,14 @@ Initialize dev-flow directory structure and platform-specific configuration.
 │   ├── ledgers/          # Task continuity tracking
 │   ├── handoffs/         # Agent handoff documents
 │   ├── plans/            # Implementation plans
-│   ├── shared/plans/     # Shared plans
+│   ├── specs/            # Spec documents
 │   └── knowledge/        # Knowledge vault (FTS5 indexed)
 │       ├── pitfalls/
 │       ├── patterns/
 │       ├── decisions/
 │       └── habits/
+├── .claude/
+│   └── state/            # Ephemeral state (gitignored)
 ├── docs/                 # Project documentation (@import)
 │   ├── glossary.md       # 术语表
 │   ├── toolbox.md        # 接口与工具

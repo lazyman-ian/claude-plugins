@@ -21502,9 +21502,9 @@ __export(continuity_exports, {
 });
 
 // src/continuity/ledger.ts
-var import_child_process8 = require("child_process");
-var import_fs2 = require("fs");
-var import_path2 = require("path");
+var import_child_process9 = require("child_process");
+var import_fs3 = require("fs");
+var import_path3 = require("path");
 
 // src/continuity/memory.ts
 var import_child_process7 = require("child_process");
@@ -21594,7 +21594,7 @@ function dbInsertKnowledge(entry) {
   const dbPath = getDbPath();
   if (!(0, import_fs.existsSync)(dbPath)) return false;
   const priority = entry.priority || "important";
-  const sql = `INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed, priority) VALUES ('${esc2(entry.id)}', '${esc2(entry.type)}', '${esc2(entry.platform)}', '${esc2(entry.title)}', '${esc2(entry.problem)}', '${esc2(entry.solution)}', '${esc2(entry.sourceProject)}', '${esc2(entry.sourceSession)}', '${esc2(entry.createdAt)}', '${esc2(entry.filePath)}', 0, NULL, '${esc2(priority)}');`;
+  const sql = `INSERT INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed, priority) VALUES ('${esc2(entry.id)}', '${esc2(entry.type)}', '${esc2(entry.platform)}', '${esc2(entry.title)}', '${esc2(entry.problem)}', '${esc2(entry.solution)}', '${esc2(entry.sourceProject)}', '${esc2(entry.sourceSession)}', '${esc2(entry.createdAt)}', '${esc2(entry.filePath)}', 0, NULL, '${esc2(priority)}') ON CONFLICT(id) DO UPDATE SET type=excluded.type, platform=excluded.platform, title=excluded.title, problem=excluded.problem, solution=excluded.solution, priority=excluded.priority, file_path=excluded.file_path;`;
   try {
     (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 3e3 });
     return true;
@@ -22144,7 +22144,7 @@ function reindexVault() {
   const dbPath = getDbPath();
   let indexed = 0;
   try {
-    (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "DELETE FROM knowledge WHERE file_path LIKE '%${vaultPath.replace(/'/g, "''")}%';"`, {
+    (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "DELETE FROM knowledge;"`, {
       encoding: "utf-8",
       timeout: 5e3
     });
@@ -22189,8 +22189,74 @@ function reindexVault() {
   return { indexed, message: `Reindexed ${indexed} entries from vault` };
 }
 
-// src/continuity/ledger.ts
+// src/continuity/registry.ts
+var import_fs2 = require("fs");
+var import_path2 = require("path");
+var import_child_process8 = require("child_process");
+var STATE_DIR = ".claude/state";
+var REGISTRY_FILE = "context.json";
 var LEDGERS_DIR = "thoughts/ledgers";
+function registryPath(projectDir) {
+  return (0, import_path2.join)(projectDir, STATE_DIR, REGISTRY_FILE);
+}
+function ensureStateDir(projectDir) {
+  const dir = (0, import_path2.join)(projectDir, STATE_DIR);
+  if (!(0, import_fs2.existsSync)(dir)) {
+    (0, import_fs2.mkdirSync)(dir, { recursive: true });
+  }
+}
+function readRegistry(projectDir) {
+  const p = registryPath(projectDir);
+  if (!(0, import_fs2.existsSync)(p)) {
+    return { version: 1, branches: {} };
+  }
+  try {
+    return JSON.parse((0, import_fs2.readFileSync)(p, "utf-8"));
+  } catch {
+    return { version: 1, branches: {} };
+  }
+}
+function writeRegistry(projectDir, data) {
+  ensureStateDir(projectDir);
+  const p = registryPath(projectDir);
+  const tmp = p + ".tmp." + process.pid;
+  (0, import_fs2.writeFileSync)(tmp, JSON.stringify(data, null, 2));
+  (0, import_fs2.renameSync)(tmp, p);
+}
+function registerBranch(projectDir, branch, ledgerPath, taskId) {
+  const reg = readRegistry(projectDir);
+  const entry = { ledger: ledgerPath };
+  if (taskId) entry.task_id = taskId;
+  reg.branches[branch] = entry;
+  writeRegistry(projectDir, reg);
+}
+function unregisterBranch(projectDir, branch) {
+  const reg = readRegistry(projectDir);
+  delete reg.branches[branch];
+  writeRegistry(projectDir, reg);
+}
+function getCurrentBranch() {
+  try {
+    return (0, import_child_process8.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
+  } catch {
+    return "";
+  }
+}
+function lookupBranch(projectDir, branch) {
+  const b = branch || getCurrentBranch();
+  if (!b) return null;
+  const reg = readRegistry(projectDir);
+  return reg.branches[b] || null;
+}
+function fallbackLedgerScan(projectDir) {
+  const dir = (0, import_path2.join)(projectDir, LEDGERS_DIR);
+  if (!(0, import_fs2.existsSync)(dir)) return null;
+  const files = (0, import_fs2.readdirSync)(dir).filter((f) => f.endsWith(".md") && !f.startsWith(".")).map((f) => ({ name: f, mtime: (0, import_fs2.statSync)((0, import_path2.join)(dir, f)).mtime.getTime() })).sort((a, b) => b.mtime - a.mtime);
+  return files.length > 0 ? (0, import_path2.join)(LEDGERS_DIR, files[0].name) : null;
+}
+
+// src/continuity/ledger.ts
+var LEDGERS_DIR2 = "thoughts/ledgers";
 var ARCHIVE_DIR = "thoughts/ledgers/archive";
 function parseGateLine(line) {
   const records = [];
@@ -22345,14 +22411,14 @@ function serializeLedgerTaskEntry(entry) {
   return out;
 }
 function writeLedgerTaskEntry(filePath, entry) {
-  let content = (0, import_fs2.readFileSync)(filePath, "utf-8");
+  let content = (0, import_fs3.readFileSync)(filePath, "utf-8");
   const serialized = serializeLedgerTaskEntry(entry);
   content = content.replace(/^Updated:\s*.+$/m, `Updated: ${(/* @__PURE__ */ new Date()).toISOString()}`);
   if (!content.includes("## State")) {
     content += `
 ## State
 ${serialized}`;
-    (0, import_fs2.writeFileSync)(filePath, content);
+    (0, import_fs3.writeFileSync)(filePath, content);
     return;
   }
   if (entry.id) {
@@ -22363,49 +22429,68 @@ ${serialized}`;
     );
     if (entryRegex.test(content)) {
       content = content.replace(entryRegex, serialized);
-      (0, import_fs2.writeFileSync)(filePath, content);
+      (0, import_fs3.writeFileSync)(filePath, content);
       return;
     }
   }
   content = content.replace(/## State\n/, `## State
 ${serialized}`);
-  (0, import_fs2.writeFileSync)(filePath, content);
+  (0, import_fs3.writeFileSync)(filePath, content);
 }
 function getCwd2() {
   try {
-    return (0, import_child_process8.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
+    return (0, import_child_process9.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
   } catch {
     return process.cwd();
   }
 }
-function getCurrentBranch() {
+function getCurrentBranch2() {
   try {
-    return (0, import_child_process8.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
+    return (0, import_child_process9.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
   } catch {
     return "";
   }
 }
 function getTaskFromBranch(branch) {
-  const match = branch.match(/TASK-(\d+)/);
-  return match ? `TASK-${match[1]}` : null;
+  const taskMatch = branch.match(/TASK-\d+/i);
+  if (taskMatch) return taskMatch[0].toUpperCase();
+  const stripped = branch.replace(/^(feature|fix|bugfix|refactor|perf|test|docs|hotfix)\//, "");
+  return stripped.length > 0 ? stripped : null;
 }
 function findActiveLedger() {
   const cwd = getCwd2();
-  const branch = getCurrentBranch();
+  const entry = lookupBranch(cwd);
+  if (entry) {
+    const absPath = (0, import_path3.join)(cwd, entry.ledger);
+    if ((0, import_fs3.existsSync)(absPath)) return parseLedger(absPath);
+  }
+  const branch = getCurrentBranch2();
   const taskId = getTaskFromBranch(branch);
-  if (!taskId) return null;
-  const ledgersPath = (0, import_path2.join)(cwd, LEDGERS_DIR);
-  if (!(0, import_fs2.existsSync)(ledgersPath)) return null;
-  const files = (0, import_fs2.readdirSync)(ledgersPath).filter((f) => f.startsWith(taskId) && f.endsWith(".md"));
-  if (files.length === 0) return null;
-  const ledgerPath = (0, import_path2.join)(ledgersPath, files[0]);
-  return parseLedger(ledgerPath);
+  if (taskId) {
+    const ledgersPath = (0, import_path3.join)(cwd, LEDGERS_DIR2);
+    if ((0, import_fs3.existsSync)(ledgersPath)) {
+      let files = (0, import_fs3.readdirSync)(ledgersPath).filter((f) => f.startsWith(taskId) && f.endsWith(".md") && !f.startsWith("."));
+      if (files.length === 0) {
+        const lowerTaskId = taskId.toLowerCase();
+        files = (0, import_fs3.readdirSync)(ledgersPath).filter((f) => f.toLowerCase().startsWith(lowerTaskId) && f.endsWith(".md") && !f.startsWith("."));
+      }
+      if (files.length > 0) {
+        return parseLedger((0, import_path3.join)(ledgersPath, files[0]));
+      }
+    }
+  }
+  const rel = fallbackLedgerScan(cwd);
+  if (rel) {
+    const absPath = (0, import_path3.join)(cwd, rel);
+    if ((0, import_fs3.existsSync)(absPath)) return parseLedger(absPath);
+  }
+  return null;
 }
 function parseLedger(path7) {
-  const content = (0, import_fs2.readFileSync)(path7, "utf-8");
-  const name = (0, import_path2.basename)(path7, ".md");
-  const taskMatch = name.match(/TASK-\d+/);
-  const taskId = taskMatch ? taskMatch[0] : "";
+  const content = (0, import_fs3.readFileSync)(path7, "utf-8");
+  const name = (0, import_path3.basename)(path7, ".md");
+  const taskMatch = name.match(/TASK-\d+/i);
+  const taskId = taskMatch ? taskMatch[0].toUpperCase() : name;
   const updatedMatch = content.match(/^Updated:\s*(.+)$/m);
   const updated = updatedMatch ? updatedMatch[1] : "";
   const goalMatch = content.match(/^## Goal\s*\n([\s\S]*?)(?=\n## |$)/m);
@@ -22445,7 +22530,7 @@ function ledgerStatus() {
   const p = ledger.progress;
   const pct = p.total > 0 ? Math.round(p.done / p.total * 100) : 0;
   let gateSummary = "";
-  const content = (0, import_fs2.readFileSync)(ledger.path, "utf-8");
+  const content = (0, import_fs3.readFileSync)(ledger.path, "utf-8");
   const entries = parseLedgerV2(content);
   if (entries.some((e) => e.gates && e.gates.length > 0)) {
     let totalGates = 0;
@@ -22466,15 +22551,15 @@ function ledgerStatus() {
 }
 function ledgerList() {
   const cwd = getCwd2();
-  const ledgersPath = (0, import_path2.join)(cwd, LEDGERS_DIR);
-  const archivePath = (0, import_path2.join)(cwd, ARCHIVE_DIR);
+  const ledgersPath = (0, import_path3.join)(cwd, LEDGERS_DIR2);
+  const archivePath = (0, import_path3.join)(cwd, ARCHIVE_DIR);
   const active = [];
   const archived = [];
-  if ((0, import_fs2.existsSync)(ledgersPath)) {
-    active.push(...(0, import_fs2.readdirSync)(ledgersPath).filter((f) => f.endsWith(".md") && f.startsWith("TASK-")));
+  if ((0, import_fs3.existsSync)(ledgersPath)) {
+    active.push(...(0, import_fs3.readdirSync)(ledgersPath).filter((f) => f.endsWith(".md") && !f.startsWith(".")));
   }
-  if ((0, import_fs2.existsSync)(archivePath)) {
-    archived.push(...(0, import_fs2.readdirSync)(archivePath).filter((f) => f.endsWith(".md")));
+  if ((0, import_fs3.existsSync)(archivePath)) {
+    archived.push(...(0, import_fs3.readdirSync)(archivePath).filter((f) => f.endsWith(".md")));
   }
   return {
     success: true,
@@ -22484,17 +22569,17 @@ function ledgerList() {
 }
 function ledgerCreate(taskId, branchName) {
   const cwd = getCwd2();
-  const ledgersPath = (0, import_path2.join)(cwd, LEDGERS_DIR);
-  if (!taskId.match(/^TASK-\d+$/)) {
-    return { success: false, message: "Invalid TASK format" };
+  const ledgersPath = (0, import_path3.join)(cwd, LEDGERS_DIR2);
+  if (!taskId.match(/^[a-zA-Z0-9][a-zA-Z0-9-]*$/)) {
+    return { success: false, message: "Invalid task ID format (use alphanumeric + hyphens, e.g., TASK-123, fix-auth-bug)" };
   }
-  const desc = branchName.replace(/^(feature|fix|refactor|perf|test|docs|hotfix)\/TASK-\d+-/, "").replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const desc = branchName.replace(/^(feature|fix|refactor|perf|test|docs|hotfix)\/([A-Z]+-\d+-)?/, "").replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   const fileName = `${taskId}-${desc.replace(/\s+/g, "-")}.md`;
-  const filePath = (0, import_path2.join)(ledgersPath, fileName);
-  if ((0, import_fs2.existsSync)(filePath)) {
+  const filePath = (0, import_path3.join)(ledgersPath, fileName);
+  if ((0, import_fs3.existsSync)(filePath)) {
     return { success: false, message: "Ledger already exists" };
   }
-  (0, import_fs2.mkdirSync)(ledgersPath, { recursive: true });
+  (0, import_fs3.mkdirSync)(ledgersPath, { recursive: true });
   const template = `# Session: ${taskId}-${desc.replace(/\s+/g, "-")}
 Updated: ${(/* @__PURE__ */ new Date()).toISOString()}
 
@@ -22523,7 +22608,8 @@ ${desc}
 ### ${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}
 - \u{1F680} Started: ${taskId}
 `;
-  (0, import_fs2.writeFileSync)(filePath, template);
+  (0, import_fs3.writeFileSync)(filePath, template);
+  registerBranch(cwd, branchName, (0, import_path3.join)(LEDGERS_DIR2, fileName), taskId);
   return {
     success: true,
     message: `Created:${fileName}`,
@@ -22535,7 +22621,7 @@ function ledgerTaskUpdate(taskId, taskName, gate, result, detail, duration_ms) {
   if (!ledger) {
     return { success: false, message: "No active ledger" };
   }
-  const content = (0, import_fs2.readFileSync)(ledger.path, "utf-8");
+  const content = (0, import_fs3.readFileSync)(ledger.path, "utf-8");
   const entries = parseLedgerV2(content);
   let entry = entries.find((e) => e.id === taskId);
   if (!entry) {
@@ -22561,7 +22647,7 @@ function ledgerUpdate(commitHash, commitMessage, options) {
   if (!ledger) {
     return { success: false, message: "No active ledger" };
   }
-  let content = (0, import_fs2.readFileSync)(ledger.path, "utf-8");
+  let content = (0, import_fs3.readFileSync)(ledger.path, "utf-8");
   content = content.replace(
     /^Updated:\s*.+$/m,
     `Updated: ${(/* @__PURE__ */ new Date()).toISOString()}`
@@ -22580,7 +22666,7 @@ ${commitNote}`
 ${commitNote}
 `;
   }
-  (0, import_fs2.writeFileSync)(ledger.path, content);
+  (0, import_fs3.writeFileSync)(ledger.path, content);
   if (options?.gates || options?.retries !== void 0 || options?.duration_ms !== void 0) {
     const entries = parseLedgerV2(content);
     const inProgress = entries.find((e) => e.status === "in_progress");
@@ -22602,14 +22688,14 @@ function ledgerAddPr(prUrl) {
   if (!ledger) {
     return { success: false, message: "No active ledger" };
   }
-  let content = (0, import_fs2.readFileSync)(ledger.path, "utf-8");
+  let content = (0, import_fs3.readFileSync)(ledger.path, "utf-8");
   if (!content.includes(prUrl)) {
     content = content.replace(
       /## Working Set/,
       `## Working Set
 - PR: ${prUrl}`
     );
-    (0, import_fs2.writeFileSync)(ledger.path, content);
+    (0, import_fs3.writeFileSync)(ledger.path, content);
   }
   return {
     success: true,
@@ -22697,14 +22783,14 @@ function extractLedgerPatterns(content, taskId) {
 }
 function ledgerArchive(taskId) {
   const cwd = getCwd2();
-  const ledgersPath = (0, import_path2.join)(cwd, LEDGERS_DIR);
-  const archivePath = (0, import_path2.join)(cwd, ARCHIVE_DIR);
+  const ledgersPath = (0, import_path3.join)(cwd, LEDGERS_DIR2);
+  const archivePath = (0, import_path3.join)(cwd, ARCHIVE_DIR);
   let targetLedger = null;
   if (taskId) {
-    if ((0, import_fs2.existsSync)(ledgersPath)) {
-      const files = (0, import_fs2.readdirSync)(ledgersPath).filter((f) => f.startsWith(taskId) && f.endsWith(".md"));
+    if ((0, import_fs3.existsSync)(ledgersPath)) {
+      const files = (0, import_fs3.readdirSync)(ledgersPath).filter((f) => f.startsWith(taskId) && f.endsWith(".md"));
       if (files.length > 0) {
-        targetLedger = parseLedger((0, import_path2.join)(ledgersPath, files[0]));
+        targetLedger = parseLedger((0, import_path3.join)(ledgersPath, files[0]));
       }
     }
   } else {
@@ -22713,14 +22799,15 @@ function ledgerArchive(taskId) {
   if (!targetLedger) {
     return { success: false, message: "No ledger found" };
   }
-  (0, import_fs2.mkdirSync)(archivePath, { recursive: true });
+  (0, import_fs3.mkdirSync)(archivePath, { recursive: true });
   const srcPath = targetLedger.path;
-  const destPath = (0, import_path2.join)(archivePath, (0, import_path2.basename)(srcPath));
+  const destPath = (0, import_path3.join)(archivePath, (0, import_path3.basename)(srcPath));
   try {
-    const content = (0, import_fs2.readFileSync)(srcPath, "utf-8");
+    const content = (0, import_fs3.readFileSync)(srcPath, "utf-8");
     const extraction = extractLedgerPatterns(content, targetLedger.taskId);
-    (0, import_fs2.writeFileSync)(destPath, content);
-    (0, import_child_process8.execSync)(`rm "${srcPath}"`);
+    (0, import_fs3.writeFileSync)(destPath, content);
+    (0, import_child_process9.execSync)(`rm "${srcPath}"`);
+    unregisterBranch(cwd, getCurrentBranch2());
     return {
       success: true,
       message: `Archived:${targetLedger.taskId}|patterns:${extraction.summary}`
@@ -22731,14 +22818,14 @@ function ledgerArchive(taskId) {
 }
 function ledgerSearch(keyword) {
   const cwd = getCwd2();
-  const ledgersPath = (0, import_path2.join)(cwd, LEDGERS_DIR);
-  const archivePath = (0, import_path2.join)(cwd, ARCHIVE_DIR);
+  const ledgersPath = (0, import_path3.join)(cwd, LEDGERS_DIR2);
+  const archivePath = (0, import_path3.join)(cwd, ARCHIVE_DIR);
   const matches = [];
   const searchDir = (dir, archived) => {
-    if (!(0, import_fs2.existsSync)(dir)) return;
-    for (const file2 of (0, import_fs2.readdirSync)(dir)) {
+    if (!(0, import_fs3.existsSync)(dir)) return;
+    for (const file2 of (0, import_fs3.readdirSync)(dir)) {
       if (!file2.endsWith(".md")) continue;
-      const content = (0, import_fs2.readFileSync)((0, import_path2.join)(dir, file2), "utf-8");
+      const content = (0, import_fs3.readFileSync)((0, import_path3.join)(dir, file2), "utf-8");
       if (content.toLowerCase().includes(keyword.toLowerCase())) {
         const lineMatch = content.split("\n").find((l) => l.toLowerCase().includes(keyword.toLowerCase()));
         matches.push({
@@ -22759,29 +22846,29 @@ function ledgerSearch(keyword) {
 }
 function loadCompactCheckpoint() {
   const cwd = getCwd2();
-  const checkpointPath = (0, import_path2.join)(cwd, LEDGERS_DIR, ".compact-checkpoint.md");
-  if (!(0, import_fs2.existsSync)(checkpointPath)) return null;
+  const checkpointPath = (0, import_path3.join)(cwd, ".claude/state/checkpoint.md");
+  if (!(0, import_fs3.existsSync)(checkpointPath)) return null;
   try {
-    const stat = (0, import_fs2.statSync)(checkpointPath);
+    const stat = (0, import_fs3.statSync)(checkpointPath);
     if (Date.now() - stat.mtime.getTime() > 36e5) return null;
   } catch {
     return null;
   }
-  return (0, import_fs2.readFileSync)(checkpointPath, "utf-8");
+  return (0, import_fs3.readFileSync)(checkpointPath, "utf-8");
 }
 
 // src/continuity/branch.ts
-var import_child_process9 = require("child_process");
+var import_child_process10 = require("child_process");
 function getCwd3() {
   try {
-    return (0, import_child_process9.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
+    return (0, import_child_process10.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
   } catch {
     return process.cwd();
   }
 }
 function getDefaultBranch() {
   try {
-    const ref = (0, import_child_process9.execSync)("git symbolic-ref refs/remotes/origin/HEAD", {
+    const ref = (0, import_child_process10.execSync)("git symbolic-ref refs/remotes/origin/HEAD", {
       encoding: "utf-8"
     }).trim();
     return ref.replace("refs/remotes/origin/", "");
@@ -22789,9 +22876,9 @@ function getDefaultBranch() {
     return "master";
   }
 }
-function getCurrentBranch2() {
+function getCurrentBranch3() {
   try {
-    return (0, import_child_process9.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
+    return (0, import_child_process10.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
   } catch {
     return "";
   }
@@ -22799,9 +22886,9 @@ function getCurrentBranch2() {
 function branchListMerged() {
   const cwd = getCwd3();
   const defaultBranch = getDefaultBranch();
-  const currentBranch = getCurrentBranch2();
+  const currentBranch = getCurrentBranch3();
   try {
-    const merged = (0, import_child_process9.execSync)(`git branch --merged ${defaultBranch}`, {
+    const merged = (0, import_child_process10.execSync)(`git branch --merged ${defaultBranch}`, {
       encoding: "utf-8",
       cwd
     }).split("\n").map((b) => b.trim().replace("* ", "")).filter((b) => b && b !== defaultBranch && b !== "main" && b !== "master" && b !== "develop" && b !== currentBranch);
@@ -22831,14 +22918,14 @@ function branchCleanup(dryRun = false) {
   const failed = [];
   for (const branch of data.branches) {
     try {
-      (0, import_child_process9.execSync)(`git branch -d "${branch}"`, { encoding: "utf-8", cwd });
+      (0, import_child_process10.execSync)(`git branch -d "${branch}"`, { encoding: "utf-8", cwd });
       deleted.push(branch);
     } catch {
       failed.push(branch);
     }
   }
   try {
-    (0, import_child_process9.execSync)("git fetch --prune origin", { encoding: "utf-8", cwd });
+    (0, import_child_process10.execSync)("git fetch --prune origin", { encoding: "utf-8", cwd });
   } catch {
   }
   return {
@@ -22853,13 +22940,13 @@ function branchListStale(days = 30) {
   cutoffDate.setDate(cutoffDate.getDate() - days);
   const stale = [];
   try {
-    const branches = (0, import_child_process9.execSync)('git for-each-ref --format="%(refname:short)" refs/heads/', {
+    const branches = (0, import_child_process10.execSync)('git for-each-ref --format="%(refname:short)" refs/heads/', {
       encoding: "utf-8",
       cwd
     }).split("\n").filter((b) => b && !["master", "main", "develop"].includes(b));
     for (const branch of branches) {
       try {
-        const dateStr = (0, import_child_process9.execSync)(`git log -1 --format="%ci" "${branch}"`, {
+        const dateStr = (0, import_child_process10.execSync)(`git log -1 --format="%ci" "${branch}"`, {
           encoding: "utf-8",
           cwd
         }).trim().split(" ")[0];
@@ -22882,29 +22969,29 @@ function branchListStale(days = 30) {
 }
 function branchStashSwitch(targetBranch) {
   const cwd = getCwd3();
-  const currentBranch = getCurrentBranch2();
+  const currentBranch = getCurrentBranch3();
   let hasChanges = false;
   try {
-    (0, import_child_process9.execSync)("git diff --quiet && git diff --cached --quiet", { cwd });
+    (0, import_child_process10.execSync)("git diff --quiet && git diff --cached --quiet", { cwd });
   } catch {
     hasChanges = true;
   }
   if (hasChanges) {
     const stashMsg = `Auto-stash from ${currentBranch} before switching to ${targetBranch}`;
     try {
-      (0, import_child_process9.execSync)(`git stash push -m "${stashMsg}"`, { encoding: "utf-8", cwd });
+      (0, import_child_process10.execSync)(`git stash push -m "${stashMsg}"`, { encoding: "utf-8", cwd });
     } catch (error2) {
       return { success: false, message: `Stash failed: ${error2.message}` };
     }
   }
   try {
     try {
-      (0, import_child_process9.execSync)(`git show-ref --verify --quiet refs/heads/${targetBranch}`, { cwd });
-      (0, import_child_process9.execSync)(`git checkout "${targetBranch}"`, { encoding: "utf-8", cwd });
+      (0, import_child_process10.execSync)(`git show-ref --verify --quiet refs/heads/${targetBranch}`, { cwd });
+      (0, import_child_process10.execSync)(`git checkout "${targetBranch}"`, { encoding: "utf-8", cwd });
     } catch {
       try {
-        (0, import_child_process9.execSync)(`git show-ref --verify --quiet refs/remotes/origin/${targetBranch}`, { cwd });
-        (0, import_child_process9.execSync)(`git checkout -b "${targetBranch}" "origin/${targetBranch}"`, { encoding: "utf-8", cwd });
+        (0, import_child_process10.execSync)(`git show-ref --verify --quiet refs/remotes/origin/${targetBranch}`, { cwd });
+        (0, import_child_process10.execSync)(`git checkout -b "${targetBranch}" "origin/${targetBranch}"`, { encoding: "utf-8", cwd });
       } catch {
         return { success: false, message: `Branch not found: ${targetBranch}` };
       }
@@ -22914,7 +23001,7 @@ function branchStashSwitch(targetBranch) {
   }
   let hasStash = false;
   try {
-    const stashList = (0, import_child_process9.execSync)("git stash list", { encoding: "utf-8", cwd });
+    const stashList = (0, import_child_process10.execSync)("git stash list", { encoding: "utf-8", cwd });
     hasStash = stashList.includes(`from ${targetBranch}`);
   } catch {
   }
@@ -22926,13 +23013,13 @@ function branchStashSwitch(targetBranch) {
 }
 function branchStashPop() {
   const cwd = getCwd3();
-  const currentBranch = getCurrentBranch2();
+  const currentBranch = getCurrentBranch3();
   try {
-    const stashList = (0, import_child_process9.execSync)("git stash list", { encoding: "utf-8", cwd });
+    const stashList = (0, import_child_process10.execSync)("git stash list", { encoding: "utf-8", cwd });
     const lines = stashList.split("\n");
     const targetStash = lines.findIndex((l) => l.includes(`from ${currentBranch}`));
     if (targetStash >= 0) {
-      (0, import_child_process9.execSync)(`git stash pop stash@{${targetStash}}`, { encoding: "utf-8", cwd });
+      (0, import_child_process10.execSync)(`git stash pop stash@{${targetStash}}`, { encoding: "utf-8", cwd });
       return { success: true, message: "Stash applied" };
     }
     return { success: false, message: "No stash found for current branch" };
@@ -22943,7 +23030,7 @@ function branchStashPop() {
 function branchPrune() {
   const cwd = getCwd3();
   try {
-    (0, import_child_process9.execSync)("git fetch --prune origin", { encoding: "utf-8", cwd });
+    (0, import_child_process10.execSync)("git fetch --prune origin", { encoding: "utf-8", cwd });
     return { success: true, message: "Remote tracking branches pruned" };
   } catch (error2) {
     return { success: false, message: error2.message };
@@ -22951,19 +23038,19 @@ function branchPrune() {
 }
 
 // src/continuity/defaults.ts
-var import_child_process10 = require("child_process");
-var import_fs3 = require("fs");
-var import_path3 = require("path");
+var import_child_process11 = require("child_process");
+var import_fs4 = require("fs");
+var import_path4 = require("path");
 function getCwd4() {
   try {
-    return (0, import_child_process10.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
+    return (0, import_child_process11.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
   } catch {
     return process.cwd();
   }
 }
-function getCurrentBranch3() {
+function getCurrentBranch4() {
   try {
-    return (0, import_child_process10.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
+    return (0, import_child_process11.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
   } catch {
     return "";
   }
@@ -22971,8 +23058,8 @@ function getCurrentBranch3() {
 function getChangedFiles() {
   const cwd = getCwd4();
   try {
-    const staged = (0, import_child_process10.execSync)("git diff --name-only --cached", { encoding: "utf-8", cwd }).trim();
-    const unstaged = (0, import_child_process10.execSync)("git diff --name-only HEAD", { encoding: "utf-8", cwd }).trim();
+    const staged = (0, import_child_process11.execSync)("git diff --name-only --cached", { encoding: "utf-8", cwd }).trim();
+    const unstaged = (0, import_child_process11.execSync)("git diff --name-only HEAD", { encoding: "utf-8", cwd }).trim();
     const files = [...staged.split("\n"), ...unstaged.split("\n")].filter((f) => f);
     return [...new Set(files)];
   } catch {
@@ -22980,10 +23067,10 @@ function getChangedFiles() {
   }
 }
 function loadDevFlowConfig(cwd) {
-  const configPath = (0, import_path3.join)(cwd, ".dev-flow.json");
-  if (!(0, import_fs3.existsSync)(configPath)) return null;
+  const configPath = (0, import_path4.join)(cwd, ".dev-flow.json");
+  if (!(0, import_fs4.existsSync)(configPath)) return null;
   try {
-    return JSON.parse((0, import_fs3.readFileSync)(configPath, "utf-8"));
+    return JSON.parse((0, import_fs4.readFileSync)(configPath, "utf-8"));
   } catch {
     return null;
   }
@@ -23003,11 +23090,11 @@ function inferScopesFromDirectories(cwd) {
     "__pycache__"
   ]);
   try {
-    return (0, import_fs3.readdirSync)(cwd).filter((entry) => {
+    return (0, import_fs4.readdirSync)(cwd).filter((entry) => {
       if (entry.startsWith(".")) return false;
       if (skipDirs.has(entry)) return false;
       try {
-        return (0, import_fs3.statSync)((0, import_path3.join)(cwd, entry)).isDirectory();
+        return (0, import_fs4.statSync)((0, import_path4.join)(cwd, entry)).isDirectory();
       } catch {
         return false;
       }
@@ -23071,7 +23158,7 @@ function inferScope(files) {
   };
 }
 function inferLabels() {
-  const branch = getCurrentBranch3();
+  const branch = getCurrentBranch4();
   const files = getChangedFiles();
   const labels = [];
   if (branch.startsWith("feature/")) labels.push("enhancement");
@@ -23099,9 +23186,9 @@ function inferReviewers() {
   const reviewers = [];
   const codeownersPaths = [".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"];
   for (const coPath of codeownersPaths) {
-    const fullPath = (0, import_path3.join)(cwd, coPath);
-    if ((0, import_fs3.existsSync)(fullPath)) {
-      const content = (0, import_fs3.readFileSync)(fullPath, "utf-8");
+    const fullPath = (0, import_path4.join)(cwd, coPath);
+    if ((0, import_fs4.existsSync)(fullPath)) {
+      const content = (0, import_fs4.readFileSync)(fullPath, "utf-8");
       const lines = content.split("\n").filter((l) => l && !l.startsWith("#"));
       for (const file2 of files) {
         for (const line of lines) {
@@ -23126,7 +23213,7 @@ function inferReviewers() {
   if (reviewers.length === 0 && files.length > 0) {
     try {
       for (const file2 of files.slice(0, 3)) {
-        const author = (0, import_child_process10.execSync)(`git log -1 --format="%an" -- "${file2}"`, {
+        const author = (0, import_child_process11.execSync)(`git log -1 --format="%an" -- "${file2}"`, {
           encoding: "utf-8",
           cwd
         }).trim();
@@ -23144,10 +23231,10 @@ function inferReviewers() {
   };
 }
 function inferWorkingSet() {
-  const branch = getCurrentBranch3();
+  const branch = getCurrentBranch4();
   const files = getChangedFiles();
-  const staged = (0, import_child_process10.execSync)("git diff --name-only --cached", { encoding: "utf-8" }).trim().split("\n").filter((f) => f);
-  const unstaged = (0, import_child_process10.execSync)("git diff --name-only", { encoding: "utf-8" }).trim().split("\n").filter((f) => f);
+  const staged = (0, import_child_process11.execSync)("git diff --name-only --cached", { encoding: "utf-8" }).trim().split("\n").filter((f) => f);
+  const unstaged = (0, import_child_process11.execSync)("git diff --name-only", { encoding: "utf-8" }).trim().split("\n").filter((f) => f);
   return {
     success: true,
     message: `branch:${branch}|staged:${staged.length}|unstaged:${unstaged.length}`,
@@ -23177,10 +23264,10 @@ function inferAll() {
 }
 
 // src/continuity/task-sync.ts
-var import_fs4 = require("fs");
+var import_fs5 = require("fs");
 function parseLedgerState(ledgerPath) {
-  if (!(0, import_fs4.existsSync)(ledgerPath)) return [];
-  const content = (0, import_fs4.readFileSync)(ledgerPath, "utf-8");
+  if (!(0, import_fs5.existsSync)(ledgerPath)) return [];
+  const content = (0, import_fs5.readFileSync)(ledgerPath, "utf-8");
   const tasks = [];
   const stateMatch = content.match(/## State\s*\n([\s\S]*?)(?=\n## |$)/m);
   if (!stateMatch) return [];
@@ -23266,8 +23353,8 @@ function formatTasksAsMarkdown(tasks) {
   return lines.join("\n");
 }
 function updateLedgerFromTasks(ledgerPath, taskUpdates) {
-  if (!(0, import_fs4.existsSync)(ledgerPath)) return false;
-  let content = (0, import_fs4.readFileSync)(ledgerPath, "utf-8");
+  if (!(0, import_fs5.existsSync)(ledgerPath)) return false;
+  let content = (0, import_fs5.readFileSync)(ledgerPath, "utf-8");
   for (const update of taskUpdates) {
     const tasks = parseLedgerState(ledgerPath);
     const task = tasks.find((t) => t.id === update.id);
@@ -23294,7 +23381,7 @@ function updateLedgerFromTasks(ledgerPath, taskUpdates) {
     /^Updated:\s*.+$/m,
     `Updated: ${(/* @__PURE__ */ new Date()).toISOString()}`
   );
-  (0, import_fs4.writeFileSync)(ledgerPath, content);
+  (0, import_fs5.writeFileSync)(ledgerPath, content);
   return true;
 }
 function getTaskSyncSummary(ledgerPath) {
@@ -23308,8 +23395,8 @@ function getTaskSyncSummary(ledgerPath) {
   return `TASKS|${tasks.length} total|${completed} done|${inProgress} active|${pending} pending`;
 }
 function exportLedgerAsJson(ledgerPath) {
-  if (!(0, import_fs4.existsSync)(ledgerPath)) return null;
-  const content = (0, import_fs4.readFileSync)(ledgerPath, "utf-8");
+  if (!(0, import_fs5.existsSync)(ledgerPath)) return null;
+  const content = (0, import_fs5.readFileSync)(ledgerPath, "utf-8");
   const taskIdMatch = ledgerPath.match(/TASK-\d+/);
   const taskId = taskIdMatch ? taskIdMatch[0] : "unknown";
   return {
@@ -23321,9 +23408,9 @@ function exportLedgerAsJson(ledgerPath) {
 }
 
 // src/continuity/context-injector.ts
-var import_child_process11 = require("child_process");
-var import_fs5 = require("fs");
-var import_path4 = require("path");
+var import_child_process12 = require("child_process");
+var import_fs6 = require("fs");
+var import_path5 = require("path");
 var import_os = require("os");
 var BUDGET_TOTAL = 2500;
 var BUDGET_PITFALLS = 600;
@@ -23331,18 +23418,18 @@ var BUDGET_TASK = 500;
 var BUDGET_RECENT = 400;
 function getCwd5() {
   try {
-    return (0, import_child_process11.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
+    return (0, import_child_process12.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
   } catch {
     return process.cwd();
   }
 }
 function getDbPath2() {
   const projectDir = getCwd5();
-  return (0, import_path4.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
+  return (0, import_path5.join)(projectDir, ".claude", "cache", "artifact-index", "context.db");
 }
 function extractBranchKeywords() {
   try {
-    const branch = (0, import_child_process11.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
+    const branch = (0, import_child_process12.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
     const parts = branch.replace(/^(feature|bugfix|hotfix|release)\//, "").replace(/TASK-\d+-?/i, "").split(/[-_/]/).filter((p) => p.length > 2 && !/^\d+$/.test(p));
     return parts;
   } catch {
@@ -23354,7 +23441,7 @@ function detectPlatform() {
 }
 function getRecentFileKeywords() {
   try {
-    const files = (0, import_child_process11.execSync)('git diff --name-only HEAD~3 2>/dev/null || echo ""', {
+    const files = (0, import_child_process12.execSync)('git diff --name-only HEAD~3 2>/dev/null || echo ""', {
       encoding: "utf-8",
       timeout: 3e3
     }).trim();
@@ -23375,11 +23462,11 @@ function getRecentFileKeywords() {
 }
 function loadPlatformPitfalls(platform, maxChars) {
   const dbPath = getDbPath2();
-  if (!(0, import_fs5.existsSync)(dbPath)) return "";
+  if (!(0, import_fs6.existsSync)(dbPath)) return "";
   const safePlatform = platform.replace(/'/g, "''");
-  const sql = `SELECT title, substr(problem,1,100) FROM knowledge WHERE type='pitfall' AND platform='${safePlatform}' ORDER BY created_at DESC LIMIT 5;`;
+  const sql = `SELECT title, substr(problem,1,100) FROM knowledge WHERE type='pitfall' AND platform='${safePlatform}' AND priority='critical' ORDER BY created_at DESC LIMIT 5;`;
   try {
-    const result = (0, import_child_process11.execSync)(`sqlite3 -separator $'\\t' "${dbPath}" "${sql}"`, {
+    const result = (0, import_child_process12.execSync)(`sqlite3 -separator $'\\t' "${dbPath}" "${sql}"`, {
       encoding: "utf-8",
       timeout: 3e3
     }).trim();
@@ -23403,11 +23490,11 @@ ${problem}
 }
 function queryKnowledgeFts(keywords, maxChars) {
   const dbPath = getDbPath2();
-  if (!(0, import_fs5.existsSync)(dbPath) || keywords.length === 0) return "";
+  if (!(0, import_fs6.existsSync)(dbPath) || keywords.length === 0) return "";
   const query = keywords.join(" OR ");
   const sql = `SELECT k.type, k.title, k.problem FROM knowledge k JOIN knowledge_fts f ON k.rowid = f.rowid WHERE knowledge_fts MATCH '${esc3(query)}' ORDER BY rank LIMIT 5;`;
   try {
-    const result = (0, import_child_process11.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
+    const result = (0, import_child_process12.execSync)(`sqlite3 -separator '|||' "${dbPath}" "${sql}"`, {
       encoding: "utf-8",
       timeout: 3e3
     }).trim();
@@ -23427,10 +23514,10 @@ function queryKnowledgeFts(keywords, maxChars) {
 }
 function loadRecentDiscoveries(maxChars) {
   const dbPath = getDbPath2();
-  if (!(0, import_fs5.existsSync)(dbPath)) return "";
+  if (!(0, import_fs6.existsSync)(dbPath)) return "";
   const sql = `SELECT type, title, substr(problem,1,80) FROM knowledge WHERE julianday('now') - julianday(created_at) <= 7 ORDER BY created_at DESC LIMIT 3;`;
   try {
-    const result = (0, import_child_process11.execSync)(`sqlite3 -separator $'\\t' "${dbPath}" "${sql}"`, {
+    const result = (0, import_child_process12.execSync)(`sqlite3 -separator $'\\t' "${dbPath}" "${sql}"`, {
       encoding: "utf-8",
       timeout: 3e3
     }).trim();
@@ -23460,17 +23547,17 @@ function esc3(s) {
 var BUDGET_EXECUTION = 500;
 function buildExecutionContext() {
   const cwd = getCwd5();
-  const ledgersPath = (0, import_path4.join)(cwd, "thoughts", "ledgers");
-  const archivePath = (0, import_path4.join)(cwd, "thoughts", "ledgers", "archive");
+  const ledgersPath = (0, import_path5.join)(cwd, "thoughts", "ledgers");
+  const archivePath = (0, import_path5.join)(cwd, "thoughts", "ledgers", "archive");
   const lines = [];
-  if ((0, import_fs5.existsSync)(ledgersPath)) {
-    const branch = getCurrentBranch4();
+  if ((0, import_fs6.existsSync)(ledgersPath)) {
+    const branch = getCurrentBranch5();
     const taskId = extractTaskIdFromBranch(branch);
     if (taskId) {
-      const files = (0, import_fs5.readdirSync)(ledgersPath).filter((f) => f.startsWith(taskId) && f.endsWith(".md") && !f.startsWith("."));
+      const files = (0, import_fs6.readdirSync)(ledgersPath).filter((f) => f.startsWith(taskId) && f.endsWith(".md") && !f.startsWith("."));
       if (files.length > 0) {
         try {
-          const content = (0, import_fs5.readFileSync)((0, import_path4.join)(ledgersPath, files[0]), "utf-8");
+          const content = (0, import_fs6.readFileSync)((0, import_path5.join)(ledgersPath, files[0]), "utf-8");
           const entries = parseLedgerV2(content);
           const inProgress = entries.find((e) => e.status === "in_progress");
           if (inProgress) {
@@ -23489,19 +23576,19 @@ function buildExecutionContext() {
       }
     }
   }
-  if ((0, import_fs5.existsSync)(archivePath)) {
-    const branch = getCurrentBranch4();
+  if ((0, import_fs6.existsSync)(archivePath)) {
+    const branch = getCurrentBranch5();
     const taskId = extractTaskIdFromBranch(branch);
     const branchKeywords = branch.replace(/^(feature|bugfix|hotfix|release)\//, "").replace(/TASK-\d+-?/i, "").split(/[-_/]/).filter((p) => p.length > 2 && !/^\d+$/.test(p)).slice(0, 3);
     try {
-      const archivedFiles = (0, import_fs5.readdirSync)(archivePath).filter((f) => f.endsWith(".md"));
+      const archivedFiles = (0, import_fs6.readdirSync)(archivePath).filter((f) => f.endsWith(".md"));
       for (const file2 of archivedFiles) {
         const fileLower = file2.toLowerCase();
         const taskMatch = taskId && file2.startsWith(taskId);
         const keywordMatch = branchKeywords.some((k) => fileLower.includes(k.toLowerCase()));
         if (taskMatch || keywordMatch) {
           try {
-            const content = (0, import_fs5.readFileSync)((0, import_path4.join)(archivePath, file2), "utf-8");
+            const content = (0, import_fs6.readFileSync)((0, import_path5.join)(archivePath, file2), "utf-8");
             const entries = parseLedgerV2(content);
             const hasGates = entries.some((e) => e.gates && e.gates.length > 0);
             if (!hasGates) continue;
@@ -23517,7 +23604,7 @@ function buildExecutionContext() {
             }
             const notableGates = Object.entries(gateStats).filter(([, s]) => s.total >= 2 && s.pass / s.total < 0.8).map(([gate]) => gate);
             if (totalRetries > 0 || notableGates.length > 0) {
-              const archiveName = (0, import_path4.basename)(file2, ".md");
+              const archiveName = (0, import_path5.basename)(file2, ".md");
               const parts = [];
               if (totalRetries > 0) parts.push(`${totalRetries} retries`);
               if (notableGates.length > 0) parts.push(`low pass: ${notableGates.join(",")}`);
@@ -23540,9 +23627,9 @@ function buildExecutionContext() {
   }
   return result;
 }
-function getCurrentBranch4() {
+function getCurrentBranch5() {
   try {
-    return (0, import_child_process11.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
+    return (0, import_child_process12.execSync)("git branch --show-current", { encoding: "utf-8" }).trim();
   } catch {
     return "";
   }
@@ -23595,8 +23682,8 @@ ${recent.trimEnd()}`);
 ${devMemorySection}
 ${MEMORY_MARKER_END}`;
   let existing = "";
-  if ((0, import_fs5.existsSync)(memoryMdPath)) {
-    existing = (0, import_fs5.readFileSync)(memoryMdPath, "utf-8");
+  if ((0, import_fs6.existsSync)(memoryMdPath)) {
+    existing = (0, import_fs6.readFileSync)(memoryMdPath, "utf-8");
   }
   let updated;
   if (existing.includes(MEMORY_MARKER_START) && existing.includes(MEMORY_MARKER_END)) {
@@ -23607,14 +23694,14 @@ ${MEMORY_MARKER_END}`;
     const separator = existing.length > 0 && !existing.endsWith("\n\n") ? "\n\n" : "";
     updated = existing + separator + newBlock + "\n";
   }
-  (0, import_fs5.writeFileSync)(memoryMdPath, updated, "utf-8");
+  (0, import_fs6.writeFileSync)(memoryMdPath, updated, "utf-8");
 }
 function injectKnowledgeContext() {
   const projectDir = getCwd5();
   const escapedPath = projectDir.replace(/\//g, "-").replace(/^-/, "");
-  const memoryMdPath = (0, import_path4.join)((0, import_os.homedir)(), ".claude", "projects", escapedPath, "memory", "MEMORY.md");
+  const memoryMdPath = (0, import_path5.join)((0, import_os.homedir)(), ".claude", "projects", escapedPath, "memory", "MEMORY.md");
   try {
-    if ((0, import_fs5.existsSync)((0, import_path4.join)((0, import_os.homedir)(), ".claude", "projects", escapedPath, "memory"))) {
+    if ((0, import_fs6.existsSync)((0, import_path5.join)((0, import_os.homedir)(), ".claude", "projects", escapedPath, "memory"))) {
       syncToMemoryMd(memoryMdPath);
     }
   } catch {
@@ -23672,23 +23759,23 @@ ${execCtx}`);
 }
 
 // src/continuity/execution-report.ts
-var import_child_process12 = require("child_process");
-var import_fs6 = require("fs");
-var import_path5 = require("path");
+var import_child_process13 = require("child_process");
+var import_fs7 = require("fs");
+var import_path6 = require("path");
 function getCwd6() {
   try {
-    return (0, import_child_process12.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
+    return (0, import_child_process13.execSync)("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
   } catch {
     return process.cwd();
   }
 }
 function loadProofManifests(proofDir) {
-  if (!(0, import_fs6.existsSync)(proofDir)) return [];
+  if (!(0, import_fs7.existsSync)(proofDir)) return [];
   const manifests = [];
-  for (const file2 of (0, import_fs6.readdirSync)(proofDir)) {
+  for (const file2 of (0, import_fs7.readdirSync)(proofDir)) {
     if (!file2.endsWith(".json")) continue;
     try {
-      const content = (0, import_fs6.readFileSync)((0, import_path5.join)(proofDir, file2), "utf-8");
+      const content = (0, import_fs7.readFileSync)((0, import_path6.join)(proofDir, file2), "utf-8");
       manifests.push(JSON.parse(content));
     } catch {
     }
@@ -23697,11 +23784,11 @@ function loadProofManifests(proofDir) {
 }
 function generateExecutionReport(ledgerPath) {
   const cwd = getCwd6();
-  const proofDir = (0, import_path5.join)(cwd, ".proof");
-  if (!(0, import_fs6.existsSync)(ledgerPath)) {
+  const proofDir = (0, import_path6.join)(cwd, ".proof");
+  if (!(0, import_fs7.existsSync)(ledgerPath)) {
     return { reportPath: "", summary: "Ledger not found" };
   }
-  const content = (0, import_fs6.readFileSync)(ledgerPath, "utf-8");
+  const content = (0, import_fs7.readFileSync)(ledgerPath, "utf-8");
   const entries = parseLedgerV2(content);
   const done = entries.filter((e) => e.status === "done").length;
   const skipped = entries.filter((e) => e.status === "pending").length;
@@ -23795,9 +23882,9 @@ function generateExecutionReport(ledgerPath) {
     }
   }
   const report = lines.join("\n") + "\n";
-  (0, import_fs6.mkdirSync)(proofDir, { recursive: true });
-  const reportPath = (0, import_path5.join)(proofDir, "execution-report.md");
-  (0, import_fs6.writeFileSync)(reportPath, report, "utf-8");
+  (0, import_fs7.mkdirSync)(proofDir, { recursive: true });
+  const reportPath = (0, import_path6.join)(proofDir, "execution-report.md");
+  (0, import_fs7.writeFileSync)(reportPath, report, "utf-8");
   const gateLines = Object.entries(gateStats).map(([gate, s]) => `${gate}:${Math.round(s.pass / s.total * 100)}%`).join(" ");
   const summary = `${done}/${total} tasks done | ${gateLines || "no gates"} | ${totalRetries} retries`;
   return { reportPath, summary };
@@ -23811,13 +23898,17 @@ var TaskCoordinator = class {
   persistPath;
   constructor(projectDir) {
     const base = projectDir || process.cwd();
-    this.persistPath = path4.join(base, "thoughts", ".dev-flow-cache", "coordinator.json");
-    this.load();
+    this.persistPath = path4.join(base, ".claude", "state", "coordinator.json");
+    this.load(path4.join(base, "thoughts", ".dev-flow-cache", "coordinator.json"));
   }
-  load() {
+  load(legacyPath) {
     try {
-      if (!fs5.existsSync(this.persistPath)) return;
-      const raw = fs5.readFileSync(this.persistPath, "utf-8");
+      let loadPath = this.persistPath;
+      if (!fs5.existsSync(loadPath) && legacyPath && fs5.existsSync(legacyPath)) {
+        loadPath = legacyPath;
+      }
+      if (!fs5.existsSync(loadPath)) return;
+      const raw = fs5.readFileSync(loadPath, "utf-8");
       const data = JSON.parse(raw);
       this.tasks = new Map(data.map((t) => [t.id, t]));
     } catch {
@@ -23831,7 +23922,7 @@ var TaskCoordinator = class {
         fs5.mkdirSync(dir, { recursive: true });
       }
       const data = JSON.stringify(Array.from(this.tasks.values()), null, 2);
-      const tmpPath = this.persistPath + ".tmp";
+      const tmpPath = this.persistPath + ".tmp." + process.pid;
       fs5.writeFileSync(tmpPath, data, "utf-8");
       fs5.renameSync(tmpPath, this.persistPath);
     } catch {
@@ -24103,13 +24194,13 @@ ${handoff.open_questions.map((q) => `- [ ] ${q}`).join("\n")}
 };
 
 // src/git/commit.ts
-var import_child_process13 = require("child_process");
+var import_child_process14 = require("child_process");
 var import_crypto = require("crypto");
-var activeSession = null;
+var activeSessions = /* @__PURE__ */ new Map();
 var SESSION_TTL = 10 * 60 * 1e3;
 function execCommand4(cmd) {
   try {
-    return (0, import_child_process13.execSync)(cmd, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+    return (0, import_child_process14.execSync)(cmd, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
   } catch {
     return "";
   }
@@ -24122,7 +24213,7 @@ function getReviewLogMtime() {
   const branch = execCommand4("git branch --show-current");
   const logPath = `.git/claude/review-session-${branch}.md`;
   try {
-    const stat = (0, import_child_process13.execSync)(`/usr/bin/stat -f %m "${logPath}" 2>/dev/null`, {
+    const stat = (0, import_child_process14.execSync)(`/usr/bin/stat -f %m "${logPath}" 2>/dev/null`, {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"]
     }).trim();
@@ -24139,21 +24230,24 @@ function commitPrepare() {
   const files = execCommand4("git diff --cached --name-only").split("\n").filter(Boolean);
   const token = hashDiff();
   const reviewLogMtime = getReviewLogMtime();
-  activeSession = {
+  const branch = execCommand4("git branch --show-current").trim() || "detached";
+  activeSessions.set(branch, {
     token,
     diffHash: token,
     files,
     reviewLogMtime,
     createdAt: Date.now()
-  };
+  });
   return { token, files, diff_stat: diffStat };
 }
 function commitFinalize(token, message, skipReview) {
+  const branch = execCommand4("git branch --show-current").trim() || "detached";
+  const activeSession = activeSessions.get(branch);
   if (!activeSession) {
     throw new Error('No active commit session. Run dev_commit(action="prepare") first.');
   }
   if (Date.now() - activeSession.createdAt > SESSION_TTL) {
-    activeSession = null;
+    activeSessions.delete(branch);
     throw new Error('Commit session expired (10min). Run dev_commit(action="prepare") again.');
   }
   if (token !== activeSession.token) {
@@ -24163,7 +24257,7 @@ function commitFinalize(token, message, skipReview) {
   }
   const currentHash = hashDiff();
   if (currentHash !== activeSession.diffHash) {
-    activeSession = null;
+    activeSessions.delete(branch);
     throw new Error(
       "Staged diff changed after prepare (code modified after review). Run prepare \u2192 review \u2192 finalize again."
     );
@@ -24177,13 +24271,12 @@ function commitFinalize(token, message, skipReview) {
     }
   }
   const output = execCommand4(`git commit -m "${message.replace(/"/g, '\\"')}"`);
-  ;
   if (!output) {
     throw new Error("git commit failed. Check staged changes and message format.");
   }
   const hashMatch = output.match(/\[[\w/.-]+ ([a-f0-9]+)\]/);
   const hash2 = hashMatch ? hashMatch[1] : execCommand4("git rev-parse --short HEAD");
-  activeSession = null;
+  activeSessions.delete(branch);
   return { hash: hash2, message };
 }
 function commitTool(action, token, message, skipReview) {
@@ -24440,7 +24533,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             enum: ["status", "list", "create", "update", "task_update", "archive", "search"],
             description: "Action to perform"
           },
-          taskId: { type: "string", description: "Task ID (TASK-XXX) for create/archive/task_update" },
+          taskId: { type: "string", description: "Task identifier for create/archive/task_update (e.g., TASK-123, fix-auth-bug)" },
           taskName: { type: "string", description: "Task name (for task_update)" },
           gate: { type: "string", description: "Gate name (for task_update: self|spec|quality|verify|ui)" },
           gateResult: { type: "string", description: "Gate result (for task_update: pass|fail|skip)" },
@@ -24758,6 +24851,15 @@ Use the Notion MCP tool notion-query-data-sources with this database_id and filt
     return { content: [{ type: "text", text: `Error: ${error2.message}` }] };
   }
 });
+function getDefaultBranch2() {
+  try {
+    const { execSync: execSync15 } = require("child_process");
+    const ref = execSync15("git symbolic-ref refs/remotes/origin/HEAD", { encoding: "utf-8" }).trim();
+    return ref.replace("refs/remotes/origin/", "");
+  } catch {
+    return "master";
+  }
+}
 function quickStatus() {
   const project = getCached("project", CACHE_TTL.project, detectProjectType);
   const workflow = getCached("workflow", CACHE_TTL.git, getWorkflowStatus);
@@ -24813,7 +24915,7 @@ function fullStatus(verbose = false) {
   const hasPR = workflow.git.prState === "OPEN";
   if (hasPR) {
     const pr = getPRStatus();
-    const analysis = analyzeChanges("origin/master", project.type);
+    const analysis = analyzeChanges(`origin/${getDefaultBranch2()}`, project.type);
     const draft = pr.isDraft ? "DRAFT" : "READY";
     const builds = pr.isDraft ? "OFF" : "ON";
     const rec = analysis.recommendation === "should_build" ? "\u2705BUILD" : analysis.recommendation === "skip" ? "\u23F8\uFE0FSKIP" : "\u26A0\uFE0FMAYBE";
@@ -24838,6 +24940,13 @@ function getVerboseGuidance(phase, type) {
 }
 function fixCommands() {
   const project = getCached("project", CACHE_TTL.project, detectProjectType);
+  const customConfig = loadProjectConfig();
+  if (customConfig) {
+    return { content: [{ type: "text", text: customConfig.commands.fix }] };
+  }
+  if (hasMakefileTargets()) {
+    return { content: [{ type: "text", text: "make fix" }] };
+  }
   const cmds = project.type === "ios" ? getFixCommands(project) : getFixCommands2();
   return {
     content: [{ type: "text", text: cmds.join(" && ") }]
@@ -24845,7 +24954,26 @@ function fixCommands() {
 }
 function checkStatus() {
   const project = getCached("project", CACHE_TTL.project, detectProjectType);
-  const quality = getCached("quality_check", CACHE_TTL.quality, () => {
+  const customConfig = loadProjectConfig();
+  if (customConfig) {
+    try {
+      const { execSync: execSync15 } = require("child_process");
+      execSync15(customConfig.commands.check, { stdio: "pipe" });
+      return { content: [{ type: "text", text: "\u2705" }] };
+    } catch {
+      return { content: [{ type: "text", text: "\u274C" }] };
+    }
+  }
+  if (hasMakefileTargets()) {
+    try {
+      const { execSync: execSync15 } = require("child_process");
+      execSync15("make check", { stdio: "pipe" });
+      return { content: [{ type: "text", text: "\u2705" }] };
+    } catch {
+      return { content: [{ type: "text", text: "\u274C" }] };
+    }
+  }
+  const quality = getCached("quality", CACHE_TTL.quality, () => {
     if (project.type === "ios") {
       return runSwiftLint(project.srcDir).errors;
     } else if (project.type === "android") {
@@ -24859,7 +24987,7 @@ function checkStatus() {
 function nextCommand() {
   const project = getCached("project", CACHE_TTL.project, detectProjectType);
   const workflow = getCached("workflow", CACHE_TTL.git, getWorkflowStatus);
-  const quality = getCached("quality_check", CACHE_TTL.quality, () => {
+  const qualityErrors = getCached("quality", CACHE_TTL.quality, () => {
     if (project.type === "ios") {
       return runSwiftLint(project.srcDir).errors;
     } else if (project.type === "android") {
@@ -24867,13 +24995,16 @@ function nextCommand() {
     }
     return 0;
   });
-  if (quality > 0) {
+  if (qualityErrors > 0) {
+    const customConfig = loadProjectConfig();
+    if (customConfig) return { content: [{ type: "text", text: customConfig.commands.fix }] };
+    if (hasMakefileTargets()) return { content: [{ type: "text", text: "make fix" }] };
     const cmds = project.type === "ios" ? getFixCommands(project) : getFixCommands2();
     return { content: [{ type: "text", text: cmds.join(" && ") }] };
   }
   if (workflow.phase === "PR_OPEN") {
     const pr = getPRStatus();
-    const analysis = analyzeChanges("origin/master", project.type);
+    const analysis = analyzeChanges(`origin/${getDefaultBranch2()}`, project.type);
     if (pr.isDraft) {
       if (analysis.recommendation === "should_build") {
         return { content: [{ type: "text", text: 'dev_ready(action:"yes") # Large changes, trigger build' }] };
@@ -25111,7 +25242,7 @@ function ledgerTool(action, taskId, branch, keyword, commitHash, commitMessage, 
       const list = ledgerList();
       return { content: [{ type: "text", text: list.message }] };
     case "create":
-      if (!taskId) return { content: [{ type: "text", text: "\u274C taskId required (e.g., TASK-123)" }] };
+      if (!taskId) return { content: [{ type: "text", text: "\u274C taskId required (e.g., TASK-123, fix-auth-bug)" }] };
       const branchName = branch || `feature/${taskId}-new`;
       return { content: [{ type: "text", text: ledgerCreate(taskId, branchName).message }] };
     case "update": {
@@ -25143,7 +25274,10 @@ function ledgerTool(action, taskId, branch, keyword, commitHash, commitMessage, 
     case "search":
       if (!keyword) return { content: [{ type: "text", text: "\u274C Keyword required" }] };
       const search = ledgerSearch(keyword);
-      return { content: [{ type: "text", text: search.message }] };
+      const searchResult = search.data && search.data.length > 0 ? `${search.message}
+
+${search.data.map((m) => `- ${m.name}${m.archived ? " [archived]" : ""}: ${m.context}`).join("\n")}` : search.message;
+      return { content: [{ type: "text", text: searchResult }] };
     default:
       return { content: [{ type: "text", text: "\u274C Action required: status|list|create|update|task_update|archive|search" }] };
   }
@@ -25281,16 +25415,37 @@ Platform: ${r.platform} | Project: ${r.sourceProject}
       return { content: [{ type: "text", text: "\u274C Action required: status|save|search|get|list|prune|reindex" }] };
   }
 }
-var taskCoordinator = new TaskCoordinator();
-var handoffHub = new HandoffHub();
+var _taskCoordinator = null;
+var _handoffHub = null;
+function getGitRoot() {
+  try {
+    const { execSync: execSync15 } = require("child_process");
+    return execSync15("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
+  } catch {
+    return process.cwd();
+  }
+}
+function getTaskCoordinator() {
+  if (!_taskCoordinator) _taskCoordinator = new TaskCoordinator(getGitRoot());
+  return _taskCoordinator;
+}
+function getHandoffHub() {
+  if (!_handoffHub) _handoffHub = new HandoffHub(require("path").join(getGitRoot(), "thoughts", "handoffs"));
+  return _handoffHub;
+}
 function coordinateTool(action, mode, tasksJson, taskId) {
   switch (action) {
     case "plan": {
       if (!mode || !tasksJson) {
         return { content: [{ type: "text", text: "\u274C mode and tasks required for plan" }] };
       }
-      const tasks = JSON.parse(tasksJson);
-      const conflicts = taskCoordinator.detectConflicts(tasks);
+      let tasks;
+      try {
+        tasks = JSON.parse(tasksJson);
+      } catch {
+        return { content: [{ type: "text", text: "Error: Invalid JSON in tasks parameter" }] };
+      }
+      const conflicts = getTaskCoordinator().detectConflicts(tasks);
       let result = `Mode: ${mode}
 Tasks: ${tasks.length}
 `;
@@ -25311,12 +25466,17 @@ Tasks: ${tasks.length}
       if (!tasksJson) {
         return { content: [{ type: "text", text: "\u274C tasks required for dispatch" }] };
       }
-      const tasks = JSON.parse(tasksJson);
-      tasks.forEach((t) => taskCoordinator.enqueue(t));
-      return { content: [{ type: "text", text: `\u2705 Dispatched ${tasks.length} tasks` }] };
+      let dispatchTasks;
+      try {
+        dispatchTasks = JSON.parse(tasksJson);
+      } catch {
+        return { content: [{ type: "text", text: "Error: Invalid JSON in tasks parameter" }] };
+      }
+      dispatchTasks.forEach((t) => getTaskCoordinator().enqueue(t));
+      return { content: [{ type: "text", text: `\u2705 Dispatched ${dispatchTasks.length} tasks` }] };
     }
     case "status": {
-      const status = taskCoordinator.getStatus();
+      const status = getTaskCoordinator().getStatus();
       const result = `Queued: ${status.queuedTasks} | Active: ${status.activeTasks} | Completed: ${status.completedTasks}`;
       return { content: [{ type: "text", text: result }] };
     }
@@ -25324,7 +25484,7 @@ Tasks: ${tasks.length}
       if (!taskId) {
         return { content: [{ type: "text", text: "\u274C taskId required for cancel" }] };
       }
-      const cancelled = taskCoordinator.cancel(taskId);
+      const cancelled = getTaskCoordinator().cancel(taskId);
       if (!cancelled) {
         return { content: [{ type: "text", text: `\u274C Task not found: ${taskId}` }] };
       }
@@ -25340,22 +25500,27 @@ function handoffTool(action, handoffJson, handoffId, taskId, keyword) {
       if (!handoffJson) {
         return { content: [{ type: "text", text: "\u274C handoff JSON required for write" }] };
       }
-      const handoff = JSON.parse(handoffJson);
-      const id = handoffHub.write(handoff);
+      let handoff;
+      try {
+        handoff = JSON.parse(handoffJson);
+      } catch {
+        return { content: [{ type: "text", text: "Error: Invalid JSON in handoff parameter" }] };
+      }
+      const id = getHandoffHub().write(handoff);
       return { content: [{ type: "text", text: `\u2705 Handoff written: ${id}` }] };
     }
     case "read": {
       if (!handoffId) {
         return { content: [{ type: "text", text: "\u274C handoffId required for read" }] };
       }
-      const handoff = handoffHub.read(handoffId);
-      return { content: [{ type: "text", text: JSON.stringify(handoff, null, 2) }] };
+      const handoffRead = getHandoffHub().read(handoffId);
+      return { content: [{ type: "text", text: JSON.stringify(handoffRead, null, 2) }] };
     }
     case "chain": {
       if (!taskId) {
         return { content: [{ type: "text", text: "\u274C taskId required for chain" }] };
       }
-      const chain = handoffHub.readChain(taskId);
+      const chain = getHandoffHub().readChain(taskId);
       const result = `Found ${chain.length} handoffs for ${taskId}:
 ` + chain.map((h) => `  ${h.agent_id}: ${h.status} - ${h.summary}`).join("\n");
       return { content: [{ type: "text", text: result }] };
@@ -25364,7 +25529,7 @@ function handoffTool(action, handoffJson, handoffId, taskId, keyword) {
       if (!keyword) {
         return { content: [{ type: "text", text: "\u274C keyword required for search" }] };
       }
-      const matches = handoffHub.search(keyword);
+      const matches = getHandoffHub().search(keyword);
       if (matches.length === 0) {
         return { content: [{ type: "text", text: `No handoffs found for: ${keyword}` }] };
       }
@@ -25379,14 +25544,18 @@ ${lines.join("\n")}` }] };
 function aggregateTool(action, handoffIdsJson, taskId) {
   let handoffIds = [];
   if (handoffIdsJson) {
-    handoffIds = JSON.parse(handoffIdsJson);
+    try {
+      handoffIds = JSON.parse(handoffIdsJson);
+    } catch {
+      return { content: [{ type: "text", text: "Error: Invalid JSON in handoffIds parameter" }] };
+    }
   } else if (taskId) {
-    const chain = handoffHub.readChainWithIds(taskId);
+    const chain = getHandoffHub().readChainWithIds(taskId);
     handoffIds = chain.map(({ handoffId }) => handoffId);
   } else {
     return { content: [{ type: "text", text: "\u274C handoffIds or taskId required" }] };
   }
-  const result = handoffHub.aggregate(handoffIds);
+  const result = getHandoffHub().aggregate(handoffIds);
   switch (action) {
     case "summary": {
       const text = `${result.totalHandoffs} handoffs | \u2705${result.successCount} \u26A0\uFE0F${result.partialCount} \u{1F6AB}${result.blockedCount} \u274C${result.failedCount}`;

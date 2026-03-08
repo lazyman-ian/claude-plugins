@@ -1,6 +1,6 @@
 ---
 name: implement-plan
-description: Executes approved implementation plans from thoughts/shared/plans/ using an adaptive execution engine with risk-based quality gates. This skill should be used when the user has an approved plan and wants to implement it step-by-step with verification gates (fresh subagent, self-review, spec review, quality review). Triggers on "implement plan", "execute plan", "follow the plan", "run the plan", "start implementation", "use tdd", "test driven", "按计划实现", "执行方案", "按计划执行", "测试驱动", "执行计划", "实施方案", "分阶段实现". Do NOT use for general development workflow (commit/PR/release) — use "dev" instead.
+description: Executes approved implementation plans from thoughts/plans/ using an adaptive execution engine with risk-based quality gates. This skill should be used when the user has an approved plan and wants to implement it step-by-step with verification gates (fresh subagent, self-review, spec review, quality review). Triggers on "implement plan", "execute plan", "follow the plan", "run the plan", "start implementation", "use tdd", "test driven", "按计划实现", "执行方案", "按计划执行", "测试驱动", "执行计划", "实施方案", "分阶段实现". Do NOT use for general development workflow (commit/PR/release) — use "dev" instead.
 model: opus
 context: fork
 allowed-tools: [Read, Glob, Grep, Edit, Write, Bash, Agent, TaskCreate, TaskUpdate, TaskList, TaskGet, mcp__plugin_dev-flow_dev-flow__*, mcp__figma__get_design_context, mcp__figma__get_screenshot, mcp__figma__get_metadata]
@@ -8,7 +8,7 @@ allowed-tools: [Read, Glob, Grep, Edit, Write, Bash, Agent, TaskCreate, TaskUpda
 
 # Implement Plan
 
-Execute approved technical plans from `thoughts/shared/plans/` with adaptive quality gates.
+Execute approved technical plans from `thoughts/plans/` with adaptive quality gates.
 
 ## When to Use
 
@@ -26,7 +26,7 @@ Single entry point for all plan execution. The orchestrator:
 3. Pick the first incomplete task
 4. Assess risk per task → determine gate set → run gates
 5. After each gate: `dev_ledger(action='task_update', taskId, gate, result)`
-6. Verify pass → write `.proof/{task-id}.json` → commit → mark `[x]` → continue
+6. Verify pass → commit → mark `[x]` → continue
 7. Context > 70% → save state to ledger → generate Ralph prompt → output handoff
 8. All tasks done → Review Gate Loop runs before PR creation (see Plan Closure)
 
@@ -85,7 +85,7 @@ For Agent Teams: `dev_coordinate(action='plan', mode='fan-out')` detects `target
 | Level | Output |
 |-------|--------|
 | 1 (milestone) | `[Task N/M] name done (X files, verify pass)` |
-| 2 (final only) | `Done: N/M tasks, X files, all pass. Proof: .proof/` |
+| 2 (final only) | `Done: N/M tasks, X files, all pass.` |
 
 ## Ralph: Persistence Fallback
 
@@ -238,7 +238,7 @@ When all tasks complete:
 
 | Reference | Load When |
 |-----------|-----------|
-| `references/execution-engine.md` | Engine mechanics, ledger API, proof manifest format |
+| `references/execution-engine.md` | Engine mechanics, ledger API, gate tracking |
 | `references/risk-assessment.md` | Risk signals, file path patterns, gate matrix |
 | `references/task-management.md` | Task creation/tracking patterns |
 | `references/agent-orchestration.md` | Agent mode (4+ tasks) |

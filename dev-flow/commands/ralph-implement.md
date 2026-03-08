@@ -12,11 +12,11 @@ Works as both an explicit invocation and as the auto-degradation target when imp
 ## Usage
 
 ```
-/dev ralph-implement thoughts/shared/plans/2026-03-08-feature.md
-/dev ralph-implement thoughts/shared/plans/2026-03-08-feature.md --max-iterations 30
+/dev ralph-implement thoughts/plans/2026-03-08-feature.md
+/dev ralph-implement thoughts/plans/2026-03-08-feature.md --max-iterations 30
 ```
 
-If no plan path is given, the most recent plan in `thoughts/shared/plans/` is used.
+If no plan path is given, the most recent plan in `thoughts/plans/` is used.
 
 ## Auto-Degradation
 
@@ -36,7 +36,7 @@ Parse `$ARGUMENTS` for the plan path (first positional argument).
 
 If no path given, find the most recent plan:
 ```bash
-ls -t thoughts/shared/plans/*.md 2>/dev/null | head -1
+ls -t thoughts/plans/*.md 2>/dev/null | head -1
 ```
 
 Read the plan file completely before proceeding.
@@ -90,7 +90,7 @@ You are executing plan: {plan_path}
 - Autonomy level: {autonomy} (1=milestone output per task, 2=final only)
 - Max 2 retries per verify failure
 - Stuck 3 iterations on same task: record guardrail in plan + ledger, skip to next
-- Write proof to .proof/{task-id}.json after each verify pass
+- Record gate results via dev_ledger after each verify pass
 - NEVER modify verify commands, only fix implementation code
 ```
 
@@ -105,7 +105,7 @@ Replace `{plan_path}` and `{autonomy}` with actual extracted values.
 ## Example
 
 ```
-User: /dev ralph-implement thoughts/shared/plans/2026-03-08-auth.md
+User: /dev ralph-implement thoughts/plans/2026-03-08-auth.md
 
 -> Reads plan: 5 tasks, autonomy: 2
 -> Reads ledger: tasks 1.1, 1.2 already completed
@@ -120,5 +120,5 @@ User: /dev ralph-implement thoughts/shared/plans/2026-03-08-auth.md
 
 | Option | Description |
 |--------|-------------|
-| `[plan-path]` | Path to plan file (default: most recent in `thoughts/shared/plans/`) |
+| `[plan-path]` | Path to plan file (default: most recent in `thoughts/plans/`) |
 | `--max-iterations N` | Override iteration cap (default: task_count * 3) |

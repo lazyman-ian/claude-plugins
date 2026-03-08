@@ -9,7 +9,7 @@ interface CommitSession {
   createdAt: number;
 }
 
-let activeSession: CommitSession | null = null;
+const activeSessions = new Map<string, CommitSession>();
 const SESSION_TTL = 10 * 60 * 1000;
 
 function execCommand(cmd: string): string {
@@ -51,13 +51,14 @@ function commitPrepare(): { token: string; files: string[]; diff_stat: string } 
   const token = hashDiff();
   const reviewLogMtime = getReviewLogMtime();
 
-  activeSession = {
+  const branch = execCommand('git branch --show-current').trim() || 'detached';
+  activeSessions.set(branch, {
     token,
     diffHash: token,
     files,
     reviewLogMtime,
     createdAt: Date.now(),
-  };
+  });
 
   return { token, files, diff_stat: diffStat };
 }
@@ -67,12 +68,15 @@ function commitFinalize(
   message: string,
   skipReview?: boolean
 ): { hash: string; message: string } {
+  const branch = execCommand('git branch --show-current').trim() || 'detached';
+  const activeSession = activeSessions.get(branch);
+
   if (!activeSession) {
     throw new Error('No active commit session. Run dev_commit(action="prepare") first.');
   }
 
   if (Date.now() - activeSession.createdAt > SESSION_TTL) {
-    activeSession = null;
+    activeSessions.delete(branch);
     throw new Error('Commit session expired (10min). Run dev_commit(action="prepare") again.');
   }
 
@@ -84,7 +88,7 @@ function commitFinalize(
 
   const currentHash = hashDiff();
   if (currentHash !== activeSession.diffHash) {
-    activeSession = null;
+    activeSessions.delete(branch);
     throw new Error(
       'Staged diff changed after prepare (code modified after review). Run prepare → review → finalize again.'
     );
@@ -99,7 +103,7 @@ function commitFinalize(
     }
   }
 
-  const output = execCommand(`git commit -m "${message.replace(/"/g, '\\"')}"`);;
+  const output = execCommand(`git commit -m "${message.replace(/"/g, '\\"')}"`);
   if (!output) {
     throw new Error('git commit failed. Check staged changes and message format.');
   }
@@ -107,7 +111,7 @@ function commitFinalize(
   const hashMatch = output.match(/\[[\w/.-]+ ([a-f0-9]+)\]/);
   const hash = hashMatch ? hashMatch[1] : execCommand('git rev-parse --short HEAD');
 
-  activeSession = null;
+  activeSessions.delete(branch);
 
   return { hash, message };
 }

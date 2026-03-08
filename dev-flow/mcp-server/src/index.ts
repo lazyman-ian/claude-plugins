@@ -146,7 +146,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             enum: ['status', 'list', 'create', 'update', 'task_update', 'archive', 'search'],
             description: 'Action to perform',
           },
-          taskId: { type: 'string', description: 'Task ID (TASK-XXX) for create/archive/task_update' },
+          taskId: { type: 'string', description: 'Task identifier for create/archive/task_update (e.g., TASK-123, fix-auth-bug)' },
           taskName: { type: 'string', description: 'Task name (for task_update)' },
           gate: { type: 'string', description: 'Gate name (for task_update: self|spec|quality|verify|ui)' },
           gateResult: { type: 'string', description: 'Gate result (for task_update: pass|fail|skip)' },
@@ -470,6 +470,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
+// Detect git default branch (main/master/develop) dynamically
+function getDefaultBranch(): string {
+  try {
+    const { execSync } = require('child_process');
+    const ref = execSync('git symbolic-ref refs/remotes/origin/HEAD', { encoding: 'utf-8' }).trim();
+    return ref.replace('refs/remotes/origin/', '');
+  } catch {
+    return 'master';
+  }
+}
+
 // Quick status - ultra-compact (~30 tokens)
 function quickStatus() {
   const project = getCached('project', CACHE_TTL.project, detectProjectType);
@@ -536,7 +547,7 @@ function fullStatus(verbose: boolean = false) {
   const hasPR = workflow.git.prState === 'OPEN';
   if (hasPR) {
     const pr = getPRStatus();
-    const analysis = analyzeChanges('origin/master', project.type);
+    const analysis = analyzeChanges(`origin/${getDefaultBranch()}`, project.type);
     const draft = pr.isDraft ? 'DRAFT' : 'READY';
     const builds = pr.isDraft ? 'OFF' : 'ON';
     const rec = analysis.recommendation === 'should_build' ? '✅BUILD' :
@@ -569,6 +580,16 @@ function getVerboseGuidance(phase: string, type: string): string {
 // Fix commands - minimal (~20 tokens)
 function fixCommands() {
   const project = getCached('project', CACHE_TTL.project, detectProjectType);
+
+  // Check custom config first (mirrors platformConfig() priority)
+  const customConfig = loadProjectConfig();
+  if (customConfig) {
+    return { content: [{ type: 'text', text: customConfig.commands.fix }] };
+  }
+  if (hasMakefileTargets()) {
+    return { content: [{ type: 'text', text: 'make fix' }] };
+  }
+
   const cmds = project.type === 'ios'
     ? ios.getFixCommands(project)
     : android.getFixCommands();
@@ -582,7 +603,28 @@ function fixCommands() {
 function checkStatus() {
   const project = getCached('project', CACHE_TTL.project, detectProjectType);
 
-  const quality = getCached('quality_check', CACHE_TTL.quality, () => {
+  // Check custom config first (mirrors platformConfig() priority)
+  const customConfig = loadProjectConfig();
+  if (customConfig) {
+    try {
+      const { execSync } = require('child_process');
+      execSync(customConfig.commands.check, { stdio: 'pipe' });
+      return { content: [{ type: 'text', text: '✅' }] };
+    } catch {
+      return { content: [{ type: 'text', text: '❌' }] };
+    }
+  }
+  if (hasMakefileTargets()) {
+    try {
+      const { execSync } = require('child_process');
+      execSync('make check', { stdio: 'pipe' });
+      return { content: [{ type: 'text', text: '✅' }] };
+    } catch {
+      return { content: [{ type: 'text', text: '❌' }] };
+    }
+  }
+
+  const quality = getCached('quality', CACHE_TTL.quality, () => {
     if (project.type === 'ios') {
       return ios.runSwiftLint(project.srcDir).errors;
     } else if (project.type === 'android') {
@@ -600,7 +642,7 @@ function nextCommand() {
   const project = getCached('project', CACHE_TTL.project, detectProjectType);
   const workflow = getCached('workflow', CACHE_TTL.git, getWorkflowStatus);
 
-  const quality = getCached('quality_check', CACHE_TTL.quality, () => {
+  const qualityErrors = getCached('quality', CACHE_TTL.quality, () => {
     if (project.type === 'ios') {
       return ios.runSwiftLint(project.srcDir).errors;
     } else if (project.type === 'android') {
@@ -609,7 +651,11 @@ function nextCommand() {
     return 0;
   });
 
-  if (quality > 0) {
+  if (qualityErrors > 0) {
+    // Check custom config first
+    const customConfig = loadProjectConfig();
+    if (customConfig) return { content: [{ type: 'text', text: customConfig.commands.fix }] };
+    if (hasMakefileTargets()) return { content: [{ type: 'text', text: 'make fix' }] };
     const cmds = project.type === 'ios'
       ? ios.getFixCommands(project)
       : android.getFixCommands();
@@ -619,7 +665,7 @@ function nextCommand() {
   // Smart PR_OPEN suggestions based on build control
   if (workflow.phase === 'PR_OPEN') {
     const pr = getPRStatus();
-    const analysis = analyzeChanges('origin/master', project.type);
+    const analysis = analyzeChanges(`origin/${getDefaultBranch()}`, project.type);
 
     if (pr.isDraft) {
       // Draft PR - suggest based on changes
@@ -913,7 +959,7 @@ function ledgerTool(action?: string, taskId?: string, branch?: string, keyword?:
       const list = continuity.ledgerList();
       return { content: [{ type: 'text', text: list.message }] };
     case 'create':
-      if (!taskId) return { content: [{ type: 'text', text: '❌ taskId required (e.g., TASK-123)' }] };
+      if (!taskId) return { content: [{ type: 'text', text: '❌ taskId required (e.g., TASK-123, fix-auth-bug)' }] };
       const branchName = branch || `feature/${taskId}-new`;
       return { content: [{ type: 'text', text: continuity.ledgerCreate(taskId, branchName).message }] };
     case 'update': {
@@ -942,7 +988,10 @@ function ledgerTool(action?: string, taskId?: string, branch?: string, keyword?:
     case 'search':
       if (!keyword) return { content: [{ type: 'text', text: '❌ Keyword required' }] };
       const search = continuity.ledgerSearch(keyword);
-      return { content: [{ type: 'text', text: search.message }] };
+      const searchResult = search.data && search.data.length > 0
+        ? `${search.message}\n\n${search.data.map((m: any) => `- ${m.name}${m.archived ? ' [archived]' : ''}: ${m.context}`).join('\n')}`
+        : search.message;
+      return { content: [{ type: 'text', text: searchResult }] };
     default:
       return { content: [{ type: 'text', text: '❌ Action required: status|list|create|update|task_update|archive|search' }] };
   }
@@ -1084,9 +1133,28 @@ function memoryTool(action?: string, query?: string, type?: string, dryRun?: boo
   }
 }
 
-// Coordination tool implementations
-const taskCoordinator = new coordination.TaskCoordinator();
-const handoffHub = new coordination.HandoffHub();
+// Coordination tool implementations — lazy init to use git root, not startup cwd
+let _taskCoordinator: coordination.TaskCoordinator | null = null;
+let _handoffHub: coordination.HandoffHub | null = null;
+
+function getGitRoot(): string {
+  try {
+    const { execSync } = require('child_process');
+    return execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
+  } catch {
+    return process.cwd();
+  }
+}
+
+function getTaskCoordinator(): coordination.TaskCoordinator {
+  if (!_taskCoordinator) _taskCoordinator = new coordination.TaskCoordinator(getGitRoot());
+  return _taskCoordinator;
+}
+
+function getHandoffHub(): coordination.HandoffHub {
+  if (!_handoffHub) _handoffHub = new coordination.HandoffHub(require('path').join(getGitRoot(), 'thoughts', 'handoffs'));
+  return _handoffHub;
+}
 
 function coordinateTool(action: string, mode?: string, tasksJson?: string, taskId?: string) {
   switch (action) {
@@ -1094,8 +1162,13 @@ function coordinateTool(action: string, mode?: string, tasksJson?: string, taskI
       if (!mode || !tasksJson) {
         return { content: [{ type: 'text', text: '❌ mode and tasks required for plan' }] };
       }
-      const tasks = JSON.parse(tasksJson);
-      const conflicts = taskCoordinator.detectConflicts(tasks);
+      let tasks;
+      try {
+        tasks = JSON.parse(tasksJson);
+      } catch {
+        return { content: [{ type: 'text', text: 'Error: Invalid JSON in tasks parameter' }] };
+      }
+      const conflicts = getTaskCoordinator().detectConflicts(tasks);
 
       let result = `Mode: ${mode}\nTasks: ${tasks.length}\n`;
       if (conflicts.length > 0) {
@@ -1113,12 +1186,17 @@ function coordinateTool(action: string, mode?: string, tasksJson?: string, taskI
       if (!tasksJson) {
         return { content: [{ type: 'text', text: '❌ tasks required for dispatch' }] };
       }
-      const tasks = JSON.parse(tasksJson);
-      tasks.forEach((t: any) => taskCoordinator.enqueue(t));
-      return { content: [{ type: 'text', text: `✅ Dispatched ${tasks.length} tasks` }] };
+      let dispatchTasks;
+      try {
+        dispatchTasks = JSON.parse(tasksJson);
+      } catch {
+        return { content: [{ type: 'text', text: 'Error: Invalid JSON in tasks parameter' }] };
+      }
+      dispatchTasks.forEach((t: any) => getTaskCoordinator().enqueue(t));
+      return { content: [{ type: 'text', text: `✅ Dispatched ${dispatchTasks.length} tasks` }] };
     }
     case 'status': {
-      const status = taskCoordinator.getStatus();
+      const status = getTaskCoordinator().getStatus();
       const result = `Queued: ${status.queuedTasks} | Active: ${status.activeTasks} | Completed: ${status.completedTasks}`;
       return { content: [{ type: 'text', text: result }] };
     }
@@ -1126,7 +1204,7 @@ function coordinateTool(action: string, mode?: string, tasksJson?: string, taskI
       if (!taskId) {
         return { content: [{ type: 'text', text: '❌ taskId required for cancel' }] };
       }
-      const cancelled = taskCoordinator.cancel(taskId);
+      const cancelled = getTaskCoordinator().cancel(taskId);
       if (!cancelled) {
         return { content: [{ type: 'text', text: `❌ Task not found: ${taskId}` }] };
       }
@@ -1143,22 +1221,27 @@ function handoffTool(action: string, handoffJson?: string, handoffId?: string, t
       if (!handoffJson) {
         return { content: [{ type: 'text', text: '❌ handoff JSON required for write' }] };
       }
-      const handoff = JSON.parse(handoffJson);
-      const id = handoffHub.write(handoff);
+      let handoff;
+      try {
+        handoff = JSON.parse(handoffJson);
+      } catch {
+        return { content: [{ type: 'text', text: 'Error: Invalid JSON in handoff parameter' }] };
+      }
+      const id = getHandoffHub().write(handoff);
       return { content: [{ type: 'text', text: `✅ Handoff written: ${id}` }] };
     }
     case 'read': {
       if (!handoffId) {
         return { content: [{ type: 'text', text: '❌ handoffId required for read' }] };
       }
-      const handoff = handoffHub.read(handoffId);
-      return { content: [{ type: 'text', text: JSON.stringify(handoff, null, 2) }] };
+      const handoffRead = getHandoffHub().read(handoffId);
+      return { content: [{ type: 'text', text: JSON.stringify(handoffRead, null, 2) }] };
     }
     case 'chain': {
       if (!taskId) {
         return { content: [{ type: 'text', text: '❌ taskId required for chain' }] };
       }
-      const chain = handoffHub.readChain(taskId);
+      const chain = getHandoffHub().readChain(taskId);
       const result = `Found ${chain.length} handoffs for ${taskId}:\n` +
         chain.map(h => `  ${h.agent_id}: ${h.status} - ${h.summary}`).join('\n');
       return { content: [{ type: 'text', text: result }] };
@@ -1167,7 +1250,7 @@ function handoffTool(action: string, handoffJson?: string, handoffId?: string, t
       if (!keyword) {
         return { content: [{ type: 'text', text: '❌ keyword required for search' }] };
       }
-      const matches = handoffHub.search(keyword);
+      const matches = getHandoffHub().search(keyword);
       if (matches.length === 0) {
         return { content: [{ type: 'text', text: `No handoffs found for: ${keyword}` }] };
       }
@@ -1183,15 +1266,19 @@ function aggregateTool(action: string, handoffIdsJson?: string, taskId?: string)
   let handoffIds: string[] = [];
 
   if (handoffIdsJson) {
-    handoffIds = JSON.parse(handoffIdsJson);
+    try {
+      handoffIds = JSON.parse(handoffIdsJson);
+    } catch {
+      return { content: [{ type: 'text', text: 'Error: Invalid JSON in handoffIds parameter' }] };
+    }
   } else if (taskId) {
-    const chain = handoffHub.readChainWithIds(taskId);
+    const chain = getHandoffHub().readChainWithIds(taskId);
     handoffIds = chain.map(({ handoffId }) => handoffId);
   } else {
     return { content: [{ type: 'text', text: '❌ handoffIds or taskId required' }] };
   }
 
-  const result = handoffHub.aggregate(handoffIds);
+  const result = getHandoffHub().aggregate(handoffIds);
 
   switch (action) {
     case 'summary': {

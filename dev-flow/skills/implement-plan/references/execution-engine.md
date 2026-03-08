@@ -21,10 +21,11 @@ for each incomplete task:
   6. Run gate 4 (Quality Review) if medium/high risk
   7. Run gate 5 (Verify)
   8. After each gate: dev_ledger(action='task_update', taskId, gate, result)
-  9. On verify pass: write .proof/{task-id}.json (MANDATORY — TaskCompleted hook enforces)
-  10. Commit, mark [x] in plan, continue
-  10. On verify fail: diagnose → fix → re-verify (max 2 attempts, both recorded)
-  11. On verify fail 2x: stop + escalate to human
+  9. On verify pass: commit, mark [x] in plan, continue to next task
+  11. On verify fail: diagnose → fix → re-verify (max 2 attempts, both recorded)
+  12. On verify fail 2x: stop + escalate to human
+
+When ALL tasks complete → return to orchestrator (do NOT start Review Gate Loop from inside implement-plan fork)
 ```
 
 ## Risk-Adaptive Gate Set
@@ -55,7 +56,7 @@ dev_ledger(action='task_update', taskId='<id>', gate='verify', result='pass', de
 
 Call after **every gate** (including passing gates). This enables the orchestrator to:
 - Resume from exact failure point after context rotation
-- Generate proof manifest per task
+
 - Track gate latency across the plan
 
 ### Gate Result Values
@@ -118,27 +119,9 @@ Both attempts recorded in ledger:
 { gate: "verify", result: "pass", attempt: 2, detail: "fixed: <what changed>" }
 ```
 
-## Proof Manifest (MANDATORY)
+## Completion Evidence
 
-**Enforced by**: `quality-gate-check.sh` (TaskCompleted hook, exit 2 = block).
-`TaskUpdate(status='completed')` will be REJECTED if `.proof/{task-id}.json` does not exist with `verdict: pass`.
-
-After each task's verify pass, write:
-
-`.proof/{task-id}.json`:
-```json
-{
-  "task_id": "1.1",
-  "verdict": "pass",
-  "gates": [
-    { "gate": "self-review", "result": "pass", "duration_ms": 0 },
-    { "gate": "quality-review", "result": "pass", "duration_ms": 3200 },
-    { "gate": "verify", "result": "pass", "attempt": 1, "duration_ms": 1100 }
-  ],
-  "files_changed": ["src/auth/token.ts", "tests/auth/token.test.ts"],
-  "commit": "feat(auth): add JWT token utility"
-}
-```
+Gate results are persisted in the ledger via `dev_ledger(action='task_update')`. No separate proof files needed — the ledger is the single source of truth for task completion evidence.
 
 ## Execution Strategy Selection
 
@@ -176,21 +159,63 @@ Runtime uncertainty (not covered by contract) → spawn decision-agent (Sonnet, 
 
 Never block on uncertainty — route it.
 
-## Review Gate Loop
+## Review Gate Loop (Independent Post-Implementation Stage)
 
-After all plan tasks are complete and before PR creation, the Review Gate Loop ensures code quality:
+The Review Gate Loop runs in the **orchestrator's context** after implement-plan fork returns. It is a separate stage, not part of the per-task loop.
 
 ### Flow
 
 ```
-All tasks done
+implement-plan fork returns (all tasks done)
+  → Record BASE_COMMIT in state file and ledger:
+      BASE_COMMIT=$(git log --oneline -1 --before="$(cat .claude/cache/.auto-pipeline-{task_id}.json | jq -r .implement_start_time)" | awk '{print $1}')
+      dev_ledger(action='task_update', taskName='review-gate', gate='init', gateResult='pass', gateDetail="BASE_COMMIT=${BASE_COMMIT}")
   → dev_aggregate(action='pr_ready')
-  → spawn code-reviewer (git diff master...HEAD)
+  → Check ledger for existing round-* gate entries to recover review_rounds count after context rotation
+  → spawn code-reviewer with BASE_COMMIT (Round 1: full branch diff master...HEAD)
   → parse findings
-    → P0/P1 → generate fix tasks → execute → re-review (review_rounds++)
+    → P0/P1 → generate fix tasks → execute (5-gate pipeline) → re-review with same BASE_COMMIT
     → P2/P3 → record in pr_notes
-    → clean → /dev pr
+    → clean pass → /dev pr
 ```
+
+### BASE_COMMIT Recording
+
+Before spawning the first code-reviewer round, record the commit just before implementation began:
+
+```bash
+# Recorded in state file during implement stage transition
+BASE_COMMIT=$(git rev-parse HEAD~$(git log --oneline master..HEAD | wc -l))
+
+# Also persist to ledger for context rotation recovery
+dev_ledger(action='task_update', taskName='review-gate', gate='init', gateResult='pass', gateDetail="BASE_COMMIT=${BASE_COMMIT}")
+```
+
+### Round Tracking (Ledger-Persisted)
+
+After each review round, persist to ledger — do NOT rely on in-context variables:
+
+```
+dev_ledger(action='task_update', taskName='review-gate', gate='round-N', gateResult='pass|fail', gateDetail='P0:X P1:Y findings')
+```
+
+On context rotation recovery: read ledger for gate entries matching `round-*` to reconstruct `review_rounds` count.
+
+```bash
+# Recover round count from ledger after context rotation
+REVIEW_ROUNDS=$(dev_ledger(action='status') | jq '[.tasks[] | select(.name=="review-gate") | .gates[] | select(.gate | startswith("round-"))] | length')
+```
+
+Max 3 rounds enforced from ledger state, not in-context variable.
+
+### Spawning code-reviewer with BASE_COMMIT
+
+Include `BASE_COMMIT` in the spawn prompt so the agent uses fix-diff mode:
+
+- Round 1: spawn with `BASE_COMMIT=<hash>` → agent reviews `git diff <BASE_COMMIT>..HEAD` (full branch from before implementation)
+- Round 2+: spawn with same `BASE_COMMIT=<hash>` → agent reviews all changes since that base commit (includes all fixes)
+
+This ensures the reviewer always sees the complete implementation delta while preventing re-flagging of pre-existing code.
 
 ### Fix Task Generation
 
@@ -207,23 +232,10 @@ P0/P1 findings become new tasks with `risk: high`:
   commit: "fix(db): parameterize user query inputs"
 ```
 
-### Re-Review Scope
-
-Each round reviews ONLY the fix diff, not the full branch:
-```bash
-# Round 1: full branch
-git diff master...HEAD
-
-# Round 2+: only changes since last review
-git diff HEAD~{fix_commit_count}..HEAD
-```
-
-This prevents the reviewer from re-flagging existing code and causing infinite loops.
-
 ### Escalation
 
 | Condition | Action |
 |-----------|--------|
-| review_rounds > 3 | Stop + escalate to human |
+| review_rounds > 3 (from ledger) | Stop + escalate to human |
 | P0 in same location 2x | Stop + escalate (likely design issue) |
 | All P0/P1 resolved | Continue to /dev pr |
