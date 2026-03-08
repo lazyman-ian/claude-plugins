@@ -8,8 +8,11 @@ set -o pipefail
 INPUT=$(cat 2>/dev/null || echo "")
 [[ -z "$INPUT" ]] && exit 0
 
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // empty' 2>/dev/null || echo "")
-[[ "$FILE_PATH" != *".claude-plugin/plugin.json"* ]] && exit 0
+file_path=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // empty' 2>/dev/null || echo "")
+case "$file_path" in
+  *plugin.json|*marketplace.json) ;; # continue with validation
+  *) echo '{"continue": true}'; exit 0 ;; # early exit for non-manifest files
+esac
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 MISMATCHES=()

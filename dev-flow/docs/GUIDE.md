@@ -12,7 +12,6 @@
   - [Knowledge Base 知识库](#knowledge-base-知识库)
   - [Memory System 记忆系统](#memory-system-记忆系统)
   - [Notion Pipeline](#notion-pipeline) *(v6.0.0)*
-  - [Product Brain](#product-brain) *(v6.0.0)*
   - [Rules 分发系统](#rules-分发系统) *(v6.0.0)*
   - [Multi-Agent 协调](#multi-agent-协调)
   - [Meta-Iterate 自我迭代](#meta-iterate-自我迭代)
@@ -664,62 +663,6 @@ Notion DB → /dev inbox → 选择任务 → /dev spec → 生成规格
 4. 保存到 `thoughts/shared/specs/SPEC-{id}.md`
 5. 人工确认后链接到 `/dev create-plan`
 
-### Product Brain
-
-产品架构知识的抽取、存储和查询。每次实现后自动提取领域知识，为后续相关工作提供上下文。
-
-#### 使用方式
-
-```bash
-# 从最近 commit 自动提取知识
-dev_product(action='extract')
-
-# 指定 spec 文件提取更丰富的上下文
-dev_product(action='extract', specPath='thoughts/shared/specs/SPEC-001.md')
-
-# 按领域查询
-dev_product(action='query', domain='ios')
-
-# 按主题查询
-dev_product(action='query', topic='authentication')
-
-# 关键词搜索
-dev_product(action='query', query='JWT token')
-
-# 手动保存知识条目
-dev_product(action='save', title='认证架构', content='使用 JWT + refresh token...', domain='backend', topic='authentication')
-
-# 输出到 Auto Memory topic 文件
-dev_product(action='write_topics')
-```
-
-#### 自动分类
-
-文件路径自动推断领域和主题：
-
-| 领域 | 路径信号 |
-|------|---------|
-| ios | `/ios/`, `.swift`, `xcodeproj` |
-| android | `/android/`, `.kt`, `gradle` |
-| web | `/web/`, `.tsx`, `.jsx` |
-| backend | `/backend/`, `/api/`, `.go`, `.py` |
-
-| 主题 | 路径信号 |
-|------|---------|
-| authentication | `auth`, `login`, `session` |
-| navigation | `nav`, `router`, `route` |
-| data-layer | `data`, `model`, `schema`, `db` |
-| ui | `ui`, `view`, `component`, `screen` |
-| networking | `network`, `api`, `request`, `http` |
-
-#### 推荐工作流
-
-```
-Spec → 实现 → commit
-    → dev_product(extract, specPath: "specs/SPEC-X.md")  # 提取知识
-    → 下次相关工作前: dev_product(query, domain: "ios")  # 查询上下文
-```
-
 ### Rules 分发系统
 
 平台感知的规则模板，自动安装到 `.claude/rules/` 目录。
@@ -1059,7 +1002,6 @@ Tasks: 2/5 (40%) | → 1 active | 2 pending
 ### v6.0.0 (2026-02-27)
 
 - **Notion Pipeline**: 任务分拣（`/dev inbox`）、规格生成（`/dev spec`）、合并后状态更新 hook
-- **Product Brain**: 产品知识抽取与查询（`dev_product` 工具），commit 后自动提取架构知识
 - **Memory 架构对齐**: Auto Memory 双向同步（`syncToMemoryMd`）、topic 文件输出、path-scoped pitfalls
 - **Rules 分发系统**: 12 个平台感知规则模板 + `/dev rules` 命令，`/dev init` 自动安装
 - **结构一致性**: 全部 5 个插件统一 hooks/scripts/ 路径、补齐 CLAUDE.md

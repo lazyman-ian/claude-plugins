@@ -1,8 +1,11 @@
 /**
  * Task Coordinator
  * Manages task queue, conflict detection, and agent completion
+ * Persists to thoughts/.dev-flow-cache/coordinator.json
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { TaskItem, Conflict, HandoffResult, TaskStatus } from './types';
 
 export interface CoordinatorStatus {
@@ -14,9 +17,44 @@ export interface CoordinatorStatus {
 
 export class TaskCoordinator {
   private tasks: Map<string, TaskItem> = new Map();
+  private persistPath: string;
+
+  constructor(projectDir?: string) {
+    const base = projectDir || process.cwd();
+    this.persistPath = path.join(base, 'thoughts', '.dev-flow-cache', 'coordinator.json');
+    this.load();
+  }
+
+  private load(): void {
+    try {
+      if (!fs.existsSync(this.persistPath)) return;
+      const raw = fs.readFileSync(this.persistPath, 'utf-8');
+      const data: TaskItem[] = JSON.parse(raw);
+      this.tasks = new Map(data.map(t => [t.id, t]));
+    } catch {
+      // Corrupt or missing file — start fresh
+      this.tasks = new Map();
+    }
+  }
+
+  private save(): void {
+    try {
+      const dir = path.dirname(this.persistPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const data = JSON.stringify(Array.from(this.tasks.values()), null, 2);
+      const tmpPath = this.persistPath + '.tmp';
+      fs.writeFileSync(tmpPath, data, 'utf-8');
+      fs.renameSync(tmpPath, this.persistPath);
+    } catch {
+      // Non-fatal: in-memory state is still valid
+    }
+  }
 
   enqueue(task: TaskItem): void {
     this.tasks.set(task.id, task);
+    this.save();
   }
 
   detectConflicts(tasks: TaskItem[]): Conflict[] {
@@ -65,6 +103,15 @@ export class TaskCoordinator {
         break;
       }
     }
+    this.save();
+  }
+
+  cancel(taskId: string): boolean {
+    const task = this.tasks.get(taskId);
+    if (!task) return false;
+    this.tasks.set(taskId, { ...task, status: 'cancelled' as TaskStatus });
+    this.save();
+    return true;
   }
 
   getStatus(): CoordinatorStatus {
@@ -79,5 +126,6 @@ export class TaskCoordinator {
 
   clear(): void {
     this.tasks.clear();
+    this.save();
   }
 }

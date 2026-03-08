@@ -7,6 +7,8 @@ argument-hint: "[plan-path] [--max-iterations N]"
 
 Bridge command: generates optimal Ralph prompt from a dev-flow plan and starts a Ralph Loop.
 
+Works as both an explicit invocation and as the auto-degradation target when implement-plan hits context limits.
+
 ## Usage
 
 ```
@@ -15,6 +17,16 @@ Bridge command: generates optimal Ralph prompt from a dev-flow plan and starts a
 ```
 
 If no plan path is given, the most recent plan in `thoughts/shared/plans/` is used.
+
+## Auto-Degradation
+
+When `implement-plan` detects context > 70%, it outputs a handoff and recommends:
+
+```
+/dev ralph-implement {plan_path}
+```
+
+In this case, Ralph continues from where implement-plan stopped — it reads the **ledger** (not just plan checkboxes) to find the correct next task and avoid re-running completed gates.
 
 ## Process
 
@@ -29,7 +41,13 @@ ls -t thoughts/shared/plans/*.md 2>/dev/null | head -1
 
 Read the plan file completely before proceeding.
 
-### Step 2: Extract Task Metadata
+### Step 2: Read Ledger Progress
+
+Call `dev_ledger(action='status')` to check for in-progress tasks from a previous session.
+
+If ledger shows completed tasks, the generated prompt instructs Ralph to skip them.
+
+### Step 3: Extract Task Metadata
 
 From the plan's YAML frontmatter, extract:
 
@@ -39,14 +57,14 @@ From the plan's YAML frontmatter, extract:
 | Autonomy level | Highest `autonomy` value across tasks | `1` |
 | Verify commands | Per-task `verify` field | `dev_config` platform verify |
 
-### Step 3: Calculate Parameters
+### Step 4: Calculate Parameters
 
 | Parameter | Rule |
 |-----------|------|
 | `max-iterations` | `--max-iterations` arg if provided, otherwise `task_count * 3` |
 | `completion-promise` | Always `PLAN COMPLETE` |
 
-### Step 4: Generate Ralph Prompt
+### Step 5: Generate Ralph Prompt
 
 Build the prompt string:
 
@@ -55,27 +73,30 @@ You are executing plan: {plan_path}
 
 ## Instructions
 
-1. Read the plan file to understand all tasks and their contracts
-2. Check git log and file state to identify completed tasks
-3. Find the first incomplete task (not marked [x] in plan)
-4. Execute per its contract (acceptance criteria)
+1. Call dev_ledger(action='status') to read progress from previous iterations
+2. Read plan file to understand all tasks and their contracts
+3. Find first incomplete task (not marked [x] in plan, cross-ref ledger)
+4. Execute per contract (acceptance criteria)
 5. Run verify command from the task
-6. If pass: commit with task's commit message, mark [x] in plan
+6. If pass: commit with task's commit message, mark [x] in plan,
+   call dev_ledger(action='task_update', taskId, gate='verify', result='pass')
 7. If fail: diagnose, fix code (NEVER modify verify), re-verify (max 2)
+   Record both attempts via dev_ledger(action='task_update')
 8. Check if ALL tasks done
 9. If all done: <promise>PLAN COMPLETE</promise>
 10. If not: continue to next task
 
 ## Rules
-- Autonomy level: {autonomy} (1=milestone output, 2=final only)
+- Autonomy level: {autonomy} (1=milestone output per task, 2=final only)
 - Max 2 retries per verify failure
-- Stuck 3 iterations on same task: skip + record guardrail
-- Write proof to .proof/{task-id}.json
+- Stuck 3 iterations on same task: record guardrail in plan + ledger, skip to next
+- Write proof to .proof/{task-id}.json after each verify pass
+- NEVER modify verify commands, only fix implementation code
 ```
 
 Replace `{plan_path}` and `{autonomy}` with actual extracted values.
 
-### Step 5: Invoke Ralph Loop
+### Step 6: Invoke Ralph Loop
 
 ```
 /ralph-loop "{generated_prompt}" --max-iterations {max_iterations} --completion-promise "PLAN COMPLETE"
@@ -87,10 +108,11 @@ Replace `{plan_path}` and `{autonomy}` with actual extracted values.
 User: /dev ralph-implement thoughts/shared/plans/2026-03-08-auth.md
 
 -> Reads plan: 5 tasks, autonomy: 2
+-> Reads ledger: tasks 1.1, 1.2 already completed
 -> max-iterations: 15 (5 * 3)
--> Generates prompt with plan path + task instructions
+-> Generates prompt: skip completed tasks, start from 1.3
 -> Invokes: /ralph-loop "..." --max-iterations 15 --completion-promise "PLAN COMPLETE"
--> Ralph Loop executes all 5 tasks autonomously
+-> Ralph executes remaining 3 tasks autonomously
 -> Outputs: <promise>PLAN COMPLETE</promise>
 ```
 

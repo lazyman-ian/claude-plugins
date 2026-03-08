@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-dev-flow-plugin (v6.3.0) is a Claude Code plugin providing unified development workflow automation: brainstorm → plan → implement (5-gate pipeline) → review → commit → PR → release. Features VDD (Verification-Driven Development), 5-gate execution pipeline, Agentic Engineering (autonomous execution with task contracts, proof manifests, and decision agent routing), Ralph Loop integration, multi-layer automated code review (P0-P3), Markdown-first knowledge vault with SQLite FTS5 search, Notion pipeline (task triage → spec generation), product brain (architecture knowledge), rules distribution system, multi-agent collaboration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
+dev-flow-plugin (v7.0.0) is a Claude Code plugin providing unified development workflow automation: brainstorm → plan → implement (5-gate pipeline) → review → commit → PR → release. Features VDD (Verification-Driven Development), 5-gate execution pipeline, Agentic Engineering (autonomous execution with task contracts, proof manifests, and decision agent routing), closed-loop learning engine (Ledger v2 + adaptive execution), Ralph Loop integration, multi-layer automated code review (P0-P3), Markdown-first knowledge vault with SQLite FTS5 search, Notion pipeline (task triage → spec generation), product brain (architecture knowledge), rules distribution system, multi-agent collaboration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
 
 ## Build & Development
 
@@ -16,7 +16,7 @@ npm run --prefix mcp-server build     # TypeScript compile to dist/ (for develop
 npm run --prefix mcp-server dev       # Run with ts-node
 
 # Run tests (vitest)
-npm test --prefix mcp-server                  # All 98 tests
+npm test --prefix mcp-server                  # All 176 tests
 ```
 
 ## Architecture
@@ -24,12 +24,12 @@ npm test --prefix mcp-server                  # All 98 tests
 ### Plugin Structure
 
 ```
-.claude-plugin/plugin.json  # Plugin manifest (v6.3.0)
+.claude-plugin/plugin.json  # Plugin manifest (v7.0.0)
 .mcp.json                   # MCP server config → scripts/mcp-server.cjs
-skills/                     # 23 skills (SKILL.md + references/)
-commands/                   # 29 command definitions
-agents/                     # 15 agent prompts + references/ (security/quality checklists)
-hooks/hooks.json            # 17 hooks across 6 types (PreToolUse, SessionStart, PreCompact, Stop, SessionEnd, PostToolUse)
+skills/                     # 25 skills (SKILL.md + references/)
+commands/                   # 30 command definitions
+agents/                     # 14 agent prompts + references/ (security/quality checklists)
+hooks/hooks.json            # 20 hooks across 9 types (PreToolUse, PostToolUse, SessionStart, SessionEnd, PreCompact, Stop, SubagentStart, UserPromptSubmit, TaskCompleted)
 scripts/track-team.sh       # Session→team mapping for StatusLine
 templates/rules/            # 12 rule templates (platform-aware, path-scoped)
 templates/thoughts/schema/  # JSON schemas for meta-iterate and handoff outputs
@@ -42,7 +42,7 @@ Single-file bundle architecture using `@modelcontextprotocol/sdk`:
 
 | Module | Purpose |
 |--------|---------|
-| `index.ts` | Server entry, 27 MCP tools |
+| `index.ts` | Server entry, 21 MCP tools |
 | `detector.ts` | Project type detection + unified `detectPlatformSimple()` + Notion config |
 | `notion.ts` | Notion integration: config, inbox filter, spec extraction |
 | `git/workflow.ts` | Git status, phase detection |
@@ -50,7 +50,7 @@ Single-file bundle architecture using `@modelcontextprotocol/sdk`:
 | `git/version.ts` | Version info, release notes |
 | `platforms/ios.ts` | SwiftLint, SwiftFormat, test/verify |
 | `platforms/android.ts` | ktlint, ktfmt, test/verify |
-| `continuity/` | Ledgers, reasoning, branch, task-sync, memory, instincts, product-brain, context-injector, embeddings |
+| `continuity/` | Ledgers, branch, defaults, task-sync, memory, context-injector, execution-report |
 | `coordination/` | Multi-agent coordination, handoffs, aggregation |
 
 ### Platform Extension
@@ -95,7 +95,6 @@ export function getPythonCommands(): PlatformCommands {
 | `dev_aggregate` | ~60 | Aggregate results for PR |
 | `dev_commit` | ~30 | Server-enforced commit: prepare → review → finalize |
 | `dev_memory` | ~60 | Knowledge vault: save/search/get/list/prune/reindex |
-| `dev_product` | ~50 | Product brain: extract/query/save architecture knowledge |
 | `dev_inbox` | ~40 | Notion task triage with priority filtering |
 | `dev_spec` | ~50 | Spec generation from Notion tasks |
 
@@ -303,9 +302,15 @@ dev_config → python|fix:black .|check:ruff .|scopes:api,models|src:custom
            → ios|fix:swiftlint --fix|check:swiftlint|scopes:...|src:auto
 ```
 
-## Recent Changes (v6.3.0)
+## Recent Changes (v7.0.0)
 
-### Agentic Engineering
+### Closed-Loop Learning Engine
+- **Ledger v2**: Structured task state with gate tracking (`gates: self:pass spec:fail>pass(r1: err)`), retry counts, timestamps
+- **Adaptive Execution Engine**: L1 hooks enforce scope/context limits; L2 decision-agent routes uncertainty; L3 human escalation for security/architecture
+- **Execution Report**: `continuity/execution-report.ts` generates `.proof/execution-report.md` from ledger gate data — task completion, gate pass rates, self-healing stats, top pitfalls
+- **Generalized Scope Inference**: `defaults.ts` reads `scopes` from `.dev-flow.json` (primary) or infers from top-level directory structure (fallback); no hardcoded project-specific patterns
+
+### Agentic Engineering (v6.3.0)
 - **Task Contracts**: Plan tasks include `contract:` with explicit acceptance criteria and `autonomy: 1|2` levels
 - **Proof Manifest**: Structured evidence per task at `.proof/{task-id}.json` (verdict, commands, diff_stats)
 - **Decision Agent**: Lightweight Sonnet agent (`decision-agent.md`) for runtime uncertainty routing — security/architecture escalates to human
@@ -320,36 +325,18 @@ dev_config → python|fix:black .|check:ruff .|scopes:api,models|src:custom
 - **Ralph Loop Mode**: implement-plan execution mode using Stop hook re-injection for iterative completion
 - Reference: `skills/implement-plan/references/ralph-loop-mode.md`
 
-
-
 ### Notion Pipeline
 Task triage (`/dev inbox`), spec generation (`/dev spec`), and post-merge Notion status update hook. Configured via `notion` section in `.dev-flow.json`.
 
-### Product Brain
-Architecture knowledge extraction and query (`dev_product` tool). Post-impl hook reminds to capture product-level decisions after commits.
-
-### Knowledge Vault (v6.2.0)
+### Knowledge Vault
 - Markdown-first storage in `thoughts/knowledge/` — human-editable, git-tracked
 - SQLite FTS5 index for fast search with temporal decay scoring
 - Priority levels (critical/important/reference) with auto-promote/demote
 - Quality gate rejects vague entries (regex + Type-Token Ratio)
 - Path-scoped pitfall templates: `ios-pitfalls.md` (`**/*.swift`), `android-pitfalls.md` (`**/*.kt`)
 
-### Rules Distribution
-9 platform-aware rule templates installed to `.claude/rules/` via `/dev rules` or `/dev init`. Templates use `paths:` frontmatter for platform-specific activation.
-
-### New Skills (5)
-- **security-scan**: 10-category deny-rules detection
-- **eval-harness**: Session performance evaluation
-- **search-first**: Search-before-create thinking
-- **skill-stocktake**: Plugin skill audit
-- **spec-generator**: Notion task to spec
-
-### New Commands (7)
-`/dev inbox`, `/dev spec`, `/dev rules`, `/dev checkpoint`, `/dev finish`, `/dev brainstorm`, `/dev review`
-
 ### Infrastructure
-- vitest + 98 tests across 6 files
+- vitest + 176 tests across 12 files
 - `validate-plugins.sh` (229 structural checks)
 - CI workflow (`.github/workflows/ci.yml`)
 - Hook system: post-edit-format multi-formatter, context-warning strategic compaction, session-end cleanup

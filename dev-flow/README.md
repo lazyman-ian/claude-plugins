@@ -21,11 +21,11 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-6.3.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-7.0.0-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/Claude_Code-2.1.19+-purple.svg" alt="Claude Code">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
   <img src="https://img.shields.io/badge/platforms-iOS%20%7C%20Android%20%7C%20Custom-orange.svg" alt="Platforms">
-  <img src="https://img.shields.io/badge/MCP_Tools-27-brightgreen.svg" alt="MCP Tools">
+  <img src="https://img.shields.io/badge/MCP_Tools-21-brightgreen.svg" alt="MCP Tools">
 </p>
 
 <p align="center">
@@ -326,7 +326,7 @@ Create `.dev-flow.json` in project root:
 
 ## MCP Tools
 
-27 tools for workflow automation:
+21 tools for workflow automation:
 
 <details>
 <summary><strong>Core Tools (15)</strong></summary>
@@ -363,12 +363,11 @@ Create `.dev-flow.json` in project root:
 </details>
 
 <details>
-<summary><strong>Knowledge & Memory Tools (3)</strong></summary>
+<summary><strong>Knowledge & Memory Tools (2)</strong></summary>
 
 | Tool | Tokens | Purpose |
 |------|--------|---------|
 | `dev_memory` | ~60 | Knowledge vault: save/search/get/list/prune/reindex |
-| `dev_product` | ~50 | Product brain: architecture knowledge |
 | `dev_commit` | ~30 | Server-enforced commit pipeline |
 
 </details>
@@ -408,7 +407,7 @@ Create `.dev-flow.json` in project root:
 dev-flow-plugin/
 ├── .claude-plugin/plugin.json   # Plugin manifest
 ├── .mcp.json                    # MCP server config
-├── mcp-server/                  # MCP server (27 tools)
+├── mcp-server/                  # MCP server (21 tools)
 │   └── src/
 │       ├── index.ts             # Entry point
 │       ├── detector.ts          # Platform detection
@@ -417,10 +416,10 @@ dev-flow-plugin/
 │       ├── platforms/           # iOS, Android
 │       ├── continuity/          # Memory, instincts, product brain
 │       └── coordination/        # Multi-Agent
-├── skills/                      # 22 skills
-├── commands/                    # 28 commands
+├── skills/                      # 25 skills
+├── commands/                    # 30 commands
 ├── agents/                      # 14 agents
-├── hooks/                       # 17 hooks
+├── hooks/                       # 20 hooks
 ├── templates/rules/             # 12 rule templates
 └── docs/                        # Documentation
 ```

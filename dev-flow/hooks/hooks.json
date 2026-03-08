@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"additionalContext\": \"Available dev-flow MCP tools (use these instead of ToolSearch): dev_status (~30t), dev_flow (~100t), dev_config (~50t), dev_ledger (~50t), dev_tasks (~30t), dev_coordinate (~40t), dev_handoff (~50t), dev_aggregate (~60t), dev_commit (~30t), dev_memory (~60t), dev_changes (~50t), dev_defaults (~20t), dev_version (~30t), dev_commits (~100t), dev_inbox (~50t), dev_spec (~50t). Read tool for files. Grep/Glob for search. Bash for git/shell. Never call claude CLI from Bash.\"}'",
+            "command": "echo '{\"additionalContext\": \"Available dev-flow MCP tools (use these instead of ToolSearch): dev_status (~30t), dev_flow (~100t), dev_config (~50t), dev_ledger (~50t), dev_tasks (~30t), dev_coordinate (~40t), dev_handoff (~50t), dev_aggregate (~60t), dev_commit (~30t), dev_memory (~60t), dev_changes (~50t), dev_defaults (~20t), dev_version (~30t), dev_commits (~100t), dev_inbox (~50t), dev_spec (~50t), dev_branch (~30t), dev_check (~10t), dev_fix (~20t), dev_next (~15t), dev_ready (~20t). Read tool for files. Grep/Glob for search. Bash for git/shell. Never call claude CLI from Bash.\"}'",
             "timeout": 3
           }
         ]
@@ -120,9 +120,41 @@
             "statusMessage": "Checkpointing task..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/batch-checkpoint.sh",
+            "timeout": 5000,
+            "statusMessage": "Batch checkpoint check..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/quality-gate-check.sh",
+            "timeout": 5000,
+            "statusMessage": "Quality gate check..."
+          }
+        ]
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/scope-drift-check.sh",
+            "timeout": 5,
+            "async": true,
+            "statusMessage": "Checking scope drift..."
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write",
         "hooks": [

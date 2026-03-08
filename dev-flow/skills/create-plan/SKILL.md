@@ -80,7 +80,12 @@ When writing plan phases, evaluate whether to break them into fine-grained tasks
 - **logic-task** (backend/tools/algorithms): 2-5 min, includes complete implementation code
 - **ui-task** (frontend/mobile/design): 5-15 min, includes Figma reference + design constraints
 
-See `references/plan-template.md` for task format details.
+When writing tasks, suggest `risk:` when appropriate:
+- `risk: high` — auth/security/migration paths, new data models or schemas
+- `risk: low` — docs, UI config, renames, deletes
+- Omit `risk:` for standard feature code (defaults to medium)
+
+See `references/plan-template.md` for task format details and full risk level guidelines.
 
 Phases with `tasks` → implement-plan uses 5-gate per-task pipeline.
 Phases without `tasks` → implement-plan uses standard phase-level execution.
@@ -102,9 +107,9 @@ Phases without `tasks` → implement-plan uses standard phase-level execution.
 ### Plan File Location
 `thoughts/shared/plans/YYYY-MM-DD-ENG-XXXX-description.md`
 
-### Plan Frontmatter (v2.0)
+### Plan Frontmatter (v2.1)
 
-Plans include YAML frontmatter with structured phase metadata (complexity, model, parallelizable, target_files, verify). This enables `implement-plan` to auto-create tasks, detect parallel conflicts, and select models. See `references/plan-template.md` for schema.
+Plans include YAML frontmatter with structured phase metadata (complexity, model, parallelizable, target_files, verify). Tasks gain optional `risk: low|medium|high` field (default: medium). This enables `implement-plan` to auto-create tasks, detect parallel conflicts, select models, and apply risk-adaptive quality gates. See `references/plan-template.md` for schema.
 
 ### Success Criteria Format
 ```markdown
