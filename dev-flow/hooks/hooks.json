@@ -124,7 +124,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "A Claude Code session is ending. Evaluate: 1) Did Claude fully address the user's original request? Were all requested changes made? Any steps skipped or unfinished work? 2) If the session involved meaningful work (code changes, research, planning), has the state been saved (ledger updated, tasks created)? If genuinely complete OR trivial session (greeting, single question), return {\"ok\": true}. If incomplete work remains, return {\"ok\": false, \"reason\": \"Remaining: [specific steps].\"}",
+            "prompt": "A Claude Code session is ending. Evaluate TWO things:\n\n1) COMPLETION: Did Claude fully address the user's original request? All changes made? Any steps skipped?\n2) SUMMARY: If the session involved meaningful work (code changes, research, planning), Claude should save a session summary.\n\nFor trivial sessions (greeting, single question, no real work), return {\"ok\": true}.\n\nIf incomplete work remains, return {\"ok\": false, \"reason\": \"Remaining: [specific steps]. Then update MEMORY.md Last Session section.\"}.\n\nIf work is complete but summary not yet saved, return {\"ok\": false, \"reason\": \"Before stopping, update MEMORY.md Last Session section (between <!-- LAST-SESSION-START --> and <!-- LAST-SESSION-END --> markers) with:\\n## Last Session\\n- Next: [what should happen next, 1 sentence]\\n- Learned: [key insight, 1 sentence]\\n<!-- AUTO-UPDATED by session-summary.sh -->\"}.",
             "timeout": 15,
             "once": true,
             "statusMessage": "Verifying completion..."
