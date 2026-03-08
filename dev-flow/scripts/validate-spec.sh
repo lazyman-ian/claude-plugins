@@ -145,7 +145,14 @@ else
 fi
 
 # Check 5: security/architecture escalation (ESCALATE, not FAIL)
-SEC_MATCH=$(grep -Ein '(auth|security|migration|schema|database|breaking.change|credential|encrypt|permission)' "$SPEC_FILE" 2>/dev/null || true)
+# Word-boundary-aware patterns to reduce false positives:
+#   \bauth(entication|orization)?\b  — not "authorize" prefix in variable names
+#   \bbreaking[-_ ]change            — literal phrase, dot was unescaped before
+#   \bdatabase\b                     — not "database-viewer" tool names
+#   \bencrypt(ion)?\b                — word boundary
+#   \bpermission(s)?\b               — only standalone, not UI label prose
+#   credential, migration, schema, security — specific enough as-is
+SEC_MATCH=$(grep -Ein '\bauth(entication|orization)?\b|\bsecurity\b|\bmigration\b|\bschema\b|database[^-]|database$|\bbreaking[-_ ]change|\bcredential|\bencrypt(ion)?\b|\bpermission(s)?\b' "$SPEC_FILE" 2>/dev/null || true)
 if [[ -n "$SEC_MATCH" ]]; then
   echo "ESCALATE: security/architecture scope detected:"
   echo "$SEC_MATCH"
@@ -154,14 +161,14 @@ fi
 
 # --- Results ---
 echo ""
-if [[ $ESCALATE -eq 1 ]]; then
-  echo "Result: NEEDS ESCALATION (security/architecture scope)"
-  exit 2
-fi
-
 if [[ $FAILURES -gt 0 ]]; then
   echo "Result: $FAILURES FAILURE(S)"
   exit 1
+fi
+
+if [[ $ESCALATE -eq 1 ]]; then
+  echo "Result: NEEDS ESCALATION (security/architecture scope)"
+  exit 2
 fi
 
 echo "Result: ALL PASS"
