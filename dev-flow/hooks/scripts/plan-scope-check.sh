@@ -22,7 +22,7 @@ PLANS_DIR="$project_dir/thoughts/plans"
 CACHE_DIR="$project_dir/.claude/state/cache"
 mkdir -p "$CACHE_DIR"
 
-# Shared scope cache file (compatible with scope-drift-check.sh)
+# Shared scope cache file
 CURRENT_BRANCH=$(git -C "$project_dir" branch --show-current 2>/dev/null)
 SCOPE_CACHE_FILE="$CACHE_DIR/scope-targets.txt"
 
@@ -74,7 +74,7 @@ fi
 # No active plan found — use default dialog
 [[ -z "$ACTIVE_PLAN" ]] && echo '{"decision":"ask"}' && exit 0
 
-# Check shared scope cache (also written/read by scope-drift-check.sh)
+# Check shared scope cache
 TARGET_FILES=""
 CACHE_VALID=false
 if [[ -f "$SCOPE_CACHE_FILE" ]]; then
@@ -101,7 +101,7 @@ if [[ "$CACHE_VALID" != "true" ]]; then
     | sed 's/[[:space:]].*//' \
     | grep -v '^$' || echo "")
 
-  # Write shared scope cache (compatible with scope-drift-check.sh format)
+  # Write shared scope cache
   PLAN_MTIME=$(stat -f%m "$ACTIVE_PLAN" 2>/dev/null || stat -c%Y "$ACTIVE_PLAN" 2>/dev/null || echo "0")
   {
     printf '%s|%s|%s\n' "$CURRENT_BRANCH" "$ACTIVE_PLAN" "$PLAN_MTIME"

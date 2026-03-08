@@ -62,26 +62,21 @@ Ledger State format:
 
 Mark current progress with `UNCONFIRMED:` if uncertain about completeness.
 
-### Step 3.5: Generate Resume Directive
+### Step 3.5: Update Resume State
 
-Write a machine-readable resume directive so the next session can continue without confirmation:
+Ensure the ledger has enough context for the next session to auto-resume. The SessionStart hook reads the registry (`.claude/state/context.json`) to find the active ledger and inject it as context.
 
 ```
-dev_ledger(action="status")    → get plan_path and current task info
+dev_ledger(action="update")    → update with current task, plan path, next step
 ```
 
-Write to `thoughts/ledgers/.resume-directive.md`:
-```markdown
-plan: [plan path, e.g. thoughts/plans/PLAN-xxx.md]
-task: [current task title and number, e.g. "Task 3/7: Implement auth service"]
-remaining: [count of remaining tasks]
-autonomy: [level from plan frontmatter, e.g. "Level 2 — batch checkpoint"]
-verify: [verify command from .dev-flow.json or plan, e.g. "make check"]
-Proceed without confirmation.
-```
+Include in the ledger update:
+- Current plan path (e.g. `thoughts/plans/PLAN-xxx.md`)
+- Current task and number (e.g. "Task 3/7: Implement auth service")
+- Remaining task count
+- Verify command
 
-If no active plan exists, write a minimal directive with branch and next step instead.
-Overwrite the file on each handoff — only the latest state matters.
+The ledger + registry is sufficient for session continuity — no separate resume directive file needed.
 
 ### Step 4: Create Tasks for Remaining Work
 

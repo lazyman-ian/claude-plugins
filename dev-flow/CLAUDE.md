@@ -255,7 +255,7 @@ Agents in `agents/` are spawned via Task tool for complex operations:
 - `implement-agent.md` - TDD execution + 11-point self-review
 - `spec-reviewer.md` - Verify implementation matches spec exactly
 - `code-reviewer.md` - Multi-dimensional review with P0-P3 severity + review session log
-- `evaluate/diagnose/propose/apply/verify-agent.md` - Meta-iterate cycle
+- `debug-agent.md` - Investigate and fix issues using logs, code, and git history
 - `spec-validator.md` - Deterministic spec quality validation + self-heal
 - `validate-agent.md` - Validate plan tech choices (mandatory, with escalation detection)
 - `decision-agent.md` - Runtime uncertainty routing (Sonnet, fork context)

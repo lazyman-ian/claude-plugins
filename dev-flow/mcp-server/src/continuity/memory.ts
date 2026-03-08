@@ -131,7 +131,7 @@ function dbInsertKnowledge(entry: KnowledgeEntry & { priority?: string }): boole
   if (!existsSync(dbPath)) return false;
 
   const priority = entry.priority || 'important';
-  const sql = `INSERT OR REPLACE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed, priority) VALUES ('${esc(entry.id)}', '${esc(entry.type)}', '${esc(entry.platform)}', '${esc(entry.title)}', '${esc(entry.problem)}', '${esc(entry.solution)}', '${esc(entry.sourceProject)}', '${esc(entry.sourceSession)}', '${esc(entry.createdAt)}', '${esc(entry.filePath)}', 0, NULL, '${esc(priority)}');`;
+  const sql = `INSERT INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed, priority) VALUES ('${esc(entry.id)}', '${esc(entry.type)}', '${esc(entry.platform)}', '${esc(entry.title)}', '${esc(entry.problem)}', '${esc(entry.solution)}', '${esc(entry.sourceProject)}', '${esc(entry.sourceSession)}', '${esc(entry.createdAt)}', '${esc(entry.filePath)}', 0, NULL, '${esc(priority)}') ON CONFLICT(id) DO UPDATE SET type=excluded.type, platform=excluded.platform, title=excluded.title, problem=excluded.problem, solution=excluded.solution, priority=excluded.priority, file_path=excluded.file_path;`;
 
   try {
     execSync(`sqlite3 "${dbPath}" "${sql}"`, { encoding: 'utf-8', timeout: 3000 });

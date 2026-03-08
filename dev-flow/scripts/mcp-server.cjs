@@ -21594,7 +21594,7 @@ function dbInsertKnowledge(entry) {
   const dbPath = getDbPath();
   if (!(0, import_fs.existsSync)(dbPath)) return false;
   const priority = entry.priority || "important";
-  const sql = `INSERT OR REPLACE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed, priority) VALUES ('${esc2(entry.id)}', '${esc2(entry.type)}', '${esc2(entry.platform)}', '${esc2(entry.title)}', '${esc2(entry.problem)}', '${esc2(entry.solution)}', '${esc2(entry.sourceProject)}', '${esc2(entry.sourceSession)}', '${esc2(entry.createdAt)}', '${esc2(entry.filePath)}', 0, NULL, '${esc2(priority)}');`;
+  const sql = `INSERT INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed, priority) VALUES ('${esc2(entry.id)}', '${esc2(entry.type)}', '${esc2(entry.platform)}', '${esc2(entry.title)}', '${esc2(entry.problem)}', '${esc2(entry.solution)}', '${esc2(entry.sourceProject)}', '${esc2(entry.sourceSession)}', '${esc2(entry.createdAt)}', '${esc2(entry.filePath)}', 0, NULL, '${esc2(priority)}') ON CONFLICT(id) DO UPDATE SET type=excluded.type, platform=excluded.platform, title=excluded.title, problem=excluded.problem, solution=excluded.solution, priority=excluded.priority, file_path=excluded.file_path;`;
   try {
     (0, import_child_process7.execSync)(`sqlite3 "${dbPath}" "${sql}"`, { encoding: "utf-8", timeout: 3e3 });
     return true;

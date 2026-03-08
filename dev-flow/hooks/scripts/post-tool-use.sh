@@ -9,7 +9,7 @@
 set -o pipefail
 
 input=$(cat)
-tool_name=$(echo "$input" | jq -r '.tool_name // empty')
+tool_name=$(echo "$input" | jq -r '.tool_name // empty' 2>/dev/null || echo "")
 
 if [[ "$tool_name" != "Bash" ]]; then
     echo '{"result":"continue"}'

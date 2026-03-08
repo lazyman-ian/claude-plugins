@@ -207,7 +207,7 @@ For each phase, decide whether to break into tasks:
 
 ### 5.0 Auto Mode Check
 
-If `.claude/cache/.auto-pipeline-{task_id}.json` exists with `auto: true`:
+If `.claude/state/pipeline/{task_id}.json` exists with `auto: true`:
 - Skip Step 5a-5c (interactive review)
 - Self-approve the plan
 - Proceed directly to validate-agent

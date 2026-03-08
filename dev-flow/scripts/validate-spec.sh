@@ -161,14 +161,14 @@ fi
 
 # --- Results ---
 echo ""
-if [[ $FAILURES -gt 0 ]]; then
-  echo "Result: $FAILURES FAILURE(S)"
-  exit 1
-fi
-
 if [[ $ESCALATE -eq 1 ]]; then
   echo "Result: NEEDS ESCALATION (security/architecture scope)"
   exit 2
+fi
+
+if [[ $FAILURES -gt 0 ]]; then
+  echo "Result: $FAILURES FAILURE(S)"
+  exit 1
 fi
 
 echo "Result: ALL PASS"
