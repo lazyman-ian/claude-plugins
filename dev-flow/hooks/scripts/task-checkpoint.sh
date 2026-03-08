@@ -50,8 +50,9 @@ ${GATES_APPENDED}\\
 " "$LEDGER" 2>/dev/null || true
 
     if [[ -n "$RETRIES" && "$RETRIES" != "null" ]]; then
-      # Append retries line after gates line
-      /usr/bin/sed -i '' "/${GATES_APPENDED}/a\\
+      # Append retries line after gates line (escape sed regex metacharacters)
+      GATES_ESCAPED=$(echo "$GATES_APPENDED" | /usr/bin/sed 's/[()[\\.^$*+?{|]/\\&/g')
+      /usr/bin/sed -i '' "/${GATES_ESCAPED}/a\\
   retries: ${RETRIES}\\
 " "$LEDGER" 2>/dev/null || true
     fi
