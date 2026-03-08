@@ -26,10 +26,10 @@ npm test --prefix mcp-server                  # All 176 tests
 ```
 .claude-plugin/plugin.json  # Plugin manifest (v7.1.0)
 .mcp.json                   # MCP server config → scripts/mcp-server.cjs
-skills/                     # 25 skills (SKILL.md + references/)
-commands/                   # 30 command definitions
-agents/                     # 15 agent prompts + references/ (security/quality checklists)
-hooks/hooks.json            # 20 hooks across 9 types (PreToolUse, PostToolUse, SessionStart, SessionEnd, PreCompact, Stop, SubagentStart, UserPromptSubmit, TaskCompleted)
+skills/                     # 11 skills (SKILL.md + references/)
+commands/                   # 14 command definitions
+agents/                     # 9 agent prompts + references/ (security/quality checklists)
+hooks/hooks.json            # 20 hooks across 11 types
 scripts/track-team.sh       # Session→team mapping for StatusLine
 scripts/validate-spec.sh    # Deterministic spec quality check (5 criteria, exit 0/1/2)
 scripts/detect-escalation.sh # L3 escalation detection (auth/migration/deps/API/infra)

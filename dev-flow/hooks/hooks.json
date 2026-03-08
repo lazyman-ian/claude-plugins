@@ -31,16 +31,6 @@
             "statusMessage": "Analyzing intent..."
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "The user sent a message. If it's a complex request (>30 words) that involves multiple steps or unclear scope, classify the intent and inject helpful context via additionalContext: implementation → remind about active plans/ledgers, debugging → suggest checking recent changes, research → suggest memory search, planning → list existing plans. For short/clear messages, return {\"ok\": true} with no extra context. Always return {\"ok\": true} — never block user input.",
-            "timeout": 8,
-            "statusMessage": "Classifying intent..."
-          }
-        ]
       }
     ],
     "PermissionRequest": [
@@ -205,17 +195,6 @@
         ]
       },
       {
-        "matcher": "Read|Edit|Write|Bash|Grep|Glob",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/tool-counter.sh",
-            "timeout": 3,
-            "async": true
-          }
-        ]
-      },
-      {
         "matcher": "Bash(git *)|Bash(gh *)",
         "hooks": [
           {
@@ -243,49 +222,6 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/track-team.sh delete",
             "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Bash(git merge*)|Bash(git push*)|Bash(*git merge*)|Bash(*git push*)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/post-merge-notion.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__plugin_dev-flow_dev-flow__dev_commit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/post-impl-extract.sh",
-            "timeout": 5,
-            "async": true
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/docs-lint.sh",
-            "timeout": 3,
-            "async": true
-          }
-        ]
-      },
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/docs-reminder.sh",
-            "timeout": 3,
-            "async": true
           }
         ]
       }

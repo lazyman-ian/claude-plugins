@@ -1,6 +1,6 @@
 ---
 name: research-agent
-description: Researches external documentation, best practices, and library APIs using Perplexity, WebSearch, and WebFetch tools. This skill should be used when the user needs to look up external documentation, compare library options, find implementation examples, or gather best practices from the web. Key capabilities include multi-source research, documentation fetching, and structured findings output. Triggers on "research", "find docs", "best practices", "how to implement", "look up", "compare libraries", "external docs", "查资料", "最佳实践", "查文档", "对比方案", "研究", "API文档", "外部调研". Do NOT use for codebase-internal searches — use Grep/Glob or "search-code" instead.
+description: Researches external documentation, best practices, and library APIs using Perplexity, Context7, WebSearch, and WebFetch tools. This skill should be used when the user needs to look up external documentation, compare library options, find implementation examples, or gather best practices from the web. Triggers on "research", "find docs", "best practices", "how to implement", "look up", "compare libraries", "查资料", "最佳实践", "查文档", "对比方案", "研究", "API文档". Do NOT use for codebase-internal searches — use Grep/Glob instead.
 model: haiku
 memory: user
 context: fork
@@ -30,17 +30,19 @@ Research external documentation, best practices, and library information.
 
 | Source | Use For | Command |
 |--------|---------|---------|
-| **Nia** | Library documentation | `scripts/nia_docs.py` |
-| **Perplexity** | Best practices, how-to | `scripts/perplexity_search.py` |
-| **Firecrawl** | Specific web pages | `scripts/firecrawl_scrape.py` |
+| **Context7** | Library-specific docs, API refs | `mcp__plugin_context7_context7__resolve-library-id` → `query-docs` |
+| **Perplexity** | Best practices, how-to, comparisons | `scripts/perplexity_search.py` |
+| **Nia** | Broad research (oracle, arXiv, packages) | `scripts/nia_docs.py` |
+| **Firecrawl** | Specific web pages (JS rendering) | `scripts/firecrawl_scrape.py` |
 
 ## Process
 
 ### 1. Identify Research Type
 
-- **Library docs** → Use Nia
-- **Best practices** → Use Perplexity
-- **Specific page** → Use Firecrawl
+- **Library API docs** → Context7 (fastest, most accurate)
+- **Best practices / how-to** → Perplexity
+- **Broad research** → Nia
+- **Specific page** → Firecrawl or WebFetch
 
 ### 2. Execute Research
 
