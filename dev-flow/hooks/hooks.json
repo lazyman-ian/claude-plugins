@@ -21,6 +21,39 @@
             "statusMessage": "Detecting URLs..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/intent-router.sh",
+            "timeout": 3,
+            "statusMessage": "Analyzing intent..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "The user sent a message. If it's a complex request (>30 words) that involves multiple steps or unclear scope, classify the intent and inject helpful context via additionalContext: implementation → remind about active plans/ledgers, debugging → suggest checking recent changes, research → suggest memory search, planning → list existing plans. For short/clear messages, return {\"ok\": true} with no extra context. Always return {\"ok\": true} — never block user input.",
+            "timeout": 8,
+            "statusMessage": "Classifying intent..."
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Permission requested to modify a file. Check scope alignment: 1) Is there an active implementation plan in thoughts/shared/plans/ with status 'in_progress'? 2) Is the target file listed in any phase's target_files or tasks' files arrays? 3) Is the operation consistent with the current task? If the file is clearly within the active plan's scope, return {\"decision\": \"approve\", \"reason\": \"File in active plan scope\"}. If clearly outside scope or no active plan, return {\"decision\": \"ask\"}. NEVER auto-approve if uncertain — default to {\"decision\": \"ask\"} for the standard permission dialog.",
+            "timeout": 10,
+            "statusMessage": "Checking plan scope..."
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -90,10 +123,33 @@
       {
         "hooks": [
           {
+            "type": "prompt",
+            "prompt": "A Claude Code session is ending. Evaluate: 1) Did Claude fully address the user's original request? Were all requested changes made? Any steps skipped or unfinished work? 2) If the session involved meaningful work (code changes, research, planning), has the state been saved (ledger updated, tasks created)? If genuinely complete OR trivial session (greeting, single question), return {\"ok\": true}. If incomplete work remains, return {\"ok\": false, \"reason\": \"Remaining: [specific steps].\"}",
+            "timeout": 15,
+            "once": true,
+            "statusMessage": "Verifying completion..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-summary.sh",
             "timeout": 15,
             "statusMessage": "Saving session summary..."
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "A subagent just finished. Evaluate the output quality: 1) Does it answer the assigned task with specific, actionable information? 2) Is the output concrete (file paths, code snippets, clear recommendations) rather than vague? 3) Are there obvious errors, unsupported claims, or hallucinated file paths? If the output is acceptable, return {\"ok\": true}. If quality is poor (vague, incomplete, or contains errors), return {\"ok\": false, \"reason\": \"[what's wrong and how to ask better]\"}.",
+            "timeout": 15,
+            "statusMessage": "Checking subagent output..."
           }
         ]
       }
@@ -138,6 +194,28 @@
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/quality-gate-check.sh",
             "timeout": 5000,
             "statusMessage": "Quality gate check..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "agent",
+            "prompt": "A task was marked completed. Verify proof quality: 1) Read .proof/ directory — find the proof manifest JSON for this task. 2) Check that the verify commands actually test acceptance criteria (not just 'exit 0' or trivial checks). 3) Check that files_changed matches the expected target files. 4) If proof file is missing, verdict is not 'pass', or verification is weak, return {\"ok\": false, \"reason\": \"[specific issue]\"}. If proof is solid, return {\"ok\": true}.",
+            "timeout": 60,
+            "statusMessage": "Verifying proof quality..."
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "A tool call failed. Analyze the error: 1) Root cause — syntax error, missing file, permission denied, wrong path, dependency missing, or other? 2) Recommended fix — be specific and actionable, not generic. 3) Should Claude retry the same approach or pivot to an alternative? Answer concisely in 2-3 sentences. Return {\"ok\": true} always (informational only).",
+            "timeout": 10,
+            "statusMessage": "Diagnosing error..."
           }
         ]
       }
