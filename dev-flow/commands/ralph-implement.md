@@ -90,7 +90,7 @@ You are executing plan: {plan_path}
 - Autonomy level: {autonomy} (1=milestone output per task, 2=final only)
 - Max 2 retries per verify failure
 - Stuck 3 iterations on same task: record guardrail in plan + ledger, skip to next
-- Write proof to .proof/{task-id}.json after each verify pass
+- Record gate results via dev_ledger after each verify pass
 - NEVER modify verify commands, only fix implementation code
 ```
 

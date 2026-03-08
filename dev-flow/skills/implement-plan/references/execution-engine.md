@@ -21,8 +21,7 @@ for each incomplete task:
   6. Run gate 4 (Quality Review) if medium/high risk
   7. Run gate 5 (Verify)
   8. After each gate: dev_ledger(action='task_update', taskId, gate, result)
-  9. On verify pass: write .proof/{task-id}.json (MANDATORY — TaskCompleted hook enforces)
-  10. Commit, mark [x] in plan, continue to next task
+  9. On verify pass: commit, mark [x] in plan, continue to next task
   11. On verify fail: diagnose → fix → re-verify (max 2 attempts, both recorded)
   12. On verify fail 2x: stop + escalate to human
 
@@ -57,7 +56,7 @@ dev_ledger(action='task_update', taskId='<id>', gate='verify', result='pass', de
 
 Call after **every gate** (including passing gates). This enables the orchestrator to:
 - Resume from exact failure point after context rotation
-- Generate proof manifest per task
+
 - Track gate latency across the plan
 
 ### Gate Result Values
@@ -120,27 +119,9 @@ Both attempts recorded in ledger:
 { gate: "verify", result: "pass", attempt: 2, detail: "fixed: <what changed>" }
 ```
 
-## Proof Manifest (MANDATORY)
+## Completion Evidence
 
-**Enforced by**: `quality-gate-check.sh` (TaskCompleted hook, exit 2 = block).
-`TaskUpdate(status='completed')` will be REJECTED if `.proof/{task-id}.json` does not exist with `verdict: pass`.
-
-After each task's verify pass, write:
-
-`.proof/{task-id}.json`:
-```json
-{
-  "task_id": "1.1",
-  "verdict": "pass",
-  "gates": [
-    { "gate": "self-review", "result": "pass", "duration_ms": 0 },
-    { "gate": "quality-review", "result": "pass", "duration_ms": 3200 },
-    { "gate": "verify", "result": "pass", "attempt": 1, "duration_ms": 1100 }
-  ],
-  "files_changed": ["src/auth/token.ts", "tests/auth/token.test.ts"],
-  "commit": "feat(auth): add JWT token utility"
-}
-```
+Gate results are persisted in the ledger via `dev_ledger(action='task_update')`. No separate proof files needed — the ledger is the single source of truth for task completion evidence.
 
 ## Execution Strategy Selection
 

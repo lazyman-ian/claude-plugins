@@ -64,28 +64,14 @@ Internal skill that enforces the Iron Law: "No completion claims without fresh v
 | "Build succeeded" (no output) | Unverified claim | Show build log |
 | Trusting agent "done" report | May be false | Run verify independently |
 
-## Proof Manifest
+## Completion Evidence
 
-After every successful verification, write `.proof/{task-id}.json`:
-
-```json
-{
-  "task_id": "TASK-123",
-  "timestamp": "2026-03-08T10:00:00Z",
-  "verdict": "pass",
-  "commands": [
-    { "cmd": "npm test", "exit_code": 0, "key_metrics": "42 tests passed" }
-  ],
-  "diff_stats": { "files": 3, "insertions": 47, "deletions": 12 }
-}
+After successful verification, record gate result in ledger:
+```
+dev_ledger(action='task_update', taskId='<id>', gate='verify', gateResult='pass', gateDetail='<key metrics>')
 ```
 
-Rules:
-- `task_id`: from plan task field or `dev_ledger` current task
-- `diff_stats`: from `git diff --stat HEAD` at verify time
-- `verdict`: `pass` only when all commands exit 0; otherwise `fail`
-- Write proof AFTER verification, never before
-- Proof is additive — does not replace or modify the verify command
+The ledger is the single source of truth for completion evidence — no separate proof files needed.
 
 ## Self-Healing Retry
 
@@ -109,20 +95,20 @@ Guardrails:
 ### implement-plan
 After each task's quality review (Gate 5):
 ```
-Task complete → verify skill → pass → write .proof/{task-id}.json → handoff + TaskUpdate
+Task complete → verify skill → pass → record in ledger →handoff + TaskUpdate
                              → fail → self-heal (max 2) → pass or report
 ```
 
 ### agent-team
 Phase 4 Close:
 ```
-All tasks done → verify skill (full suite) → pass → write .proof/{task-id}.json → aggregate + shutdown
+All tasks done → verify skill (full suite) → pass → record in ledger →aggregate + shutdown
                                             → fail → SendMessage teammate to fix
 ```
 
 ### debugging
 Phase 5 VERIFY:
 ```
-Fix applied → verify skill → pass → write .proof/{task-id}.json → document + close
+Fix applied → verify skill → pass → record in ledger →document + close
                             → fail → self-heal (max 2) → pass or back to FIX phase
 ```
