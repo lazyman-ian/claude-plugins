@@ -9,6 +9,7 @@ description: >-
   "创建计划", "技术设计", "任务规划", "实施计划".
   Do NOT use for open-ended design exploration or brainstorming — use "brainstorm" instead.
 model: opus
+context: fork
 allowed-tools: [Read, Glob, Grep, WebSearch, Agent, TaskCreate, TaskUpdate]
 ---
 
@@ -140,11 +141,11 @@ After plan is written and approved, **always** spawn `validate-agent` automatica
 
 | Result | Action |
 |--------|--------|
-| `VALIDATED` | If `--auto` flag present in context → auto-invoke `/dev implement-plan {plan_path}`. Without `--auto` → inform user plan is ready, await manual trigger. |
+| `VALIDATED` | Read `.claude/cache/.auto-pipeline-{task_id}.json` — if `auto: true`, update state file (`current_stage → "implement"`, `plan_path → "{plan_path}"`) and auto-invoke `/dev implement-plan {plan_path}`. Without auto state → inform user plan is ready, await manual trigger. |
 | `NEEDS REVIEW` | Auto-modify plan based on findings, re-spawn `validate-agent` (max 2 attempts). If still `NEEDS REVIEW` after 2 attempts → treat as `MUST CHANGE`. |
 | `MUST CHANGE` | Stop. Output blocking problems clearly. Wait for human decision before proceeding. |
 
-**`--auto` flag**: Detected from user's prompt context (e.g., user included `--auto` in their request), not parsed as a CLI parameter.
+**Auto mode detection**: Read `.claude/cache/.auto-pipeline-{task_id}.json` — if present and `auto: true`, skip confirmations and chain to next stage. Does not rely on LLM prompt context.
 
 ## Core Principles
 
