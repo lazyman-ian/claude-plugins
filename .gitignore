@@ -21,3 +21,8 @@ thoughts/shared
 .agents/
 .codex/
 AGENTS.md
+.claude/worktrees/agent-aa655718/.claude/cache
+.claude/worktrees
+.proof
+dev-flow/dev-flow-audit-workspace
+thoughts/knowledge

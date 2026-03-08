@@ -151,7 +151,7 @@ ls -l hooks/dist/*.mjs
 
 ### Commit Guard
 
-`commit-guard.sh` blocks ALL raw `git commit` (including chained `git add && git commit`). `/dev commit` bypasses via `DEV_FLOW_COMMIT=1` prefix.
+`commit-guard.sh` blocks ALL raw `git commit` via Bash tool (including chained `git add && git commit`). Only the `dev_commit` MCP tool can commit (its `execSync` bypasses Bash tool hooks). If MCP is unavailable, reconnect with `/reload-plugins`.
 
 **Hook matcher caveat**: `Bash(git commit*)` only matches commands STARTING with `git commit`. Use `Bash(*git commit*)` to catch chained commands.
 
@@ -201,7 +201,7 @@ Auto Memory (MEMORY.md)     ← Claude session injection
 ### Hook Integration
 
 - `PreToolUse(Bash(git commit*))`: Pre-commit knowledge pitfall check (FTS5 query, warns only)
-- `PreToolUse(Bash(*git commit*))`: Commit guard — blocks raw `git commit` (including chained), enforces `/dev commit` via `DEV_FLOW_COMMIT=1` prefix
+- `PreToolUse(Bash(*git commit*))`: Commit guard — blocks ALL raw `git commit` via Bash tool (including chained). Only `dev_commit` MCP can commit (via `execSync`, bypasses hooks)
 - `SessionStart`: Warn if not initialized + load active ledger + inject critical knowledge from vault (priority='critical' only) + init review session log + detect resume directive
 - `PreCompact`: Backup transcript before context compaction
 - `Stop`: Save session learnings to knowledge vault (quality gate filtered)

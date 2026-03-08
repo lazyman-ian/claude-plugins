@@ -231,7 +231,7 @@
         ]
       },
       {
-        "matcher": "Bash(*DEV_FLOW_COMMIT*)",
+        "matcher": "mcp__plugin_dev-flow_dev-flow__dev_commit",
         "hooks": [
           {
             "type": "command",

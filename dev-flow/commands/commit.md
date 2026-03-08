@@ -151,7 +151,7 @@ Server 验证：
 dev_commit(action="finalize", token="<token>", message="...", skip_review=true)
 ```
 
-> Server 内部使用 `DEV_FLOW_COMMIT=1 git commit` 执行，commit-guard hook 自动放行。
+> Server 内部使用 `execSync('git commit')` 执行，不经过 Bash 工具，commit-guard hook 不触发。
 
 ### Step 6: 更新 Ledger
 ```

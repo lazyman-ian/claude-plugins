@@ -24176,7 +24176,8 @@ function commitFinalize(token, message, skipReview) {
       );
     }
   }
-  const output = execCommand4(`DEV_FLOW_COMMIT=1 git commit -m "${message.replace(/"/g, '\\"')}"`);
+  const output = execCommand4(`git commit -m "${message.replace(/"/g, '\\"')}"`);
+  ;
   if (!output) {
     throw new Error("git commit failed. Check staged changes and message format.");
   }
