@@ -1,10 +1,10 @@
 ---
 name: spec-generator
 description: >-
-  Generates structured implementation specs from Notion tasks or user descriptions.
+  Generates structured implementation specs from task descriptions or requirements documents.
   Classifies as Feature/Bug, fills appropriate template, and saves to thoughts/shared/specs/.
   This skill should be used when the user wants to generate a spec, create implementation requirements, or document task details.
-  Triggers on "generate spec", "create spec", "write spec", "spec from notion",
+  Triggers on "generate spec", "create spec", "write spec",
   "生成规格", "创建规格", "写规格", "需求文档", "实现规格", "任务规格".
   Do NOT use for implementation plans (use create-plan skill instead).
   Do NOT use for brainstorming (use brainstorm skill instead).
@@ -15,55 +15,33 @@ memory: project
 
 # Spec Generator
 
-Generate structured implementation specs from Notion tasks or plain descriptions.
+Generate structured implementation specs from task descriptions or requirements documents.
 
 ## When to Use
 
-- `/spec [notion-page-id]` — generate spec from a Notion task
-- `/spec` — interactive mode, provide description directly
+- `/spec` — provide description directly
 - "Write a spec for the login redesign"
-- "Generate spec from Notion page abc123"
-- "Create spec: fix crash on iOS 17"
+- "Generate spec: fix crash on iOS 17"
+- "Create spec from this requirements doc"
 
-**Note**: Specs feed into `/dev create-plan`. After approval, suggest next step.
-
-## Modes
-
-### From Notion
-
-Fetch page → extract fields → classify type → fill template → save spec.
-
-Requires `notion.database_id` in `.dev-flow.json` (see `references/notion-schema.md`).
-
-### From Description
-
-Interactive: ask clarifying questions → classify type → fill template → save spec.
+**Note**: Specs feed into `/dev create-plan`. After spec-validator approves, plan is created automatically.
 
 ## Workflow
 
-### Step 1: Determine Source
+### Step 1: Gather Input
 
-- If page ID provided → Notion mode
-- Otherwise → description mode (ask user for task title + description)
+Ask user for task title + description if not already provided.
 
-### Step 2: Fetch (Notion mode only)
-
-```
-mcp__notion__notion-fetch(page_id)
-```
-
-Extract: title, description, type, priority, platform, URL.
-
-### Step 3: Classify Type
+### Step 2: Classify Type
 
 | Signal | Type |
 |--------|------|
-| Notion `Type` field = Feature/Improvement/Tech Debt | feature |
-| Notion `Type` field = Bug | bug |
 | Description contains "crash", "broken", "regression", "fix" | bug |
 | Description contains "add", "new", "implement", "redesign" | feature |
+| Type field = Feature/Improvement/Tech Debt | feature |
+| Type field = Bug | bug |
 
-### Step 4: Load Template
+### Step 3: Load Template
 
 ```
 Read references/spec-template-{type}.md
@@ -71,15 +49,15 @@ Read references/spec-template-{type}.md
 
 Where `{type}` is `feature` or `bug`.
 
-### Step 5: Fill Template
+### Step 4: Fill Template
 
 Apply AI analysis to fill all sections:
-- Problem Statement: from Notion description or user input
+- Problem Statement: from user input or requirements
 - Acceptance Criteria: derive from requirements (make them testable)
 - Technical Approach: identify key files via `Glob` + `Grep`
 - Out of Scope: infer boundaries from task scope
 
-### Step 6: Query Memory
+### Step 5: Query Memory
 
 ```
 dev_memory(action="query", query="{feature-area} patterns pitfalls")
@@ -87,34 +65,33 @@ dev_memory(action="query", query="{feature-area} patterns pitfalls")
 
 Incorporate relevant pitfalls into Open Questions or Technical Approach.
 
-### Step 7: Save Spec
+### Step 6: Save Spec
 
 ```
 Write thoughts/shared/specs/SPEC-{id}.md
 ```
 
-Where `{id}` is the Notion task ID or a short slug from the title (e.g., `login-redesign`).
+Where `{id}` is a short slug from the title (e.g., `login-redesign`).
 
-### Step 8: Human Gate
+### Step 7: Auto-Validate and Chain
 
-Present spec to user. Ask:
-- "Does this spec look correct?"
-- "Any missing acceptance criteria or out-of-scope items?"
+Spawn spec-validator agent on the saved spec:
 
-Iterate until approved.
-
-### Step 9: Suggest Next Step
-
-On approval:
 ```
-Spec saved to thoughts/shared/specs/SPEC-{id}.md
-
-Next: /dev create-plan thoughts/shared/specs/SPEC-{id}.md
+Task(spec-validator, spec_path="thoughts/shared/specs/SPEC-{id}.md")
 ```
+
+**If spec-validator returns VALIDATED**:
+- Auto-invoke `/dev create-plan thoughts/shared/specs/SPEC-{id}.md`
+
+**If spec-validator returns NEEDS_HUMAN**:
+- Output the spec content
+- Output the escalation reason from spec-validator
+- Stop and wait for human to review and confirm
 
 ## Spec Quality Checklist
 
-Before presenting to user, verify:
+Before passing to spec-validator, verify:
 
 - [ ] Problem clearly stated (1-3 sentences, no implementation detail)?
 - [ ] Acceptance criteria are testable (not vague like "works correctly")?
@@ -126,6 +103,5 @@ Before presenting to user, verify:
 
 | Reference | Load When |
 |-----------|-----------|
-| `references/notion-schema.md` | Notion fetch + `.dev-flow.json` config needed |
 | `references/spec-template-feature.md` | Type = feature/improvement/tech-debt |
 | `references/spec-template-bug.md` | Type = bug |

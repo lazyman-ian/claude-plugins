@@ -131,15 +131,21 @@ Plans include YAML frontmatter with structured phase metadata (complexity, model
 | thoughts-locator | Find existing research |
 | research-agent | External documentation |
 
-### Post-Plan Validation
+### Post-Plan Validation (MANDATORY)
 
-After plan is written and approved, offer:
+After plan is written and approved, **always** spawn `validate-agent` automatically — no user prompt required.
 
-```
-"Would you like me to validate tech choices with validate-agent?"
-```
+`validate-agent` checks library versions, API compatibility, and best practices before implementation begins. It produces a validation handoff via `dev_handoff(action='write')`.
 
-If accepted → spawn `validate-agent` → produces validation handoff via `dev_handoff(action='write')`. This checks library versions, API compatibility, and best practices before implementation begins.
+**Outcome routing:**
+
+| Result | Action |
+|--------|--------|
+| `VALIDATED` | If `--auto` flag present in context → auto-invoke `/dev implement-plan {plan_path}`. Without `--auto` → inform user plan is ready, await manual trigger. |
+| `NEEDS REVIEW` | Auto-modify plan based on findings, re-spawn `validate-agent` (max 2 attempts). If still `NEEDS REVIEW` after 2 attempts → treat as `MUST CHANGE`. |
+| `MUST CHANGE` | Stop. Output blocking problems clearly. Wait for human decision before proceeding. |
+
+**`--auto` flag**: Detected from user's prompt context (e.g., user included `--auto` in their request), not parsed as a CLI parameter.
 
 ## Core Principles
 

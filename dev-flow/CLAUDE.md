@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-dev-flow-plugin (v7.0.0) is a Claude Code plugin providing unified development workflow automation: brainstorm → plan → implement (5-gate pipeline) → review → commit → PR → release. Features VDD (Verification-Driven Development), 5-gate execution pipeline, Agentic Engineering (autonomous execution with task contracts, proof manifests, and decision agent routing), closed-loop learning engine (Ledger v2 + adaptive execution), Ralph Loop integration, multi-layer automated code review (P0-P3), Markdown-first knowledge vault with SQLite FTS5 search, Notion pipeline (task triage → spec generation), product brain (architecture knowledge), rules distribution system, multi-agent collaboration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
+dev-flow-plugin (v7.1.0) is a Claude Code plugin providing unified development workflow automation: autonomous pipeline (`/dev start --auto` → spec → validate → plan → implement → review gate → PR) + brainstorm → plan → implement (5-gate pipeline) → review → commit → PR → release. Features VDD (Verification-Driven Development), 5-gate execution pipeline, Agentic Engineering (autonomous execution with task contracts, proof manifests, and decision agent routing), closed-loop learning engine (Ledger v2 + adaptive execution), Ralph Loop integration, multi-layer automated code review (P0-P3), Markdown-first knowledge vault with SQLite FTS5 search, Notion pipeline (task triage → spec generation), product brain (architecture knowledge), rules distribution system, multi-agent collaboration, and cross-platform team orchestration. Built-in support for iOS (Swift) and Android (Kotlin), with extensible architecture for Python, Go, Rust, Node and other platforms.
 
 ## Build & Development
 
@@ -24,13 +24,15 @@ npm test --prefix mcp-server                  # All 176 tests
 ### Plugin Structure
 
 ```
-.claude-plugin/plugin.json  # Plugin manifest (v7.0.0)
+.claude-plugin/plugin.json  # Plugin manifest (v7.1.0)
 .mcp.json                   # MCP server config → scripts/mcp-server.cjs
 skills/                     # 25 skills (SKILL.md + references/)
 commands/                   # 30 command definitions
-agents/                     # 14 agent prompts + references/ (security/quality checklists)
+agents/                     # 15 agent prompts + references/ (security/quality checklists)
 hooks/hooks.json            # 20 hooks across 9 types (PreToolUse, PostToolUse, SessionStart, SessionEnd, PreCompact, Stop, SubagentStart, UserPromptSubmit, TaskCompleted)
 scripts/track-team.sh       # Session→team mapping for StatusLine
+scripts/validate-spec.sh    # Deterministic spec quality check (5 criteria, exit 0/1/2)
+scripts/detect-escalation.sh # L3 escalation detection (auth/migration/deps/API/infra)
 templates/rules/            # 12 rule templates (platform-aware, path-scoped)
 templates/thoughts/schema/  # JSON schemas for meta-iterate and handoff outputs
 docs/                       # keybindings.md, hooks-setup.md
@@ -253,7 +255,8 @@ Agents in `agents/` are spawned via Task tool for complex operations:
 - `spec-reviewer.md` - Verify implementation matches spec exactly
 - `code-reviewer.md` - Multi-dimensional review with P0-P3 severity + review session log
 - `evaluate/diagnose/propose/apply/verify-agent.md` - Meta-iterate cycle
-- `validate-agent.md` - Validate plan tech choices
+- `spec-validator.md` - Deterministic spec quality validation + self-heal
+- `validate-agent.md` - Validate plan tech choices (mandatory, with escalation detection)
 - `decision-agent.md` - Runtime uncertainty routing (Sonnet, fork context)
 - `pr-describer.md` - Generate PR descriptions
 
@@ -325,8 +328,70 @@ dev_config → python|fix:black .|check:ruff .|scopes:api,models|src:custom
 - **Ralph Loop Mode**: implement-plan execution mode using Stop hook re-injection for iterative completion
 - Reference: `skills/implement-plan/references/ralph-loop-mode.md`
 
+### Autonomous Pipeline (v7.1.0)
+
+Full autonomous execution from requirements to PR — human only at entry (provide requirements) and exit (PR review + merge).
+
+```
+/dev start "需求" --auto
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Source Detection                                               │
+│  Notion URL → Notion MCP │ File → Read │ URL → WebFetch │ Text │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │ plain text
+                               ▼
+┌──────────────────────────────────────────┐
+│  spec-generator (pure function)          │
+│  Text → classify → template → SPEC.md    │
+└──────────────────────┬───────────────────┘
+                       ▼
+┌──────────────────────────────────────────┐
+│  spec-validator (deterministic)          │
+│  validate-spec.sh (5 checks)             │
+│  detect-escalation.sh (5 rules)          │
+│  ├─ ALL PASS → continue                 │
+│  ├─ FAIL → self-heal (max 2x)           │
+│  └─ ESCALATE → NEEDS_HUMAN (stop)       │
+└──────────────────────┬───────────────────┘
+                       ▼
+┌──────────────────────────────────────────┐
+│  create-plan (research → structure)      │
+│  └─ validate-agent (MANDATORY)           │
+│     ├─ VALIDATED → continue              │
+│     ├─ NEEDS REVIEW → auto-fix (max 2x) │
+│     └─ MUST CHANGE → stop, wait human    │
+└──────────────────────┬───────────────────┘
+                       ▼
+┌──────────────────────────────────────────┐
+│  implement-plan (5-gate pipeline)        │
+│  Per-task: subagent → self-review →      │
+│    spec-review → quality-review → verify │
+│  verify pass → .proof/ → commit → next   │
+└──────────────────────┬───────────────────┘
+                       ▼
+┌──────────────────────────────────────────┐
+│  Review Gate Loop                        │
+│  code-reviewer (full branch diff)        │
+│  ├─ P0/P1 → fix tasks → re-review       │
+│  │          (max 3 rounds)               │
+│  ├─ P2/P3 → record in PR notes          │
+│  └─ clean → /dev pr                     │
+└──────────────────────┬───────────────────┘
+                       ▼
+              Human: PR Review + Merge
+```
+
+**Key design decisions**:
+- `--auto` flag propagates via prompt context (not CLI parsing), default off (backward compatible)
+- Deterministic scripts (`validate-spec.sh`, `detect-escalation.sh`) for hard judgments — zero token cost, agents for self-heal
+- L3 escalation (security/architecture) is the only path that pulls in a human mid-pipeline — false positives expected
+- Review Gate is a pre-requisite for PR, not a post-PR step
+- Proof manifest (`.proof/`) enforced by TaskCompleted hook — tasks cannot complete without it
+
 ### Notion Pipeline
-Task triage (`/dev inbox`), spec generation (`/dev spec`), and post-merge Notion status update hook. Configured via `notion` section in `.dev-flow.json`.
+Task triage (`/dev inbox`), spec generation (`/dev spec` as Notion adapter → `spec-generator`), and post-merge Notion status update hook. `/dev spec` extracts Notion content to plain text, then delegates to `spec-generator` (source-agnostic). Configured via `notion` section in `.dev-flow.json`.
 
 ### Knowledge Vault
 - Markdown-first storage in `thoughts/knowledge/` — human-editable, git-tracked

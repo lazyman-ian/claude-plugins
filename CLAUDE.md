@@ -8,7 +8,7 @@ lazyman-ian marketplace for Claude Code plugins. Contains 5 plugins in a single 
 
 | Plugin | Version | Purpose |
 |--------|---------|---------|
-| dev-flow | 7.0.0 | Development workflow: brainstorm → plan → implement (5-gate pipeline + agentic loop + Ralph Loop) → commit → PR → release + automated code review (P0-P3) + agent-team + cross-platform team + Markdown-first knowledge vault + Notion pipeline + product brain + rules distribution + closed-loop learning engine |
+| dev-flow | 7.1.0 | Development workflow: autonomous pipeline (`/dev start --auto` → spec → validate → plan → implement → review gate → PR) + 5-gate pipeline + agentic loop + Ralph Loop + automated code review (P0-P3) + agent-team + cross-platform team + Markdown-first knowledge vault + Notion pipeline + product brain + rules distribution + closed-loop learning engine |
 | ios-swift-plugin | 1.3.0 | iOS/Swift toolkit: SwiftUI, Concurrency, WidgetKit, Performance, Migration |
 | android-kotlin-plugin | 1.0.0 | Android/Kotlin toolkit: Compose, Coroutines, Performance, Architecture, Build, Migration |
 | utils | 1.3.0 | Code quality: deslop, search-code, safety hooks |

@@ -1,7 +1,7 @@
 {
   "name": "dev-flow",
-  "version": "7.0.0",
-  "description": "Unified development workflow: planning → coding → commit → PR → release with VDD, 5-gate quality pipeline, agentic loop (autonomous execution with task contracts), Ralph Loop integration, multi-layer code review (P0-P3), Markdown-first knowledge vault, Notion pipeline, product brain, and cross-platform agent-team orchestration.",
+  "version": "7.1.0",
+  "description": "Unified development workflow: autonomous pipeline (/dev start --auto → spec → validate → plan → implement → review gate → PR) + 5-gate quality pipeline, agentic loop, Ralph Loop, multi-layer code review (P0-P3), Markdown-first knowledge vault, Notion pipeline, deterministic escalation detection, and cross-platform agent-team orchestration.",
   "author": {
     "name": "lazyman"
   },

@@ -1,6 +1,6 @@
 # dev-flow Plugin Complete Guide
 
-> Claude Code Development Workflow Automation | v6.2.0
+> Claude Code Development Workflow Automation | v7.1.0
 
 ## Table of Contents
 
@@ -11,6 +11,7 @@
   - [Ledger State Management](#ledger-state-management)
   - [Knowledge Base](#knowledge-base)
   - [Memory System](#memory-system)
+  - [Autonomous Pipeline](#autonomous-pipeline) *(v7.1.0)*
   - [Notion Pipeline](#notion-pipeline) *(v6.0.0)*
   - [Rules Distribution](#rules-distribution) *(v6.0.0)*
   - [Multi-Agent Coordination](#multi-agent-coordination)
@@ -599,6 +600,86 @@ All data in `.claude/cache/artifact-index/context.db`:
 | session_summaries + _fts | Session summaries | 1 |
 | observations + _fts | Observation records | 3 |
 
+### Autonomous Pipeline
+
+*(v7.1.0)* Fully autonomous execution pipeline — human only at entry (provide requirements) and exit (PR review + merge).
+
+#### Usage
+
+```bash
+# Full autonomous mode
+/dev start "Implement user login with OAuth2" --auto
+
+# From Notion task
+/dev start "https://notion.so/page-id" --auto
+
+# From requirements file
+/dev start --spec path/to/requirements.md --auto
+```
+
+#### Complete Flow
+
+```
+/dev start "requirements" --auto
+    │
+    ▼
+┌────────────────────────────────────────────────┐
+│  Source Detection                               │
+│  Notion URL → Notion MCP │ File → Read          │
+│  URL → WebFetch │ Plain text → pass-through     │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+┌────────────────────────────────────────────────┐
+│  spec-generator (pure function, source-agnostic)│
+│  Text → classify → template → SPEC.md           │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+┌────────────────────────────────────────────────┐
+│  spec-validator (deterministic)                │
+│  validate-spec.sh: 5 quality checks            │
+│  detect-escalation.sh: 5 escalation rules      │
+│  ├─ ALL PASS → continue                       │
+│  ├─ FAIL → self-heal (max 2x)                 │
+│  └─ ESCALATE → stop, wait human               │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+┌────────────────────────────────────────────────┐
+│  create-plan (research → structured plan)      │
+│  └─ validate-agent (mandatory)                 │
+│     ├─ VALIDATED → continue                    │
+│     ├─ NEEDS REVIEW → auto-fix (max 2x)       │
+│     └─ MUST CHANGE → stop, wait human          │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+┌────────────────────────────────────────────────┐
+│  implement-plan (5-gate pipeline)              │
+│  Per-task: subagent → self-review →            │
+│    spec-review → quality-review → verify        │
+│  verify pass → .proof/ → commit → next         │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+┌────────────────────────────────────────────────┐
+│  Review Gate Loop                              │
+│  code-reviewer (full branch diff)              │
+│  ├─ P0/P1 → generate fix tasks → re-review    │
+│  │          (max 3 rounds)                     │
+│  ├─ P2/P3 → record in PR notes                │
+│  └─ clean → /dev pr                           │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+            Human: PR Review + Merge
+```
+
+#### Key Design Decisions
+
+| Decision | Description |
+|----------|-------------|
+| `--auto` propagation | Via prompt context (not CLI parsing), default off (backward compatible) |
+| Deterministic scripts | `validate-spec.sh` + `detect-escalation.sh`, zero token cost |
+| L3 escalation | Security/architecture is the only path that pulls in human mid-pipeline (false positives expected) |
+| Review Gate | **Pre-requisite** for PR creation, not a post-PR step |
+| Proof Manifest | `.proof/` enforced by TaskCompleted hook |
+
 ### Notion Pipeline
 
 Pull tasks from Notion databases, generate specs, and automate the requirements-to-implementation pipeline.
@@ -654,16 +735,22 @@ Select a task to automatically chain to `/dev spec`.
 #### /dev spec — Spec Generation
 
 ```bash
-# Generate spec from selected task
+# From Notion task
 /dev spec {page_id}
+
+# From clipboard
+/dev spec --from-clipboard
+
+# Interactive input
+/dev spec --interactive
 ```
 
 **Auto-executes**:
-1. Fetch page details via Notion MCP
-2. Classify task type (Feature / Bug / Improvement / Tech-Debt)
-3. Load corresponding template and fill content
+1. Extract content to plain text (Notion MCP / clipboard / interactive)
+2. Delegate to `spec-generator` (source-agnostic pure function): classify → template → SPEC.md
+3. Auto-trigger `spec-validator` for quality verification
 4. Save to `thoughts/shared/specs/SPEC-{id}.md`
-5. Human confirmation, then chain to `/dev create-plan`
+5. Validation pass → chain to `/dev create-plan` (`--auto` mode continues automatically)
 
 ### Rules Distribution
 
@@ -998,6 +1085,18 @@ The `platform` field in `.dev-flow.json` also affects:
 ---
 
 ## Version History
+
+### v7.1.0 (2026-03-08)
+
+- **Autonomous Pipeline**: `/dev start --auto` fully autonomous pipeline — requirements → spec → validate → plan → implement → review gate → PR, human only at entry and exit
+- **spec-generator refactor**: Source-agnostic pure function, accepts any text input (Notion / file / URL / plain text)
+- **spec-validator agent**: Calls deterministic scripts (`validate-spec.sh` + `detect-escalation.sh`) for spec quality validation with self-healing
+- **validate-spec.sh**: 5 quality checks (verify command / scope / no ambiguity / acceptance criteria / security escalation), exit 0/1/2
+- **detect-escalation.sh**: 5 L3 escalation rules (auth / migration / deps / API breaking / infra), deterministic detection
+- **Review Gate Loop**: Post-implementation, pre-PR quality gate loop (P0/P1 fix → re-review, max 3 rounds)
+- **Proof Manifest enforcement**: `.proof/{task-id}.json` enforced by TaskCompleted hook — tasks cannot complete without it
+- **validate-agent upgrade**: Integrated `detect-escalation.sh` for L3 escalation detection
+- **`/dev spec` refactor**: Now a Notion adapter, all spec processing delegated to spec-generator
 
 ### v6.0.0 (2026-02-27)
 

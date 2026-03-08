@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-7.0.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-7.1.0-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/Claude_Code-2.1.19+-purple.svg" alt="Claude Code">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
   <img src="https://img.shields.io/badge/platforms-iOS%20%7C%20Android%20%7C%20Custom-orange.svg" alt="Platforms">
@@ -53,6 +53,7 @@
 | **Rules Distribution** | Platform-aware rule templates for `.claude/rules/` |
 | **Multi-Platform** | iOS, Android built-in; extensible to Python, Go, Rust, Node |
 | **Self-Improvement** | Analyze sessions and iterate prompts automatically |
+| **Autonomous Pipeline** | `/dev start --auto` → spec → validate → plan → implement → review gate → PR |
 | **Agentic Engineering** | Autonomous execution with task contracts, proof manifests, decision agent |
 | **Ralph Loop** | Stop-hook re-injection for iterative plan completion |
 
@@ -214,6 +215,47 @@ See [INSTALL.md](../INSTALL.md) for detailed installation guide.
     │   RELEASE    │  /dev-flow:release
     │  Tag + Notes │  version → tag → changelog
     └──────────────┘
+
+### Autonomous Pipeline (v7.1.0)
+
+With `--auto` flag, the entire workflow runs autonomously — human only at entry and exit:
+
+```
+/dev start "需求描述" --auto
+    │
+    ▼
+┌────────────────────────────────────────────────┐
+│  Source Detection                               │
+│  Notion URL / File / URL / Plain Text           │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+┌────────────────────────────────────────────────┐
+│  spec-generator → spec-validator               │
+│  validate-spec.sh (5 checks)                   │
+│  detect-escalation.sh (5 rules)                │
+│  PASS → continue │ FAIL → self-heal (2x)       │
+│  ESCALATE → stop, wait human                   │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+┌────────────────────────────────────────────────┐
+│  create-plan → validate-agent (mandatory)      │
+│  VALIDATED → continue │ MUST CHANGE → stop     │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+┌────────────────────────────────────────────────┐
+│  implement-plan (5-gate pipeline)              │
+│  Per-task: subagent → review → verify          │
+│  verify pass → .proof/ → commit → next         │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+┌────────────────────────────────────────────────┐
+│  Review Gate Loop                              │
+│  P0/P1 → fix → re-review (max 3 rounds)       │
+│  P2/P3 → PR notes │ clean → /dev pr           │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+            Human: PR Review + Merge
+```
 ```
 
 ## VDD (Verification-Driven Development)
@@ -418,8 +460,9 @@ dev-flow-plugin/
 │       └── coordination/        # Multi-Agent
 ├── skills/                      # 25 skills
 ├── commands/                    # 30 commands
-├── agents/                      # 14 agents
+├── agents/                      # 15 agents
 ├── hooks/                       # 20 hooks
+├── scripts/                     # validate-spec.sh, detect-escalation.sh, statusline.sh
 ├── templates/rules/             # 12 rule templates
 └── docs/                        # Documentation
 ```

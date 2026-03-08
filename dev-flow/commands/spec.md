@@ -1,46 +1,55 @@
 ---
-description: Generate implementation spec from Notion task using spec-generator skill
+description: Notion adapter that extracts page content and delegates to spec-generator skill
 ---
 
-# /dev-flow:spec - Spec Generator
+# /dev-flow:spec - Notion → Spec Adapter
 
-Convert a Notion task into a structured implementation specification.
+Extracts plain text from a Notion task and passes it to the `spec-generator` skill for processing.
 
 ## Usage
 
 ```
-/dev-flow:spec {notion_page_id}     # Generate spec from Notion page
-/dev-flow:spec --from-clipboard     # Generate from clipboard content
-/dev-flow:spec --interactive        # Interactive spec creation (no Notion)
+/dev-flow:spec {notion_page_id}     # Extract from Notion page → spec-generator
+/dev-flow:spec --from-clipboard     # Use clipboard content → spec-generator
+/dev-flow:spec --interactive        # Interactive input → spec-generator
 ```
 
 ## Workflow
 
-1. Fetch task details from Notion via `notion-fetch` MCP tool
-2. Classify task type: Feature / Bug (from `Type` field)
-3. Load matching template from `spec-generator/references/`:
-   - Feature → `spec-template-feature.md`
-   - Bug → `spec-template-bug.md`
-4. Fill template with Notion data + AI analysis
-5. Save to `thoughts/shared/specs/SPEC-{id}.md`
-6. Human Gate: Display spec and ask user to confirm or request edits
-7. On confirmation → auto-run `/dev create-plan` with spec as input
+### Mode: Notion page ID (default)
+
+1. Call Notion MCP to fetch the page (title, properties, body blocks)
+2. Convert page content to plain text (strip Notion block structure)
+3. Pass plain text to `spec-generator` skill — all spec processing, validation, saving, human gate, and `/dev create-plan` chaining happen there
+
+### Mode: --from-clipboard
+
+1. Read clipboard content as plain text
+2. Pass plain text to `spec-generator` skill
+
+### Mode: --interactive
+
+1. Prompt user for task description interactively
+2. Pass collected text to `spec-generator` skill
 
 ## Spec Lifecycle
 
 ```
-Notion Task → /dev inbox → /dev spec → SPEC.md → User Confirm → /dev create-plan → Plan → /dev implement-plan
+Notion Task → /dev inbox → /dev spec (extract) → spec-generator (process) → SPEC.md → User Confirm → /dev create-plan → Plan → /dev implement-plan
 ```
+
+## Notion Extraction
+
+Fields extracted from Notion page and merged into plain text:
+- Page title
+- `Type` property (Feature / Bug)
+- `Status`, `Priority`, `Assignee` properties (if present)
+- Full page body (paragraphs, bullets, headings, callouts)
+
+The result is a single plain-text string handed off to `spec-generator`.
 
 ## Prerequisites
 
-- Notion MCP server configured
+- Notion MCP server configured (for Notion page ID mode)
 - `.dev-flow.json` has `notion.database_id`
-- `thoughts/shared/specs/` directory exists (created by `/dev-flow:init`)
-
-## Output
-
-Spec saved to `thoughts/shared/specs/SPEC-{id}.md` containing:
-- All template sections filled from Notion data
-- Open questions highlighted for user review before implementation
-- Suggested complexity estimate (S / M / L) for plan scoping
+- `spec-generator` skill installed

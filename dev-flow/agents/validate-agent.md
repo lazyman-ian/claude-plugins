@@ -51,7 +51,17 @@ Use WebSearch to validate:
 "[pattern] deprecated OR recommended"
 ```
 
-### 4. Assess and Report
+### 4. Run Escalation Check
+
+Extract the `target_files` list from the plan and run:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/detect-escalation.sh <file1> <file2> ...
+```
+
+If detect-escalation.sh exits 2 (ESCALATE), add the escalation reason to the validation report under **Must Change** with the label `[ESCALATION]`. This does not block the rest of validation — continue assessing tech choices and include the escalation as an additional must-change item.
+
+### 5. Assess and Report
 
 For each choice determine status:
 - **VALID** - Current best practice
@@ -60,7 +70,7 @@ For each choice determine status:
 - **RISKY** - Security concerns
 - **UNKNOWN** - Insufficient info
 
-### 5. Create Validation Handoff
+### 6. Create Validation Handoff
 
 ```markdown
 ---

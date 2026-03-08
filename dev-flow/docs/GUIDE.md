@@ -1,6 +1,6 @@
 # dev-flow Plugin 完整指南
 
-> Claude Code 开发工作流自动化插件 | v6.2.0
+> Claude Code 开发工作流自动化插件 | v7.1.0
 
 ## 目录
 
@@ -11,6 +11,7 @@
   - [Ledger 状态管理](#ledger-状态管理)
   - [Knowledge Base 知识库](#knowledge-base-知识库)
   - [Memory System 记忆系统](#memory-system-记忆系统)
+  - [Autonomous Pipeline 自主流水线](#autonomous-pipeline-自主流水线) *(v7.1.0)*
   - [Notion Pipeline](#notion-pipeline) *(v6.0.0)*
   - [Rules 分发系统](#rules-分发系统) *(v6.0.0)*
   - [Multi-Agent 协调](#multi-agent-协调)
@@ -597,6 +598,86 @@ dev_memory(action='status')
 | session_summaries + _fts | Session 总结 | 1 |
 | observations + _fts | 观察记录 | 3 |
 
+### Autonomous Pipeline 自主流水线
+
+*(v7.1.0)* 全自主执行流水线 — 人类只在入口（提供需求）和出口（PR Review + Merge）介入。
+
+#### 使用方式
+
+```bash
+# 全自主模式
+/dev start "实现用户登录功能，支持 OAuth2" --auto
+
+# 从 Notion 任务开始
+/dev start "https://notion.so/page-id" --auto
+
+# 从文件开始
+/dev start --spec path/to/requirements.md --auto
+```
+
+#### 完整流程
+
+```
+/dev start "需求" --auto
+    │
+    ▼
+┌────────────────────────────────────────────────┐
+│  来源检测                                       │
+│  Notion URL → Notion MCP │ 文件 → Read          │
+│  URL → WebFetch │ 纯文本 → 直接传递              │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+┌────────────────────────────────────────────────┐
+│  spec-generator（纯函数，来源无关）              │
+│  文本 → 分类 → 模板 → SPEC.md                   │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+┌────────────────────────────────────────────────┐
+│  spec-validator（确定性验证）                    │
+│  validate-spec.sh：5 项质量检查                  │
+│  detect-escalation.sh：5 条升级规则              │
+│  ├─ 全部通过 → 继续                             │
+│  ├─ 失败 → 自愈修复（最多 2 次）                │
+│  └─ 需升级 → 停止，等待人类决策                  │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+┌────────────────────────────────────────────────┐
+│  create-plan（研究 → 结构化计划）                │
+│  └─ validate-agent（强制执行）                   │
+│     ├─ 验证通过 → 继续                          │
+│     ├─ 需修改 → 自动修复（最多 2 次）            │
+│     └─ 必须变更 → 停止，等待人类                 │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+┌────────────────────────────────────────────────┐
+│  implement-plan（5-gate pipeline）              │
+│  每个 task：subagent → self-review →            │
+│    spec-review → quality-review → verify        │
+│  verify 通过 → .proof/ → commit → 下一个        │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+┌────────────────────────────────────────────────┐
+│  Review Gate Loop                              │
+│  code-reviewer（完整分支 diff）                  │
+│  ├─ P0/P1 → 生成修复任务 → 重新审查             │
+│  │          （最多 3 轮）                        │
+│  ├─ P2/P3 → 记录到 PR 说明                      │
+│  └─ 干净 → /dev pr                             │
+└─────────────────────┬──────────────────────────┘
+                      ▼
+            人类: PR Review + Merge
+```
+
+#### 关键设计
+
+| 设计点 | 说明 |
+|--------|------|
+| `--auto` 传播 | 通过 prompt context 传递，默认关闭（向后兼容） |
+| 确定性脚本 | `validate-spec.sh` + `detect-escalation.sh`，零 token 成本 |
+| L3 升级 | 安全/架构问题是唯一拉入人类的路径（允许误报） |
+| Review Gate | PR 创建的**前置条件**，不是后置步骤 |
+| Proof Manifest | `.proof/` 由 TaskCompleted hook 强制执行 |
+
 ### Notion Pipeline
 
 从 Notion 数据库拉取任务、生成规格说明，实现需求到实现的自动化流水线。
@@ -652,16 +733,22 @@ Notion DB → /dev inbox → 选择任务 → /dev spec → 生成规格
 #### /dev spec — 规格生成
 
 ```bash
-# 从选择的任务生成规格
+# 从 Notion 任务生成规格
 /dev spec {page_id}
+
+# 从剪贴板生成
+/dev spec --from-clipboard
+
+# 交互式输入
+/dev spec --interactive
 ```
 
 **自动执行**：
-1. 通过 Notion MCP 获取页面详情
-2. 分类任务类型（Feature / Bug / Improvement / Tech-Debt）
-3. 加载对应模板填充内容
+1. 提取内容为纯文本（Notion MCP / 剪贴板 / 交互输入）
+2. 委托 `spec-generator`（来源无关的纯函数）：分类 → 模板 → SPEC.md
+3. 自动触发 `spec-validator` 验证质量
 4. 保存到 `thoughts/shared/specs/SPEC-{id}.md`
-5. 人工确认后链接到 `/dev create-plan`
+5. 验证通过 → 链接到 `/dev create-plan`（`--auto` 模式自动继续）
 
 ### Rules 分发系统
 
@@ -998,6 +1085,18 @@ Tasks: 2/5 (40%) | → 1 active | 2 pending
 ---
 
 ## 版本历史
+
+### v7.1.0 (2026-03-08)
+
+- **Autonomous Pipeline**: `/dev start --auto` 全自主流水线 — 需求 → spec → validate → plan → implement → review gate → PR，人类只在入口和出口介入
+- **spec-generator 重构**: 来源无关的纯函数，接受任意文本输入（Notion / 文件 / URL / 纯文本）
+- **spec-validator agent**: 调用确定性脚本（`validate-spec.sh` + `detect-escalation.sh`）验证 spec 质量，支持自愈修复
+- **validate-spec.sh**: 5 项质量检查（verify command / scope / 无歧义 / 验收标准 / 安全升级），exit 0/1/2
+- **detect-escalation.sh**: 5 条 L3 升级规则（auth / migration / deps / API breaking / infra），确定性检测
+- **Review Gate Loop**: implement-plan 完成后、PR 创建前的质量门禁循环（P0/P1 修复 → 重审，最多 3 轮）
+- **Proof Manifest 强制**: `.proof/{task-id}.json` 由 TaskCompleted hook 强制执行，无 proof 不能完成任务
+- **validate-agent 升级**: 集成 `detect-escalation.sh` 进行 L3 升级检测
+- **`/dev spec` 重构**: 变为 Notion 适配器，所有 spec 处理委托给 spec-generator
 
 ### v6.0.0 (2026-02-27)
 

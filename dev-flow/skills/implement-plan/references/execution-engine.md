@@ -21,7 +21,8 @@ for each incomplete task:
   6. Run gate 4 (Quality Review) if medium/high risk
   7. Run gate 5 (Verify)
   8. After each gate: dev_ledger(action='task_update', taskId, gate, result)
-  9. On verify pass: commit, mark [x] in plan, continue
+  9. On verify pass: write .proof/{task-id}.json (MANDATORY — TaskCompleted hook enforces)
+  10. Commit, mark [x] in plan, continue
   10. On verify fail: diagnose → fix → re-verify (max 2 attempts, both recorded)
   11. On verify fail 2x: stop + escalate to human
 ```
@@ -117,7 +118,10 @@ Both attempts recorded in ledger:
 { gate: "verify", result: "pass", attempt: 2, detail: "fixed: <what changed>" }
 ```
 
-## Proof Manifest
+## Proof Manifest (MANDATORY)
+
+**Enforced by**: `quality-gate-check.sh` (TaskCompleted hook, exit 2 = block).
+`TaskUpdate(status='completed')` will be REJECTED if `.proof/{task-id}.json` does not exist with `verdict: pass`.
 
 After each task's verify pass, write:
 
@@ -171,3 +175,55 @@ Runtime uncertainty (not covered by contract) → spawn decision-agent (Sonnet, 
 - Security/architecture question → escalate to Human
 
 Never block on uncertainty — route it.
+
+## Review Gate Loop
+
+After all plan tasks are complete and before PR creation, the Review Gate Loop ensures code quality:
+
+### Flow
+
+```
+All tasks done
+  → dev_aggregate(action='pr_ready')
+  → spawn code-reviewer (git diff master...HEAD)
+  → parse findings
+    → P0/P1 → generate fix tasks → execute → re-review (review_rounds++)
+    → P2/P3 → record in pr_notes
+    → clean → /dev pr
+```
+
+### Fix Task Generation
+
+P0/P1 findings become new tasks with `risk: high`:
+
+```yaml
+- id: "fix-r1.1"
+  type: logic-task
+  risk: high
+  description: "Fix P0: SQL injection in user query"
+  contract: |
+    - Parameterize all user-supplied values in SQL queries
+  verify: "make test"
+  commit: "fix(db): parameterize user query inputs"
+```
+
+### Re-Review Scope
+
+Each round reviews ONLY the fix diff, not the full branch:
+```bash
+# Round 1: full branch
+git diff master...HEAD
+
+# Round 2+: only changes since last review
+git diff HEAD~{fix_commit_count}..HEAD
+```
+
+This prevents the reviewer from re-flagging existing code and causing infinite loops.
+
+### Escalation
+
+| Condition | Action |
+|-----------|--------|
+| review_rounds > 3 | Stop + escalate to human |
+| P0 in same location 2x | Stop + escalate (likely design issue) |
+| All P0/P1 resolved | Continue to /dev pr |

@@ -27,8 +27,9 @@ Single entry point for all plan execution. The orchestrator:
 3. Pick the first incomplete task
 4. Assess risk per task → determine gate set → run gates
 5. After each gate: `dev_ledger(action='task_update', taskId, gate, result)`
-6. Verify pass → commit → mark `[x]` → continue
+6. Verify pass → write `.proof/{task-id}.json` → commit → mark `[x]` → continue
 7. Context > 70% → save state to ledger → generate Ralph prompt → output handoff
+8. All tasks done → Review Gate Loop runs before PR creation (see Plan Closure)
 
 **Continue** (ALL AND): verify pass + changes within scope + context < 70%
 **Stop** (ANY OR): verify fail 2x + out-of-scope changes + context > 80% + security/architecture issue
@@ -197,12 +198,42 @@ Found: [actual situation]
 → Route to Decision Agent for resolution
 ```
 
-## Plan Closure
+## Plan Closure — Review Gate Loop
 
 When all tasks complete:
+
 1. Update plan frontmatter `status: completed`
-2. `dev_aggregate(action='pr_ready', taskId=...)` → final summary
-3. Auto-commit after final verify pass
+2. `dev_aggregate(action='pr_ready', taskId=...)` → prepare changes summary
+3. Spawn `code-reviewer` agent with full branch diff (`git diff master...HEAD`)
+4. Parse review findings:
+
+| Finding Severity | Action |
+|-----------------|--------|
+| P0/P1 | Generate fix tasks (reuse task structure, `risk: high`) → re-enter execution loop → fix → re-review |
+| P2/P3 only | Record in `pr_notes` for PR description |
+| No findings | Clean — proceed to PR |
+
+5. On clean review → auto-invoke `/dev pr`
+
+### Review Loop Constraints
+
+- `review_rounds` counter tracks iterations (max 3)
+- Each re-review only examines the fix diff (not full branch), to avoid infinite loops
+- After 3 rounds with remaining P0/P1 → stop + escalate to human
+- Fix tasks follow the same risk-adaptive gate pipeline as normal tasks
+
+### Fix Task Format
+
+```yaml
+- id: "fix-r{round}.{n}"
+  type: logic-task
+  risk: high
+  description: "Fix P0/P1: {finding description}"
+  contract: |
+    - {specific fix requirement from reviewer}
+  verify: "{original plan verify command}"
+  commit: "fix(scope): {description}"
+```
 
 ## Reference Menu
 
