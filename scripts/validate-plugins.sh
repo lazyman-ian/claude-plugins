@@ -90,41 +90,51 @@ except:
     return
   fi
 
-  # Validate referenced hook scripts (only type: "command" entries)
+  # Validate hook entries by type
   python3 -c "
 import json, sys
 
 with open('$hooks_file') as f:
     data = json.load(f)
 
-def find_commands(obj):
+def find_hooks(obj):
     if isinstance(obj, dict):
         hook_type = obj.get('type', 'command')
         if hook_type == 'command' and 'command' in obj:
-            yield obj['command']
+            yield ('command', obj['command'])
+        elif hook_type in ('prompt', 'agent'):
+            yield (hook_type, obj.get('prompt', ''))
         for v in obj.values():
-            yield from find_commands(v)
+            yield from find_hooks(v)
     elif isinstance(obj, list):
         for item in obj:
-            yield from find_commands(item)
+            yield from find_hooks(item)
 
-for cmd in find_commands(data):
-    # Extract the script path (first token), ignore args
-    parts = cmd.split()
-    script = parts[0] if parts else ''
-    # Replace \${CLAUDE_PLUGIN_ROOT} with actual plugin dir
-    script = script.replace('\${CLAUDE_PLUGIN_ROOT}', '$REPO_ROOT/$plugin')
-    print(script)
-" 2>/dev/null | while read -r script; do
-    [[ -z "$script" ]] && continue
-    if [[ ! -f "$script" ]]; then
-      fail "$plugin hook script missing: ${script#$REPO_ROOT/$plugin/}"
-    else
-      ok "$plugin hook script exists: ${script#$REPO_ROOT/$plugin/}"
-      if [[ ! -x "$script" ]]; then
-        fail "$plugin hook script not executable: ${script#$REPO_ROOT/$plugin/}"
+for kind, value in find_hooks(data):
+    print(f'{kind}|{value}')
+" 2>/dev/null | while IFS='|' read -r kind value; do
+    [[ -z "$kind" ]] && continue
+    if [[ "$kind" == "command" ]]; then
+      # Validate command hook: script must exist and be executable
+      parts=($value)
+      script="${parts[0]}"
+      script="${script//\$\{CLAUDE_PLUGIN_ROOT\}/$REPO_ROOT/$plugin}"
+      if [[ ! -f "$script" ]]; then
+        fail "$plugin hook script missing: ${script#$REPO_ROOT/$plugin/}"
       else
-        ok "$plugin hook script is executable: ${script#$REPO_ROOT/$plugin/}"
+        ok "$plugin hook script exists: ${script#$REPO_ROOT/$plugin/}"
+        if [[ ! -x "$script" ]]; then
+          fail "$plugin hook script not executable: ${script#$REPO_ROOT/$plugin/}"
+        else
+          ok "$plugin hook script is executable: ${script#$REPO_ROOT/$plugin/}"
+        fi
+      fi
+    elif [[ "$kind" == "prompt" || "$kind" == "agent" ]]; then
+      # Validate prompt/agent hook: must have non-empty prompt field
+      if [[ -z "$value" ]]; then
+        fail "$plugin $kind hook missing 'prompt' field"
+      else
+        ok "$plugin $kind hook has prompt (${#value} chars)"
       fi
     fi
   done
