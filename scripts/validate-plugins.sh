@@ -103,7 +103,7 @@ def find_hooks(obj):
         if hook_type == 'command' and 'command' in obj:
             yield ('command', obj['command'])
         elif hook_type in ('prompt', 'agent'):
-            yield (hook_type, obj.get('prompt', ''))
+            yield (hook_type, obj.get('prompt', '').replace('\n', '\\n'))
         for v in obj.values():
             yield from find_hooks(v)
     elif isinstance(obj, list):
