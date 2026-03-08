@@ -43,21 +43,38 @@ else
   INTERVAL=5
 fi
 
-# Counter file
-DIR_HASH=$(echo "$project_dir" | /usr/bin/sed 's|/|-|g' | tail -c 32)
-COUNTER_FILE="/tmp/claude-task-checkpoint-count-${DIR_HASH}.txt"
+# Counter file: keyed by branch name hash (separate counters per pipeline/branch)
+CURRENT_BRANCH=$(git -C "$project_dir" branch --show-current 2>/dev/null)
+if [[ -n "$CURRENT_BRANCH" ]]; then
+  BRANCH_HASH=$(echo "$CURRENT_BRANCH" | (shasum 2>/dev/null || sha1sum) | cut -c1-12)
+else
+  # Detached HEAD: fall back to dir hash
+  BRANCH_HASH=$(echo "$project_dir" | /usr/bin/sed 's|/|-|g' | tail -c 32)
+fi
+COUNTER_FILE="/tmp/claude-batch-checkpoint-${BRANCH_HASH}.txt"
 
-# Read + increment counter
+# Read counter; detect plan change and reset if needed
 COUNT=0
-[[ -f "$COUNTER_FILE" ]] && COUNT=$(cat "$COUNTER_FILE" 2>/dev/null || echo "0")
+if [[ -f "$COUNTER_FILE" ]]; then
+  STORED_BRANCH=$(sed -n '1p' "$COUNTER_FILE" 2>/dev/null || echo "")
+  STORED_PLAN=$(sed -n '2p' "$COUNTER_FILE" 2>/dev/null || echo "")
+  STORED_COUNT=$(sed -n '3p' "$COUNTER_FILE" 2>/dev/null || echo "0")
+
+  if [[ "$STORED_BRANCH" == "$CURRENT_BRANCH" && "$STORED_PLAN" == "$ACTIVE_PLAN" ]]; then
+    COUNT=$STORED_COUNT
+  fi
+  # If branch or plan changed, COUNT stays 0 (reset)
+fi
 COUNT=$((COUNT + 1))
 
+# Atomic write: tmp then mv
+COUNTER_TMP="${COUNTER_FILE}.tmp"
 if (( COUNT >= INTERVAL )); then
-  echo "0" > "$COUNTER_FILE"
+  printf '%s\n%s\n%s\n' "$CURRENT_BRANCH" "$ACTIVE_PLAN" "0" > "$COUNTER_TMP" && mv "$COUNTER_TMP" "$COUNTER_FILE"
   echo "Batch checkpoint: review coherence of last ${INTERVAL} tasks before continuing" >&2
   exit 2
 else
-  echo "$COUNT" > "$COUNTER_FILE"
+  printf '%s\n%s\n%s\n' "$CURRENT_BRANCH" "$ACTIVE_PLAN" "$COUNT" > "$COUNTER_TMP" && mv "$COUNTER_TMP" "$COUNTER_FILE"
   echo '{"continue":true}'
   exit 0
 fi
