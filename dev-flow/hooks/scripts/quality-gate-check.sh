@@ -9,7 +9,7 @@
 set -o pipefail
 
 INPUT=$(cat)
-TASK_ID=$(echo "$INPUT" | jq -r '.task_id // empty' 2>/dev/null || echo "")
+TASK_ID=$(echo "$INPUT" | jq -r '.task_id // .taskId // empty' 2>/dev/null || echo "")
 
 [[ -z "$TASK_ID" ]] && { echo '{"continue":true}'; exit 0; }
 
