@@ -101,7 +101,7 @@ dev_ledger(action="create", taskId="TASK-XXX", branch="<branch>")
 如果带 `--spec` 参数：
 ```
 → 将提取的纯文本传入 spec-generator agent
-→ 生成结构化 spec 文件: thoughts/shared/specs/TASK-XXX.md
+→ 生成结构化 spec 文件: thoughts/specs/TASK-XXX.md
 → 输出 spec 路径，等待用户确认后继续
 ```
 
@@ -122,7 +122,7 @@ Source `dev-flow/hooks/scripts/auto-pipeline-state.sh`，调用：
 ```bash
 auto_state_init("$PROJECT_DIR", "TASK-XXX", "$source_text")
 ```
-写入 `.claude/cache/.auto-pipeline-TASK-XXX.json`：
+写入 `.claude/state/pipeline/TASK-XXX.json`：
 ```json
 { "auto": true, "task_id": "TASK-XXX", "current_stage": "spec", ... }
 ```
@@ -140,7 +140,7 @@ auto_state_init("$PROJECT_DIR", "TASK-XXX", "$source_text")
 
 **8.2 Auto 模式检测**
 
-各 skill/agent 检测 auto 模式：读 `.claude/cache/.auto-pipeline-{task_id}.json`
+各 skill/agent 检测 auto 模式：读 `.claude/state/pipeline/{task_id}.json`
 - 存在且 `auto: true` → 跳过确认，自动链接到下一阶段
 - 不存在 → 正常交互模式
 
@@ -175,7 +175,7 @@ auto_state_init("$PROJECT_DIR", "TASK-XXX", "$source_text")
 
 /dev-flow:start TASK-901 "新增用户反馈模块" --spec
 # → feature/TASK-901-add-user-feedback
-# → 生成 thoughts/shared/specs/TASK-901.md
+# → 生成 thoughts/specs/TASK-901.md
 
 /dev-flow:start --spec "notion.so/page/abc123"
 # → 从 Notion 页面提取需求

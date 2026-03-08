@@ -6,8 +6,18 @@ SCRIPT_DIR="$(builtin cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
 mkdir -p "$TMPDIR/thoughts/ledgers"
-printf "# Ledger\n## State\n- Now: [→] Phase 2 (implementing auth)\n## Open Questions\n- Which auth provider?" > "$TMPDIR/thoughts/ledgers/CONTINUITY_CLAUDE-test.md"
+mkdir -p "$TMPDIR/.claude/state"
+
+# Create ledger using new naming convention
+LEDGER_FILE="$TMPDIR/thoughts/ledgers/TASK-1-test.md"
+printf "# Ledger\n## State\n- Now: [→] Phase 2 (implementing auth)\n## Open Questions\n- Which auth provider?" > "$LEDGER_FILE"
+
 git -C "$TMPDIR" init -q && git -C "$TMPDIR" commit --allow-empty -m "init" -q
+
+# Register ledger so registry_resolve finds it
+BRANCH=$(git -C "$TMPDIR" branch --show-current 2>/dev/null || echo "main")
+echo "{\"version\":1,\"branches\":{\"${BRANCH}\":{\"ledger\":\"thoughts/ledgers/TASK-1-test.md\"}}}" \
+  > "$TMPDIR/.claude/state/context.json"
 
 # Setup minimal MEMORY.md
 ENCODED=$(echo "$TMPDIR" | /usr/bin/sed 's|/|-|g')
@@ -24,14 +34,16 @@ cat > "$MEMORY_DIR/MEMORY.md" << 'MEMEOF'
 <!-- LAST-SESSION-END -->
 MEMEOF
 
+# New checkpoint path: .claude/state/checkpoint.md
+CHECKPOINT="$TMPDIR/.claude/state/checkpoint.md"
+
 # Test 1: Basic PreCompact with trigger=auto
 echo -n "Test 1: Basic auto compact... "
 OUTPUT=$(echo "{\"trigger\":\"auto\",\"session_id\":\"test-123\",\"cwd\":\"$TMPDIR\"}" | \
   CLAUDE_PROJECT_DIR="$TMPDIR" bash "$SCRIPT_DIR/pre-compact.sh" 2>/dev/null)
 echo "$OUTPUT" | jq -e '.continue == true' > /dev/null 2>&1 || { echo "FAIL: no continue:true"; exit 1; }
 
-CHECKPOINT="$TMPDIR/thoughts/ledgers/.compact-checkpoint.md"
-[[ -f "$CHECKPOINT" ]] || { echo "FAIL: checkpoint not created"; exit 1; }
+[[ -f "$CHECKPOINT" ]] || { echo "FAIL: checkpoint not created at $CHECKPOINT"; exit 1; }
 grep -q "Phase 2" "$CHECKPOINT" || { echo "FAIL: missing ledger state"; exit 1; }
 grep -q "## Uncommitted Changes" "$CHECKPOINT" || { echo "FAIL: missing git state"; exit 1; }
 echo "PASS"
@@ -51,7 +63,7 @@ echo "PASS"
 echo -n "Test 4: Custom instructions... "
 OUTPUT2=$(echo "{\"trigger\":\"manual\",\"custom_instructions\":\"Focus on auth module\",\"cwd\":\"$TMPDIR\"}" | \
   CLAUDE_PROJECT_DIR="$TMPDIR" bash "$SCRIPT_DIR/pre-compact.sh" 2>/dev/null)
-grep -q "Focus on auth module" "$TMPDIR/thoughts/ledgers/.compact-checkpoint.md" || { echo "FAIL: custom_instructions not saved"; exit 1; }
+grep -q "Focus on auth module" "$CHECKPOINT" || { echo "FAIL: custom_instructions not saved"; exit 1; }
 echo "PASS"
 
 # Test 5: No ledger dir (graceful exit)
