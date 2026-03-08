@@ -1,112 +1,80 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-lazyman-ian marketplace for Claude Code plugins. Contains 5 plugins in a single repository.
+lazyman-ian marketplace for Claude Code plugins. 5 plugins in a single repository.
 
 | Plugin | Version | Purpose |
 |--------|---------|---------|
-| dev-flow | 7.1.0 | Development workflow: autonomous pipeline (`/dev start --auto` → spec → validate → plan → implement → review gate → PR) + 5-gate pipeline + agentic loop + Ralph Loop + automated code review (P0-P3) + agent-team + cross-platform team + Markdown-first knowledge vault + Notion pipeline + product brain + rules distribution + closed-loop learning engine |
-| ios-swift-plugin | 1.3.0 | iOS/Swift toolkit: SwiftUI, Concurrency, WidgetKit, Performance, Migration |
-| android-kotlin-plugin | 1.0.0 | Android/Kotlin toolkit: Compose, Coroutines, Performance, Architecture, Build, Migration |
+| dev-flow | 7.1.0 | Autonomous dev workflow: pipeline, 5-gate quality, code review, knowledge vault |
+| ios-swift-plugin | 1.3.0 | iOS/Swift: SwiftUI, Concurrency, WidgetKit, Migration |
+| android-kotlin-plugin | 1.0.0 | Android/Kotlin: Compose, Coroutines, Architecture, Migration |
 | utils | 1.3.0 | Code quality: deslop, search-code, safety hooks |
 | research | 1.3.0 | Research: Perplexity AI, Braintrust, RepoPrompt |
 
 ## Build Commands
 
-### Project Initialization
-
-**Required:** Run `/dev-flow:init` once per project to create `.dev-flow.json` and `thoughts/` directories.
-- SessionStart warns if not initialized but does NOT auto-create
-- Without init: no platform commands, no memory system, no scope inference
-- For monorepo projects: Set `"platform": "monorepo"` explicitly
-
 ### dev-flow MCP Server (TypeScript)
 
 ```bash
-# Use --prefix to avoid cd (zoxide alias breaks non-interactive cd)
 npm install --prefix dev-flow/mcp-server
-npm run --prefix dev-flow/mcp-server bundle    # Bundle to scripts/mcp-server.cjs (required for plugin)
-npm run --prefix dev-flow/mcp-server build     # TypeScript compile to dist/
+npm run --prefix dev-flow/mcp-server bundle    # → scripts/mcp-server.cjs (required)
+npm run --prefix dev-flow/mcp-server build     # TypeScript → dist/
 npm run --prefix dev-flow/mcp-server dev       # Run with ts-node
 ```
 
 ### ios-swift-plugin ConcurrencyGuard (Swift)
 
 ```bash
-# swift build doesn't have --prefix equivalent, use builtin cd
 builtin cd ios-swift-plugin/tools/ConcurrencyGuard && swift build -c release
 ```
 
 ### utils & research
 
-No build required (Python scripts and markdown skills).
+No build required.
 
-## Architecture
+### Project Initialization
 
-### Plugin System Structure
+Run `/dev-flow:init` once per project to create `.dev-flow.json` and `thoughts/`.
+- Without init: no platform commands, no memory, no scope inference
+- Monorepo: set `"platform": "monorepo"` in `.dev-flow.json`
 
-Each plugin follows this structure:
+## Directory Structure
 
 ```
-plugin-name/
-├── .claude-plugin/plugin.json    # Plugin manifest
-├── skills/                        # Skill definitions (SKILL.md)
-├── commands/                      # Command definitions
-├── agents/                        # Agent prompts (auto-discovered)
-└── hooks/hooks.json              # Hook configurations (auto-discovered)
+├── dev-flow/                 # 25 skills, 30 commands, 15 agents, 21 MCP tools
+│   ├── .claude-plugin/       # Plugin manifest (v7.1.0)
+│   ├── mcp-server/src/       # MCP server (TypeScript)
+│   │   ├── index.ts          # Entry, tool registration
+│   │   ├── detector.ts       # Platform detection (.dev-flow.json > file-based)
+│   │   ├── notion.ts         # Notion integration
+│   │   ├── git/              # Git operations
+│   │   ├── platforms/        # iOS, Android platform commands
+│   │   ├── continuity/       # Ledger, task-sync, memory, defaults
+│   │   └── coordination/     # Multi-agent: coordinate, handoff, aggregate
+│   ├── skills/               # SKILL.md definitions
+│   ├── commands/             # Command definitions
+│   ├── agents/               # Agent prompts (auto-discovered)
+│   ├── hooks/hooks.json      # 23 hooks across 9 types (auto-discovered)
+│   ├── scripts/              # 12 scripts (statusline, validation, etc.)
+│   └── templates/rules/      # 12 rule templates
+├── ios-swift-plugin/         # 16 skills, 4 agents
+├── android-kotlin-plugin/    # 7 skills, 2 agents
+├── utils-plugin/             # 2 skills, safety hooks
+├── research-plugin/          # 3 skills, 3 agents
+├── .claude-plugin/           # Marketplace registry
+└── thoughts/                 # Plans, specs, knowledge, ledgers
 ```
 
-### Marketplace Registry
+## Plugin Development
 
-`.claude-plugin/marketplace.json` defines the plugin registry. Plugins reference directories via `"source": "./dev-flow"`.
+### Manifest (plugin.json)
 
-### Key Directories
-
-| Directory | Purpose |
-|-----------|---------|
-| `dev-flow/` | Workflow automation with MCP server |
-| `ios-swift-plugin/` | iOS/Swift toolkit |
-| `android-kotlin-plugin/` | Android/Kotlin toolkit |
-| `utils-plugin/` | Built-in: code quality hooks |
-| `research-plugin/` | Built-in: research tools |
-| `thoughts/` | Config optimizations, cross-platform plans |
-
-### dev-flow MCP Server Architecture
-
-Single-file bundle architecture (`mcp-server/src/index.ts` → `scripts/mcp-server.cjs`):
-
-| Module | Purpose |
-|--------|---------|
-| `detector.ts` | Platform detection: `detectPlatformSimple()` unified entry (`.dev-flow.json` > file-based) |
-| `git/workflow.ts` | Git status, phase detection |
-| `platforms/ios.ts` | SwiftLint, SwiftFormat commands |
-| `platforms/android.ts` | ktlint, ktfmt commands |
-| `notion.ts` | Notion integration: config, inbox filter, spec extraction |
-| `continuity/` | Ledgers, task-sync, memory, product-brain, context-injector |
-| `coordination/` | Multi-agent coordination, handoffs |
-
-## Installation
-
-See [INSTALL.md](./INSTALL.md) for detailed installation instructions.
-
-Quick install (in Claude Code):
-```
-/plugin marketplace add lazyman-ian/claude-plugins
-/plugin install dev-flow@lazyman-ian
-```
-
-## Development Workflow
-
-### Plugin Manifest Rules
-
-**Supported fields**: `name`, `version`, `description`, `author`, `skills`, `commands`, `mcpServers`, `lspServers`
+**Supported**: `name`, `version`, `description`, `author`, `skills`, `commands`, `mcpServers`, `lspServers`
 
 **Auto-discovered** (don't declare): `agents/` directory, `hooks/hooks.json`
-
-**Invalid fields**: `bundledMcpServers`, `agents`, `hooks`
 
 ### Agent Frontmatter
 
@@ -119,9 +87,9 @@ color: yellow  # optional
 ---
 ```
 
-**Invalid**: `tools: [...]`
+Invalid fields: `tools: [...]`
 
-### Hooks Format
+### Hooks (hooks.json)
 
 ```json
 {
@@ -132,66 +100,41 @@ color: yellow  # optional
 }
 ```
 
-Must wrap in `"hooks"` object. Use `.tool_name` and `.tool_input.*` for input fields.
+Must wrap in `"hooks"` object. Input fields: `.tool_name`, `.tool_input.*`
 
-### Hook Script Best Practices
+### Hook Scripts
 
-- Use `set -o pipefail` (NOT `set -eo pipefail`) — `-e` causes jq parse errors to crash the script
-- All `jq` calls add `2>/dev/null || echo ""` fallback
-- Non-target files early exit before heavy parsing (e.g., check `.swift$` before parsing content)
-- Use `builtin cd` (not `cd`) in hooks — aliased to zoxide. Note: `builtin` only works with shell builtins (cd/echo/pwd), NOT external commands (npm/git/node). For external commands use `--prefix`/`-C` flags
-- Use `/usr/bin/sed` (not `sed`) — aliased to `sd` with incompatible syntax
-- Use `/usr/bin/find` (not `find`) — aliased to `fd` with different arguments
-- Use `/usr/bin/curl` (not `curl`) — aliased to `xh` with incompatible flags
+- `set -o pipefail` (NOT `set -eo pipefail`) — `-e` crashes on jq parse errors
+- All `jq` calls: `2>/dev/null || echo ""` fallback
+- Non-target files: early exit before heavy parsing
 
-### Skill Requirements
+### Skills
 
 - SKILL.md < 500 lines
-- Frontmatter with `name`, `description` (EN+CN triggers), `allowed-tools`
-- Description pattern: "This skill should be used when..."
+- Frontmatter: `name`, `description` (EN+CN triggers), `allowed-tools`
+- Description: `"This skill should be used when..."`
 
-## Quick Commands
-
-```bash
-# Reinstall after cache clear
-claude plugins remove utils@lazyman-ian && claude plugins add utils@lazyman-ian
-
-# Audit all skills
-for f in */skills/*/SKILL.md; do
-  name=$(dirname "$f" | xargs basename)
-  lines=$(wc -l < "$f" | tr -d ' ')
-  tools=$(grep -q "allowed-tools" "$f" && echo "✅" || echo "❌")
-  echo "$lines $tools $name"
-done | sort -rn
-```
-
-## Version Upgrade Checklist
+## Version Upgrade
 
 Update these files when bumping version:
 - `<plugin>/.claude-plugin/plugin.json`
 - `.claude-plugin/marketplace.json`
-- `<plugin>/.claude-plugin/marketplace.json` (if exists, was found stale at 3.11.1)
 - `<plugin>/README.md` (badge)
 
-## Compaction 指令
+## Compaction
 
-When compacting, always preserve:
-- Full list of modified files and their purposes
-- Build/test commands specific to this project (`npm run --prefix`, `builtin cd && swift build`)
-- Current task state and phase progress
-- Key architectural decisions made during conversation
-- Any verification commands and their results
+Preserve on compact:
+- Modified files list and purposes
+- Build commands (`npm run --prefix`, `builtin cd && swift build`)
+- Task state and phase progress
+- Architectural decisions and verification results
 
-## MCP Tools
+## MCP Servers
 
-```bash
-claude mcp list              # List active MCP servers
-```
-
-| MCP | Purpose | Plugin | Transport |
-|-----|---------|--------|-----------|
-| xcode | Xcode native tools (26.3+) | ios-swift-plugin | stdio (xcrun) |
-| apple-docs | Symbol/API lookup | ios-swift-plugin | stdio (npx, pinned) |
-| sosumi | Full docs, HIG | ios-swift-plugin | HTTP (sosumi.ai, read-only docs) |
-| XcodeBuildMCP | Simulator control | ios-swift-plugin | stdio (external) |
-| dev-flow | Workflow tools | dev-flow | stdio |
+| MCP | Plugin | Transport |
+|-----|--------|-----------|
+| dev-flow | dev-flow | stdio |
+| xcode | ios-swift-plugin | stdio (xcrun) |
+| apple-docs | ios-swift-plugin | stdio (npx, pinned) |
+| sosumi | ios-swift-plugin | HTTP (read-only docs) |
+| XcodeBuildMCP | ios-swift-plugin | stdio (external) |

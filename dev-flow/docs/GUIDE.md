@@ -7,18 +7,24 @@
 - [为什么使用 dev-flow](#为什么使用-dev-flow)
 - [快速开始](#快速开始)
 - [核心工作流](#核心工作流)
+  - [标准流程](#标准流程)
+  - [Autonomous Pipeline (v7.1.0)](#autonomous-pipeline-v710)
+  - [命令详解](#命令详解)
 - [高级功能](#高级功能)
+  - [Agentic Engineering (v6.3.0)](#agentic-engineering-v630)
+  - [5-Gate Execution Pipeline](#5-gate-execution-pipeline)
+  - [Review System](#review-system)
+  - [Knowledge Vault](#knowledge-vault)
   - [Ledger 状态管理](#ledger-状态管理)
-  - [Knowledge Base 知识库](#knowledge-base-知识库)
-  - [Memory System 记忆系统](#memory-system-记忆系统)
-  - [Autonomous Pipeline 自主流水线](#autonomous-pipeline-自主流水线) *(v7.1.0)*
-  - [Notion Pipeline](#notion-pipeline) *(v6.0.0)*
-  - [Rules 分发系统](#rules-分发系统) *(v6.0.0)*
   - [Multi-Agent 协调](#multi-agent-协调)
+  - [Notion Pipeline](#notion-pipeline)
+  - [Rules 分发系统](#rules-分发系统)
   - [Meta-Iterate 自我迭代](#meta-iterate-自我迭代)
+  - [Ralph Loop](#ralph-loop)
+- [平台支持](#平台支持)
 - [最佳实践](#最佳实践)
 - [常见问题](#常见问题)
-- [Claude Code 配合使用](#claude-code-配合使用)
+- [版本历史](#版本历史)
 
 ---
 
@@ -29,18 +35,19 @@
 | 传统方式 | dev-flow |
 |---------|----------|
 | 手动 `git add && git commit` | `/dev commit` 自动格式化 + scope 推断 |
-| 手写 commit message | 自动生成符合规范的 message |
+| 手写 commit message | 自动生成符合规范的 message，无 AI 署名 |
 | 手动创建 PR | `/dev pr` 自动推送 + 生成描述 + 代码审查 |
-| 手动验证代码质量 | `/dev verify` 自动 lint + test |
-| 上下文丢失 (session 切换) | Ledger 持久化任务状态 |
-| Agent 判断任务完成 | VDD: exit code 0 判断完成 |
+| 手动验证代码质量 | `/dev verify` VDD: exit code 0 = 完成 |
+| 上下文丢失（session 切换） | Ledger 持久化任务状态，跨 session 恢复 |
+| Agent 自己判断完成 | 环境（hooks + exit code）判断完成 |
+| 需求到 PR 需要多步手动操作 | `/dev start --auto` 全自主流水线 |
 
 ### 核心价值
 
-1. **减少重复操作**: 一个命令完成 lint → commit → push
-2. **保持上下文**: Ledger 跨 session 保持任务状态
-3. **质量保障**: 自动执行平台对应的检查命令
-4. **知识积累**: 自动记录决策历史，提取跨项目知识
+1. **减少重复操作** — 一个命令完成 lint → commit → push
+2. **保持上下文** — Ledger 跨 session 保持任务状态
+3. **质量保障** — 自动执行平台对应检查命令，P0/P1 阻止提交
+4. **知识积累** — Markdown-first 知识库，自动注入历史决策和陷阱
 
 ---
 
@@ -61,17 +68,20 @@ claude plugins add /path/to/dev-flow
 
 ```bash
 /dev-flow:dev
+# 输出示例: STARTING|✅0|checkout
 ```
 
-输出示例:
-```
-STARTING|✅0|checkout
+### 初始化项目
+
+```bash
+# 必须：每个项目运行一次，创建 .dev-flow.json 和 thoughts/ 目录
+/dev-flow:init
 ```
 
 ### 5 分钟上手
 
 ```bash
-# 1. 开始新任务
+# 1. 开始任务
 /dev-flow:start TASK-001 "实现用户登录"
 
 # 2. 编写代码...
@@ -87,531 +97,39 @@ STARTING|✅0|checkout
 
 ## 核心工作流
 
-### 完整流程图
+### 标准流程
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     /dev-flow:start                              │
-│                创建分支 TASK-XXX-xxx                             │
-│                创建 Ledger 追踪状态                              │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                /dev-flow:brainstorm (可选)                       │
-│       苏格拉底式提问 → 生成方案 → 评估 → 决策持久化             │
-│       适用: 需求不清晰时的设计探索                               │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                   /dev-flow:plan (可选)                          │
-│              研究 → 设计 → 迭代 → 生成计划                       │
-│              v5.0: logic-task (2-5min) + ui-task (5-15min)       │
-│              输出: thoughts/shared/plans/xxx.md                  │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                 /dev-flow:validate (可选)                        │
-│              验证技术选型是否符合最佳实践                         │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│              /dev-flow:implement (5-Gate Pipeline)               │
-│    Per-task: Fresh Subagent → Self-Review (11 点)                │
-│              → Spec Review → Quality Review                      │
-│              → Batch Checkpoint (每 N 个 task)                   │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    /dev-flow:verify                              │
-│              lint check → typecheck → unit tests                 │
-│              VDD: exit code 0 = 完成                             │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    /dev-flow:commit                              │
-│       1. lint fix (自动格式化)                                   │
-│       2. lint check (验证)                                       │
-│       3. code review (P0/P1 阻止提交)                            │
-│       4. git commit (自动 scope + message)                       │
-│       5. reasoning 记录                                          │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                      /dev-flow:pr                                │
-│       1. push to remote                                          │
-│       2. 生成 PR 描述 (中文)                                     │
-│       3. 自动代码审查                                            │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│              /dev-flow:finish 或 /dev-flow:release               │
-│       finish: merge/PR/keep/discard 四选一                       │
-│       release: 版本建议 → Tag → Release Notes                    │
-└─────────────────────────────────────────────────────────────────┘
+start → [brainstorm] → [create-plan] → [validate] → implement-plan → verify → commit → pr → [release]
 ```
 
-### 命令详解
-
-#### /dev-flow:start - 开始任务
-
-```bash
-# 基础用法
-/dev-flow:start TASK-001 "实现用户登录"
-
-# 从已有分支开始
-/dev-flow:start --branch feature/auth
-```
-
-**自动执行**:
-1. 创建分支 `TASK-001-implement-user-login`
-2. 创建 Ledger `thoughts/ledgers/TASK-001-xxx.md`
-3. 设置初始状态
-
-#### /dev-flow:commit - 智能提交
-
-```bash
-# 自动模式
-/dev-flow:commit
-
-# 指定 scope
-/dev-flow:commit --scope auth
-
-# 指定类型
-/dev-flow:commit --type fix
-```
-
-**自动执行**:
-1. `lint fix` - 自动格式化代码
-2. `lint check` - 验证无错误
-3. `git diff --stat` - 分析变更
-4. `dev_defaults` - 推断 scope
-5. `git commit` - 生成 message (无 Claude 署名)
-6. `dev_ledger` - 更新状态
-
-#### /dev-flow:pr - 创建 PR
-
-```bash
-# 自动模式
-/dev-flow:pr
-
-# 指定 reviewers
-/dev-flow:pr --reviewer @team-lead
-```
-
-**自动执行**:
-1. 检查未提交 → 自动 `/dev-flow:commit`
-2. 检查未推送 → `git push -u`
-3. 收集提交历史
-4. 聚合 reasoning
-5. `gh pr create` (中文描述)
-6. 自动代码审查
-
-#### /dev-flow:verify - VDD 验证
-
-```bash
-# 完整验证
-/dev-flow:verify
-
-# 只测试
-/dev-flow:verify --test-only
-
-# 只 lint
-/dev-flow:verify --lint-only
-```
-
-**VDD 原则**: Machine judges completion, not Agent.
-
-| 传统 | VDD |
-|------|-----|
-| "修复这个 bug" | "修复 bug，`npm test auth` 应该通过" |
-| Agent 说 "完成" | exit code 0 说 "完成" |
+每个步骤：
+- `start` — 创建分支 + Ledger
+- `brainstorm` — 苏格拉底式探索（需求不清晰时）
+- `create-plan` — 研究 → 结构化计划 → `thoughts/shared/plans/`
+- `validate` — 验证技术选型
+- `implement-plan` — 5-gate pipeline 执行
+- `verify` — VDD 验证（exit code 0）
+- `commit` — lint fix → lint check → review → commit
+- `pr` — push → 生成描述 → 代码审查
+- `release` — 版本建议 → Tag → Release Notes
 
 ---
 
-## 高级功能
+### Autonomous Pipeline (v7.1.0)
 
-### Ledger 状态管理
-
-Ledger 是跨 session 的任务状态追踪器。
-
-```bash
-# 查看当前 ledger
-/dev-flow:ledger status
-
-# 创建新 ledger
-/dev-flow:ledger create --branch TASK-001
-
-# 更新状态
-/dev-flow:ledger update --commit abc123 --message "完成登录 UI"
-
-# 归档已完成任务
-/dev-flow:ledger archive TASK-001
-```
-
-**Ledger 结构**:
-```markdown
-# TASK-001: 实现用户登录
-
-## Goal
-实现完整的用户登录功能
-
-## Constraints
-- 使用 JWT 认证
-- 支持 OAuth2
-
-## Key Decisions
-- [2026-01-27] 选择 Firebase Auth
-
-## State
-- [x] Phase 1: UI 设计
-- [→] Phase 2: API 集成
-- [ ] Phase 3: 测试
-
-## Open Questions
-- [ ] 刷新 token 策略？
-```
-
-### Knowledge Base 知识库
-
-项目级知识自动积累和加载，存储在 per-project SQLite DB 中。
-
-```bash
-# 提取当前项目知识
-/dev-flow:extract-knowledge
-
-# 提取特定类型
-/dev-flow:extract-knowledge --type pitfalls
-/dev-flow:extract-knowledge --type patterns
-/dev-flow:extract-knowledge --type discoveries
-```
-
-**知识存储**:
-```
-<project>/.claude/cache/artifact-index/
-└── context.db                # Per-project SQLite DB（单一数据源）
-                              # 表: knowledge, reasoning, synonyms,
-                              #      session_summaries, observations
-```
-
-Session 启动时自动加载，每 3 次 prompt 自动检索相关知识:
-```
-📚 ios pitfalls: 4 条
-```
-
-### Memory System 记忆系统
-
-4 层渐进式记忆系统，从零成本到语义搜索：
-
-| Tier | 功能 | Token 开销 | 依赖 |
-|------|------|-----------|------|
-| 0 | FTS5 全文搜索 + save/search/get | 0 (纯 SQLite) | 无 |
-| 1 | + Session 自动总结 | ~$0.001/session | 可选 API key |
-| 2 | + ChromaDB 语义搜索 | 同 Tier 1 | + chromadb |
-| 3 | + 周期性观察捕获 | ~$0.005/session | 同 Tier 1 |
-
-#### 知识闭环
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Knowledge Loop                          │
-│                                                             │
-│  ┌──────────┐    自动注入     ┌──────────────┐              │
-│  │SessionStart│──────────────▶│ System Prompt │              │
-│  │  hook     │  pitfalls +    │ (~2500 tokens)│              │
-│  └──────────┘  last summary   └──────┬───────┘              │
-│       ▲                              │                      │
-│       │                              ▼                      │
-│  ┌──────────────┐          ┌──────────────────┐             │
-│  │UserPromptSubmit│────────│  Skill / Agent   │             │
-│  │ 每3次自动检索  │ decay  │  自动 query()    │             │
-│  └──────────────┘ scoring  │  发现后 save()   │             │
-│       ▲                    └────────┬─────────┘             │
-│       │                             │                       │
-│  ┌──────────┐              ┌──────────────────┐             │
-│  │ Per-proj  │◀────────────│  save() / prune  │             │
-│  │ SQLite DB │   save()    └──────────────────┘             │
-│  └──────────┘                       │                       │
-│       ▲                             ▼                       │
-│  ┌──────────┐              ┌──────────────────┐             │
-│  │ Stop hook │◀─────────── │   Session 结束   │             │
-│  │ 自动总结  │  Tier 1     └──────────────────┘             │
-│  └──────────┘                       │                       │
-│       ▲                             ▼                       │
-│  ┌──────────┐              ┌──────────────────┐             │
-│  │PostToolUse│◀─────────── │  每 N 次工具调用  │             │
-│  │ 自动观察  │  Tier 3     └──────────────────┘             │
-│  └──────────┘                                               │
-└─────────────────────────────────────────────────────────────┘
-```
-
-#### 自动 vs 手动
-
-| 操作 | 触发方式 | 说明 |
-|------|---------|------|
-| 知识注入 | **自动** SessionStart | 每次 session 开始注入 pitfalls + 任务知识 + 上次总结 |
-| 知识检索 | **自动** UserPromptSubmit | 每 3 次 prompt 自动查询相关知识，temporal decay 排序 |
-| Skill/Agent 查询 | **自动** 开工前 | debug/plan/implement/validate/review 自动查询历史 |
-| Skill/Agent 保存 | **半自动** 完工后 | 发现非显而易见的模式时自动保存 |
-| Session 总结 | **自动** Stop hook | Tier 1+ session 结束时自动生成 |
-| 观察捕获 | **自动** PostToolUse | Tier 3 每 N 次工具调用自动分类 |
-| TTL 清理 | **自动** 每周 | `access_count=0 AND >90 days` 条目自动删除 |
-| MEMORY.md 精简 | **自动** | P0-P3 优先级分层裁剪，保持简洁 |
-| 知识整合 | **手动** consolidate | 大功能完成后运行一次 |
-| 知识提取 | **手动** extract | 新项目初始化时运行一次 |
-
-#### 存储位置
-
-```
-<project>/
-├── .dev-flow.json                   # Memory 配置（tier, options）
-├── .claude/cache/artifact-index/
-│   └── context.db                   # Per-project SQLite DB（单一数据源）
-├── .git/claude/commits/<hash>/
-│   └── reasoning.md                 # Commit 推理记录
-└── thoughts/reasoning/
-    └── <hash>-reasoning.md          # 推理记录副本（git 追踪）
-```
-
-| 数据 | 存储位置 | 生命周期 |
-|------|---------|---------|
-| 知识条目 | `context.db` → `knowledge` 表 | 持久，跨 session。TTL: `access_count=0 AND >90 days` 自动清理 |
-| 推理记录 | `context.db` → `reasoning` 表 + 文件 | 持久，跟随 git |
-| 同义词 | `context.db` → `synonyms` 表 | 持久，自动种子 |
-| Session 总结 | `context.db` → `session_summaries` 表 | 持久，Tier 1+ |
-| 观察记录 | `context.db` → `observations` 表 | 持久，Tier 3 |
-
-#### 检查是否正常工作
-
-```bash
-# 查看 Memory 状态和统计
-dev_memory(action='status')
-
-# 查看知识条目数量
-dev_memory(action='list')
-
-# 搜索特定知识
-dev_memory(action='search', query='concurrency')
-
-# 直接查看 SQLite 数据
-sqlite3 .claude/cache/artifact-index/context.db "SELECT COUNT(*) FROM knowledge;"
-sqlite3 .claude/cache/artifact-index/context.db "SELECT id, title FROM session_summaries ORDER BY created_at_epoch DESC LIMIT 5;"
-sqlite3 .claude/cache/artifact-index/context.db "SELECT type, title FROM observations ORDER BY created_at_epoch DESC LIMIT 5;"
-
-# 检查知识条目数
-sqlite3 .claude/cache/artifact-index/context.db "SELECT type, COUNT(*) FROM knowledge GROUP BY type;"
-```
-
-#### Tier 0: FTS5 全文搜索（默认）
-
-零成本、纯 SQLite 的基础记忆层。
-
-**做什么**：
-- `save` — 保存知识条目到 `knowledge` 表，自动创建 FTS5 索引
-- `search` — 轻量级搜索，返回 ID + 标题列表（不返回全文，省 token）
-- `get` — 按 ID 获取完整内容（search → get 两步模式，节省 ~10x token）
-- `consolidate` — 从 CLAUDE.md、ledger、reasoning 提取知识写入数据库
-- SessionStart 自动注入：平台 pitfalls + 任务相关知识 + 最近 discoveries
-
-**同义词扩展**：搜索 `crash` 自动扩展为 `(crash OR error OR exception OR panic OR abort)`，8 组内置映射。
-
-**数据流**：
-```
-用户/Claude 调用 dev_memory(save) → knowledge 表 + FTS5 索引
-SessionStart hook → FTS5 查询 → 注入到 system prompt (~2000 tokens)
-```
-
-**适合**：所有用户，零配置，零成本。
-
-#### Tier 1: Session 自动总结
-
-Session 结束时自动生成结构化总结，下次 session 可以快速了解上次做了什么。
-
-**做什么**：
-- Stop hook 在 session 结束时触发
-- 有 API key → 调用 Haiku 生成 JSON 总结（request/investigated/learned/completed/next_steps）
-- 无 API key → heuristic fallback：从 `git log --oneline` 提取 completed，从 `git diff --stat` 提取 investigated
-- 总结写入 `session_summaries` 表 + FTS5 索引
-- 下次 SessionStart 自动注入上次总结（~500 tokens budget）
-
-**数据流**：
-```
-Session 结束 → Stop hook → Haiku API / heuristic
-    → session_summaries 表 + FTS5
-    → 下次 SessionStart 注入 "上次你在做 XXX，完成了 YYY，下一步 ZZZ"
-```
-
-**适合**：频繁切换 session、希望自动保持上下文连续性的用户。
-
-#### Tier 2: ChromaDB 语义搜索
-
-在 FTS5 关键词搜索基础上增加向量语义搜索，理解"意思相近"而不只是"词相同"。
-
-**做什么**：
-- `save`/`consolidate` 时同步写入 ChromaDB 向量数据库（fire-and-forget，不阻塞）
-- `memorySearchAsync` 混合搜索：ChromaDB 语义 + FTS5 关键词，结果去重合并
-- ChromaDB 未安装时 graceful degradation → 自动降级为纯 FTS5
-
-**数据流**：
-```
-dev_memory(save) → knowledge 表 + FTS5 + ChromaDB 向量
-dev_memory(search) → FTS5 关键词搜索（同步，快）
-                   + ChromaDB 语义搜索（异步，准）
-                   → 去重合并 → 返回排序结果
-```
-
-**依赖**：`pip install chromadb`（可选，不装也不影响其他功能）
-
-**适合**：知识库较大（100+ 条目），需要模糊语义搜索的用户。
-
-#### Tier 3: 周期性观察捕获
-
-自动记录 Claude 的工作过程，不只记录"知道什么"，还记录"做了什么"。
-
-**做什么**：
-- PostToolUse hook 在每次工具调用后触发，累计计数
-- 每 N 次（默认 10）触发一次批量处理
-- 有 API key → Haiku 分类工具日志为结构化观察（type: decision/bugfix/feature/refactor/discovery）
-- 无 API key → heuristic：按 Edit/Write → feature，Read-heavy → discovery 分类
-- 观察写入 `observations` 表 + FTS5 索引
-
-**数据流**：
-```
-每次工具调用 → PostToolUse hook → 计数器 +1，工具信息追加到日志
-第 N 次 → 读取日志 → Haiku 分类 / heuristic 分类
-       → observations 表 + FTS5
-       → 可通过 search/query 检索
-```
-
-**适合**：希望自动积累项目历史、回溯"上次怎么解决这类问题"的用户。
-
-#### 新用户初始化
-
-安装 dev-flow 后，`claude --init` 自动执行:
-
-1. Setup hook 创建 `.dev-flow.json`（包含 `"memory": { "tier": 0 }`）
-2. 首次调用 `dev_memory` 时自动创建 SQLite 表和 FTS5 索引
-3. 同义词自动种子（8 组默认映射：concurrency、auth、crash 等）
-
-**零配置即可使用 Tier 0**。
-
-#### 老用户迁移
-
-如果已有 `.dev-flow.json`（setup hook 不会重复创建），手动添加 `memory` 字段：
-
-```json
-{
-  "platform": "ios",
-  "commands": { "fix": "...", "check": "..." },
-  "scopes": ["ui", "api"],
-  "memory": { "tier": 0 }
-}
-```
-
-> 不添加也不影响使用 — `getMemoryConfig()` 默认 tier 0。添加后可以显式升级 tier。
-
-#### Tier 升级路径
-
-```jsonc
-// Tier 1: Session 自动总结 (Stop hook → Haiku API 或 heuristic)
-"memory": { "tier": 1, "sessionSummary": true }
-
-// Tier 2: 语义搜索 (需要安装 chromadb: pip install chromadb)
-"memory": { "tier": 2, "sessionSummary": true, "chromadb": true }
-
-// Tier 3: 周期性捕获 (每 N 次工具调用自动分类)
-"memory": { "tier": 3, "sessionSummary": true, "chromadb": true, "periodicCapture": true, "captureInterval": 10 }
-```
-
-#### API Key 配置（可选）
-
-Tier 1/3 的 Haiku 调用需要 API key，但**无 key 也能用**（heuristic fallback 从 git log 提取摘要）：
-
-```bash
-# 方式 1: 注册 API 账号 (console.anthropic.com)，充 $5
-export ANTHROPIC_API_KEY=sk-ant-...  # 加到 ~/.zshrc
-
-# 方式 2: 无 key（自动使用 heuristic 模式，质量低但零成本）
-```
-
-#### 使用 MCP 工具
-
-```bash
-# 保存知识
-dev_memory(action='save', text='@Sendable 闭包不能捕获可变状态', title='Swift 并发陷阱', tags=['swift', 'concurrency'])
-
-# 搜索 (轻量级，返回 ID + 标题)
-dev_memory(action='search', query='concurrency pitfalls', limit=5)
-
-# 获取完整内容
-dev_memory(action='get', ids=['knowledge-xxx'])
-
-# 合并历史知识
-dev_memory(action='consolidate')
-
-# 查看状态
-dev_memory(action='status')
-```
-
-#### 自动化行为
-
-| Tier | 自动行为 | 时机 |
-|------|---------|------|
-| 0 | SessionStart 注入知识 (~2500 tokens) | 每次 session 开始 |
-| 0 | UserPromptSubmit 自动检索 (temporal decay) | 每 3 次 prompt |
-| 0 | TTL 清理 (`access_count=0 AND >90 days`) | 每周 |
-| 1 | 生成 session 总结写入 DB | Stop hook (session 结束) |
-| 2 | ChromaDB 语义索引同步 | save/consolidate 时 |
-| 3 | 批量观察捕获分类 | 每 N 次工具调用 |
-
-#### Tips
-
-**Memory 维护**
-
-| 命令 | 何时使用 | 频率 |
-|------|---------|------|
-| `dev_memory(action='consolidate')` | 将 CLAUDE.md pitfalls、ledger 决策、reasoning 模式提取入库 | 每完成一个大功能后运行一次 |
-| `/dev-flow:extract-knowledge` | 扫描项目文件提取可复用知识（首次或大版本后） | 新项目初始化 / 大版本升级后运行一次 |
-
-> 日常使用无需手动调用 — skill/agent 自动查询和保存知识，session 总结自动生成。以上两个命令仅用于定期维护和一次性迁移。
-
-**Claude Code CLI**
-
-| 操作 | 命令 | 说明 |
-|------|------|------|
-| 初始化项目 | `claude` 后 `/init` | 触发 Setup hook，自动创建 `.dev-flow.json`（含 memory 配置） |
-| 清除上下文 | `/clear` | context > 70% 时使用，ledger 自动恢复状态 |
-| 压缩上下文 | `/compact` | 保留关键信息压缩 context，自动触发 PreCompact hook 备份 |
-| 查看插件状态 | `/plugins` | 确认 dev-flow 加载正常 |
-| 查看 MCP 工具 | `claude mcp list` | 确认 dev-flow MCP server 连接正常 |
-| Delegate 模式 | `Shift+Tab` | 3+ teammates 时限制 lead 为纯协调角色 |
-| 引用文件 | `#filename` | 将文件内容加入 context，搭配 memory 查询更高效 |
-
-#### 数据库架构
-
-所有数据存储在 `.claude/cache/artifact-index/context.db`：
-
-| 表 | 用途 | Tier |
-|----|------|------|
-| knowledge + knowledge_fts | 知识条目 | 0 |
-| reasoning + reasoning_fts | 推理记录 | 0 |
-| synonyms | 同义词扩展 (FTS5 查询增强) | 0 |
-| session_summaries + _fts | Session 总结 | 1 |
-| observations + _fts | 观察记录 | 3 |
-
-### Autonomous Pipeline 自主流水线
-
-*(v7.1.0)* 全自主执行流水线 — 人类只在入口（提供需求）和出口（PR Review + Merge）介入。
+全自主流水线 — 人类只在入口（提供需求）和出口（PR Review + Merge）介入。
 
 #### 使用方式
 
 ```bash
-# 全自主模式
+# 从纯文本需求
 /dev start "实现用户登录功能，支持 OAuth2" --auto
 
-# 从 Notion 任务开始
+# 从 Notion 任务
 /dev start "https://notion.so/page-id" --auto
 
-# 从文件开始
+# 从需求文件
 /dev start --spec path/to/requirements.md --auto
 ```
 
@@ -621,51 +139,46 @@ dev_memory(action='status')
 /dev start "需求" --auto
     │
     ▼
-┌────────────────────────────────────────────────┐
-│  来源检测                                       │
-│  Notion URL → Notion MCP │ 文件 → Read          │
-│  URL → WebFetch │ 纯文本 → 直接传递              │
-└─────────────────────┬──────────────────────────┘
-                      ▼
-┌────────────────────────────────────────────────┐
-│  spec-generator（纯函数，来源无关）              │
-│  文本 → 分类 → 模板 → SPEC.md                   │
-└─────────────────────┬──────────────────────────┘
-                      ▼
-┌────────────────────────────────────────────────┐
-│  spec-validator（确定性验证）                    │
-│  validate-spec.sh：5 项质量检查                  │
-│  detect-escalation.sh：5 条升级规则              │
-│  ├─ 全部通过 → 继续                             │
-│  ├─ 失败 → 自愈修复（最多 2 次）                │
-│  └─ 需升级 → 停止，等待人类决策                  │
-└─────────────────────┬──────────────────────────┘
-                      ▼
-┌────────────────────────────────────────────────┐
-│  create-plan（研究 → 结构化计划）                │
-│  └─ validate-agent（强制执行）                   │
-│     ├─ 验证通过 → 继续                          │
-│     ├─ 需修改 → 自动修复（最多 2 次）            │
-│     └─ 必须变更 → 停止，等待人类                 │
-└─────────────────────┬──────────────────────────┘
-                      ▼
-┌────────────────────────────────────────────────┐
-│  implement-plan（5-gate pipeline）              │
-│  每个 task：subagent → self-review →            │
-│    spec-review → quality-review → verify        │
-│  verify 通过 → .proof/ → commit → 下一个        │
-└─────────────────────┬──────────────────────────┘
-                      ▼
-┌────────────────────────────────────────────────┐
-│  Review Gate Loop                              │
-│  code-reviewer（完整分支 diff）                  │
-│  ├─ P0/P1 → 生成修复任务 → 重新审查             │
-│  │          （最多 3 轮）                        │
-│  ├─ P2/P3 → 记录到 PR 说明                      │
-│  └─ 干净 → /dev pr                             │
-└─────────────────────┬──────────────────────────┘
-                      ▼
-            人类: PR Review + Merge
+来源检测
+  Notion URL → Notion MCP
+  文件 → Read
+  URL → WebFetch
+  纯文本 → 直接传递
+    │
+    ▼
+spec-generator（纯函数，来源无关）
+  文本 → 分类 → 模板 → SPEC.md
+    │
+    ▼
+spec-validator（确定性验证）
+  validate-spec.sh (5 项质量检查)
+  detect-escalation.sh (5 条升级规则)
+  ├─ 全部通过 → 继续
+  ├─ 失败 → 自愈修复（最多 2 次）
+  └─ 需升级 → 停止，等待人类决策
+    │
+    ▼
+create-plan（研究 → 结构化计划）
+  └─ validate-agent（强制执行）
+     ├─ 验证通过 → 继续
+     ├─ 需修改 → 自动修复（最多 2 次）
+     └─ 必须变更 → 停止，等待人类
+    │
+    ▼
+implement-plan（5-gate pipeline）
+  每个 task：subagent → self-review →
+    spec-review → quality-review → verify
+  verify 通过 → .proof/ → commit → 下一个
+    │
+    ▼
+Review Gate Loop
+  code-reviewer（完整分支 diff）
+  ├─ P0/P1 → 生成修复任务 → 重新审查（最多 3 轮）
+  ├─ P2/P3 → 记录到 PR 说明
+  └─ 干净 → /dev pr
+    │
+    ▼
+人类: PR Review + Merge
 ```
 
 #### 关键设计
@@ -676,144 +189,289 @@ dev_memory(action='status')
 | 确定性脚本 | `validate-spec.sh` + `detect-escalation.sh`，零 token 成本 |
 | L3 升级 | 安全/架构问题是唯一拉入人类的路径（允许误报） |
 | Review Gate | PR 创建的**前置条件**，不是后置步骤 |
-| Proof Manifest | `.proof/` 由 TaskCompleted hook 强制执行 |
+| Proof Manifest | `.proof/{task-id}.json` 由 TaskCompleted hook 强制执行 |
 
-### Notion Pipeline
+---
 
-从 Notion 数据库拉取任务、生成规格说明，实现需求到实现的自动化流水线。
+### 命令详解
 
-#### 配置
-
-在 `.dev-flow.json` 中添加 Notion 配置：
-
-```json
-{
-  "notion": {
-    "database_id": "your-database-id",
-    "status_field": "Status",
-    "priority_field": "Priority",
-    "type_field": "Type",
-    "platform_field": "Platform"
-  }
-}
-```
-
-> 需要安装 Notion MCP server 并完成授权。
-
-#### 完整流水线
-
-```
-Notion DB → /dev inbox → 选择任务 → /dev spec → 生成规格
-    → 人工确认 → /dev create-plan → /dev implement-plan
-```
-
-#### /dev inbox — 任务分拣
+#### /dev start — 开始任务
 
 ```bash
-# 查看所有任务
-/dev inbox
-
-# 按优先级过滤
-/dev inbox --priority High
-
-# 按平台过滤
-/dev inbox --platform iOS
+/dev-flow:start TASK-001 "实现用户登录"   # 基础用法
+/dev-flow:start "需求" --auto              # 全自主模式
+/dev-flow:start --spec path/to/spec.md    # 从文件开始
+/dev-flow:start --branch feature/auth     # 从已有分支
 ```
 
-输出示例：
-```
-| # | Title              | Priority | Platform | Status      |
-|---|--------------------|----------|----------|-------------|
-| 1 | 用户登录优化        | High     | iOS      | In Progress |
-| 2 | 暗黑模式支持        | Medium   | Android  | To Do       |
-```
+自动执行：创建分支 `TASK-001-xxx` + Ledger `thoughts/ledgers/TASK-001-xxx.md` + 设置初始状态。
 
-选择任务后自动链接到 `/dev spec`。
-
-#### /dev spec — 规格生成
+#### /dev commit — 智能提交
 
 ```bash
-# 从 Notion 任务生成规格
-/dev spec {page_id}
-
-# 从剪贴板生成
-/dev spec --from-clipboard
-
-# 交互式输入
-/dev spec --interactive
+/dev-flow:commit              # 自动模式
+/dev-flow:commit --scope auth # 指定 scope
+/dev-flow:commit --type fix   # 指定类型
 ```
 
-**自动执行**：
-1. 提取内容为纯文本（Notion MCP / 剪贴板 / 交互输入）
-2. 委托 `spec-generator`（来源无关的纯函数）：分类 → 模板 → SPEC.md
-3. 自动触发 `spec-validator` 验证质量
-4. 保存到 `thoughts/shared/specs/SPEC-{id}.md`
-5. 验证通过 → 链接到 `/dev create-plan`（`--auto` 模式自动继续）
+自动执行流程：
+1. `lint fix` — 自动格式化代码
+2. `lint check` — 验证无错误
+3. `dev_defaults` — 推断 scope
+4. code-reviewer — P0/P1 阻止提交
+5. `git commit` — 生成 message（无 Claude 署名）
+6. `dev_ledger` — 更新状态
 
-### Rules 分发系统
-
-平台感知的规则模板，自动安装到 `.claude/rules/` 目录。
-
-#### 使用方式
+#### /dev pr — 创建 PR
 
 ```bash
-# 查看所有可用模板
-/dev rules list
-
-# 自动检测平台并安装匹配的规则
-/dev rules install
-
-# 安装所有模板（不论平台）
-/dev rules install --all
-
-# 查看已安装规则与模板的差异
-/dev rules diff
-
-# 更新已安装规则到最新版本
-/dev rules sync
+/dev-flow:pr                       # 自动模式
+/dev-flow:pr --reviewer @team-lead # 指定 reviewer
 ```
 
-#### 可用模板（12 个）
+自动执行：检查未提交 → `git push -u` → 聚合 reasoning → `gh pr create`（中文描述）→ 完整代码审查。
 
-| 模板 | 作用域 | 说明 |
-|------|--------|------|
-| `coding-style.md` | 全局 | 通用编码风格 |
-| `coding-style-swift.md` | `**/*.swift` | Swift 编码规范 |
-| `coding-style-kotlin.md` | `**/*.kt` | Kotlin 编码规范 |
-| `coding-style-typescript.md` | `**/*.ts` | TypeScript 编码规范 |
-| `ios-pitfalls.md` | `**/*.swift` | iOS 常见陷阱 |
-| `android-pitfalls.md` | `**/*.kt` | Android 常见陷阱 |
-| `testing.md` | 全局 | 测试规范 |
-| `git-workflow.md` | 全局 | Git 工作流 |
-| `security.md` | 全局 | 安全规则 |
-| `performance.md` | 全局 | 性能优化规则 |
-| `agent-rules.md` | 全局 | Agent 行为规则 |
+#### /dev verify — VDD 验证
 
-#### 安装逻辑
+```bash
+/dev-flow:verify            # 完整验证
+/dev-flow:verify --lint-only
+/dev-flow:verify --test-only
+```
 
-1. 通过 `dev_config` 检测平台
-2. **始终安装**：coding-style、testing、git-workflow、security、performance、agent-rules
-3. **平台特定**：iOS → coding-style-swift + ios-pitfalls；Android → coding-style-kotlin + android-pitfalls；TypeScript → coding-style-typescript
-4. 安装到 `.claude/rules/dev-flow/`（命名空间隔离）
+**VDD 原则**: 机器（exit code 0）判断完成，不是 Agent。
 
-> `/dev init` 会自动调用 `/dev rules install`，无需手动安装。
+| 传统 | VDD |
+|------|-----|
+| "修复这个 bug" | "修复 bug，`npm test auth` 应该通过" |
+| Agent 说"完成" | exit code 0 说"完成" |
+
+---
+
+## 高级功能
+
+### Agentic Engineering (v6.3.0)
+
+#### 三层决策架构
+
+| 层级 | 执行者 | 触发条件 | 成本 |
+|------|--------|---------|------|
+| L1 Environment | hooks + exit code + scope check | 始终执行 | 零 |
+| L2 Decision Agent | Sonnet（fork context） | L1 无法判断时 | 低 |
+| L3 Human | PR Review | 安全/架构问题 | 罕见 |
+
+#### Continue vs Stop 信号
+
+**Continue（全部满足才继续）**：
+- verify pass（exit 0）
+- 变更在 task scope 内
+- context < 70%
+
+**Stop（任一触发即停止）**：
+- verify fail 2 次（自愈后仍失败）
+- 变更超出声明 scope
+- context > 80%
+- 安全/架构决策（升级 L3）
+
+#### Task Contracts + Proof Manifest
+
+每个 plan task 包含：
+```markdown
+contract:
+  acceptance: "用户可以用邮箱+密码登录，无错误"
+  verify: "npm test auth"
+  scope: ["src/auth/", "src/api/login.ts"]
+  autonomy: 1  # 1=milestone报告, 2=仅最终报告
+```
+
+验证通过后 → `.proof/{task-id}.json`（TaskCompleted hook 强制执行，无 proof 不能完成任务）。
+
+#### Self-Healing Retry
+
+```
+verify fail
+    → diagnose（读取错误）
+    → fix code（永远不修改 verify 命令）
+    → re-verify
+        pass → 继续 + 记录 guardrail
+        fail → 停止 + 升级
+```
+
+最多重试 2 次。超出 → 停止，等待人类。
+
+#### Silent Execution
+
+| Autonomy Level | 输出时机 | 输出内容 |
+|---------------|---------|---------|
+| 0（默认） | 每步确认 | 完整说明 |
+| 1（milestone） | 每个 task 完成 | `[Task N/M] name done (X files, verify pass)` |
+| 2（final only） | 全部完成 | `Done: N/M tasks, X files, all pass. Proof: .proof/` |
+
+---
+
+### 5-Gate Execution Pipeline
+
+implement-plan 对每个 task 执行的质量门禁。
+
+#### Gate 矩阵
+
+| Gate | 低风险 | 中风险 | 高风险 |
+|------|--------|--------|--------|
+| 0. Figma Pre-fetch（ui-task） | — | ✓ | ✓ |
+| 1. Fresh Subagent | ✓ | ✓ | ✓ |
+| 2. Self-Review（11 点检查） | ✓ | ✓ | ✓ |
+| 3. Spec Review | — | — | ✓ |
+| 4. Quality Review | — | ✓ | ✓ |
+| 5. Verify（exit code 0） | ✓ | ✓ | ✓ |
+
+风险由 code-reviewer 根据 diff 信号自动判断（敏感文件、改动规模、已知陷阱匹配）。
+
+每 N 个 task 执行一次 Batch Checkpoint，检查跨任务一致性。
+
+---
+
+### Review System
+
+#### 严重级别
+
+| 级别 | 含义 | 行为 |
+|------|------|------|
+| P0 | 阻断（安全漏洞、数据丢失风险） | 阻止提交/PR |
+| P1 | 严重（逻辑错误、崩溃风险） | 阻止提交/PR |
+| P2 | 中等（性能、代码质量） | 记录到 PR notes |
+| P3 | 建议（风格、可读性） | 记录到 PR notes |
+
+#### 四个集成点
+
+```
+/dev simplify   → 轻量或深度代码简化
+/dev commit     → 代码审查（P0/P1 阻止）
+/dev review     → 完整代码审查（P0-P3）
+/dev pr         → 完整审查 + GH comment
+Agent Team      → reviewer teammate（持久，跨模块）
+```
+
+#### Review Session Log
+
+`.git/claude/review-session-{branch}.md` — 分支维度的累积审查上下文。每次 code-reviewer 启动前读取历史发现，实现跨提交问题检测，无需 Agent Teams。
+
+---
+
+### Knowledge Vault
+
+Markdown-first 知识库，人工可编辑，SQLite FTS5 全文搜索，自动注入 session。
+
+#### 目录结构
+
+```
+thoughts/knowledge/
+├── pitfalls/     # 陷阱：已踩过的坑
+├── patterns/     # 模式：可复用的解法
+├── decisions/    # 决策：架构选型记录
+└── habits/       # 习惯：团队约定
+```
+
+每个条目使用 YAML frontmatter：
+```yaml
+---
+type: pitfall
+priority: critical  # critical / important / reference
+platform: ios
+tags: [concurrency, swift]
+created: 2026-01-15
+access_count: 5
+---
+```
+
+#### 优先级与衰减
+
+- 得分 = `priority_weight × temporal_decay（30 天半衰期）`
+- 自动晋升：`access_count >= 3` → critical
+- 自动降级：`important + 0 次访问 + > 90 天` → reference
+- 自动归档：`reference + 0 次访问 + > 90 days` → `.archive/`
+
+#### 质量门
+
+写入前自动检查（regex + Type-Token Ratio，无 LLM）。过于模糊的条目被拒绝。
+
+#### 读写时机
+
+| 操作 | 触发 | 说明 |
+|------|------|------|
+| 注入 | SessionStart | 仅注入 `priority='critical'` 条目（context diet） |
+| 搜索 | 技能/agent 开工前 | debug/plan/implement/review 自动查询 |
+| 保存 | Stop hook + commit 时 | 经质量门过滤 + 智能去重 |
+
+#### MCP 工具操作
+
+```bash
+# 保存知识（经质量门）
+dev_memory(action='save', text='@Sendable 闭包不能捕获可变状态', title='Swift 并发陷阱', tags=['swift', 'concurrency'])
+
+# 搜索（轻量级，返回 ID + 标题）
+dev_memory(action='search', query='concurrency pitfalls', limit=5)
+
+# 获取完整内容（search → get 两步模式，节省 token）
+dev_memory(action='get', ids=['knowledge-xxx'])
+
+# 查看状态
+dev_memory(action='status')
+```
+
+---
+
+### Ledger 状态管理
+
+跨 session 的任务状态追踪器，存储在 `thoughts/ledgers/`，git 追踪。
+
+#### Ledger 结构
+
+```markdown
+# TASK-001: 实现用户登录
+
+## Goal
+实现完整的用户登录功能，支持 OAuth2
+
+## Constraints
+- 使用 JWT 认证
+- 不引入新的认证库
+
+## Key Decisions
+- [2026-01-27] 选择 Firebase Auth（方案见 thoughts/knowledge/decisions/）
+
+## State
+- [x] Phase 1: UI 设计（verified: `make check` ✓）
+- [→] Phase 2: API 集成（当前）
+- [ ] Phase 3: 测试
+
+## Open Questions
+- [ ] 刷新 token 策略？
+```
+
+#### 基础命令
+
+```bash
+/dev-flow:ledger status          # 查看当前状态
+/dev-flow:ledger update          # 更新进度
+/dev-flow:tasks sync             # 与 Task Management 双向同步
+```
+
+context > 70% 时，更新 ledger 再 `/clear`，下次 session 通过 ledger 恢复状态。
+
+---
 
 ### Multi-Agent 协调
 
-复杂任务自动分解给多个 Agent 执行。
-
 ```bash
-# 查看任务分解
+# 规划任务分解（检测文件冲突）
 dev_coordinate(action="plan", task="实现完整认证系统")
 
-# 创建 handoff
-dev_handoff(action="create", from="plan-agent", to="implement-agent")
+# 创建 agent 间交接文档
+dev_handoff(action="write", from="plan-agent", to="implement-agent")
 
-# 聚合结果
-dev_aggregate(sources=["agent-1", "agent-2"])
+# 聚合多 agent 结果为 PR 摘要
+dev_aggregate(action='pr_ready', taskId='...')
 ```
-
-**协调工具**:
 
 | 工具 | 功能 |
 |------|------|
@@ -821,214 +479,108 @@ dev_aggregate(sources=["agent-1", "agent-2"])
 | `dev_handoff` | Agent 间交接文档 |
 | `dev_aggregate` | 聚合多 Agent 结果 |
 
+**Agent Teams 模式**：设置 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` 后，`Shift+Tab` 进入 Delegate 模式（lead 只协调不写代码）。
+
+---
+
+### Notion Pipeline
+
+从 Notion 数据库拉取任务，通过适配器模式生成规格说明。
+
+#### 配置
+
+```json
+{
+  "notion": {
+    "database_id": "your-database-id",
+    "status_field": "Status",
+    "priority_field": "Priority",
+    "platform_field": "Platform"
+  }
+}
+```
+
+#### 流程
+
+```
+Notion DB → /dev inbox（任务分拣）→ 选择任务
+    → /dev spec（Notion 适配器）→ spec-generator（纯函数）→ SPEC.md
+    → [人工确认] → /dev create-plan → /dev implement-plan
+```
+
+`/dev spec` 负责从 Notion 提取内容为纯文本，再委托给 `spec-generator`（来源无关）处理。`--auto` 模式下整个流程自动继续。
+
+```bash
+/dev inbox                    # 查看 Notion 任务
+/dev inbox --priority High    # 按优先级过滤
+/dev spec {page_id}           # 从 Notion 任务生成规格
+```
+
+---
+
+### Rules 分发系统
+
+12 个平台感知规则模板，安装到 `.claude/rules/dev-flow/`（命名空间隔离）。
+
+```bash
+/dev rules list          # 查看可用模板
+/dev rules install       # 自动检测平台并安装匹配规则
+/dev rules install --all # 安装全部模板
+/dev rules diff          # 对比已安装与最新版本
+/dev rules sync          # 更新到最新版本
+```
+
+#### 模板清单
+
+| 模板 | 作用域 |
+|------|--------|
+| `coding-style.md` | 全局 |
+| `coding-style-swift.md` | `**/*.swift` |
+| `coding-style-kotlin.md` | `**/*.kt` |
+| `coding-style-typescript.md` | `**/*.ts` |
+| `ios-pitfalls.md` | `**/*.swift` |
+| `android-pitfalls.md` | `**/*.kt` |
+| `testing.md` | 全局 |
+| `git-workflow.md` | 全局 |
+| `security.md` | 全局 |
+| `performance.md` | 全局 |
+| `agent-rules.md` | 全局 |
+| `agentic-engineering.md` | 全局 |
+
+`/dev init` 自动调用 `/dev rules install`，无需手动安装。
+
+---
+
 ### Meta-Iterate 自我迭代
 
-分析 session 表现，持续优化 prompt。
+分析 session 表现，持续优化 prompt 和 skill。
 
 ```bash
-# 完整 5 阶段流程
-/dev-flow:meta-iterate
-
-# 单独执行某阶段
-/dev-flow:meta-iterate evaluate --recent 20
-/dev-flow:meta-iterate diagnose
-/dev-flow:meta-iterate propose
-/dev-flow:meta-iterate apply  # 需要人工确认
-/dev-flow:meta-iterate verify
-
-# 发现新 skill 机会
-/dev-flow:meta-iterate discover
+/dev-flow:meta-iterate          # 完整 5 阶段流程
+/dev-flow:meta-iterate evaluate # 评估最近 20 次 session
+/dev-flow:meta-iterate diagnose # 诊断根因
+/dev-flow:meta-iterate propose  # 提出改进方案
+/dev-flow:meta-iterate apply    # 应用（需人工确认）
+/dev-flow:meta-iterate verify   # 验证改进效果
+/dev-flow:meta-iterate discover # 发现新 skill 机会
 ```
 
-**5 阶段流程**:
 ```
 evaluate → diagnose → propose → [approve] → apply → verify
-    ↓          ↓          ↓                    ↓        ↓
-  评估       诊断       提案                 应用     验证
 ```
 
 ---
 
-## 最佳实践
+### Ralph Loop
 
-### 1. 任务粒度
-
-| 粒度 | 推荐做法 |
-|------|---------|
-| 小任务 (< 3 文件) | 直接执行，不需要 plan |
-| 中任务 (3-10 文件) | `/dev-flow:plan` → `/dev-flow:implement` |
-| 大任务 (> 10 文件) | 拆分为多个 TASK，Multi-Agent 协调 |
-
-### 2. 提交频率
+针对长 plan 的持久化回退模式，通过 Stop hook 重注入实现迭代完成。
 
 ```bash
-# 推荐: 小步提交
-/dev-flow:commit  # 完成一个功能点就提交
-
-# 不推荐: 大批量提交
-# 积累大量修改后一次性提交
+# 桥接命令：读取 plan → 提取 tasks/contracts → 生成 Ralph prompt
+/dev ralph-implement [plan-path]
 ```
 
-### 3. Context 管理
-
-| 信号 | 行动 |
-|------|------|
-| Context > 70% | 更新 ledger → `/clear` |
-| 完成独立子任务 | 新 session |
-| Agent 开始重复 | 新 session |
-
-### 4. VDD 实践
-
-```bash
-# 定义任务时包含验证命令
-"修复登录 bug，验证: npm test auth 应该通过"
-
-# 完成后自动验证
-/dev-flow:verify
-# exit code 0 → 真正完成
-```
-
-### 5. 知识积累
-
-```bash
-# 每周提取一次项目知识
-/dev-flow:extract-knowledge
-
-# 发现新陷阱时立即记录到 CLAUDE.md
-## 已知陷阱
-- session.save() 是异步的，必须 await
-```
-
----
-
-## 常见问题
-
-### Q: dev_config 返回 "unknown"
-
-**原因**: 项目未配置且不是 iOS/Android/Web 项目
-
-**解决** (推荐 `.dev-flow.json`，同时配置平台和命令):
-
-```json
-{
-  "platform": "python",
-  "commands": {
-    "fix": "black .",
-    "check": "ruff . && mypy ."
-  }
-}
-```
-
-> `.dev-flow.json` 的 `platform` 字段还会影响知识库注入和 `dev_memory` 分类。
-
-或创建 `Makefile`:
-```makefile
-fix:
-	black .
-check:
-	ruff . && mypy .
-```
-
-### Q: Ledger 状态不同步
-
-**解决**:
-```bash
-# 同步 ledger 和 Task Management
-/dev-flow:tasks sync
-```
-
-### Q: 提交被 hook 阻止
-
-**常见原因**:
-- `--no-verify` 被禁止
-- lint check 失败
-
-**解决**:
-```bash
-# 先修复问题
-/dev-flow:verify
-
-# 再提交
-/dev-flow:commit
-```
-
-### Q: Multi-Agent 任务冲突
-
-**解决**:
-```bash
-# 检查冲突
-dev_coordinate(action="check_conflicts")
-
-# 重新规划
-dev_coordinate(action="replan")
-```
-
----
-
-## Claude Code 配合使用
-
-### Rules 最佳配置
-
-dev-flow 推荐配合以下 rules 使用:
-
-| Rule | 功能 |
-|------|------|
-| `agentic-coding.md` | Context 管理 + 发现捕获 |
-| `command-tools.md` | 工具优先，减少 Bash |
-| `verification-driven.md` | VDD 原则 |
-| `context-budget.md` | Context 预算管理 |
-| `failure-detection.md` | 循环/绕过检测 |
-
-### Hooks 集成
-
-dev-flow 自动启用以下 hooks:
-
-| Hook | 触发 | 功能 |
-|------|------|------|
-| PreToolUse | `git commit` 前 | 阻止裸 git commit，强制 /dev commit |
-| UserPromptSubmit | 用户发送 prompt | 每 3 次自动检索相关知识（temporal decay 排序） |
-| Setup | 首次初始化 | 配置 dev-flow 环境 + memory |
-| SessionStart | 恢复 session | 加载 ledger + 平台知识 + 上次总结 |
-| PreCompact | 压缩前 | 备份 transcript |
-| Stop | session 结束 | 生成 session 总结 (Tier 1+) |
-| PostToolUse | 工具执行后 | 工具计数 + 提醒 + 周期性观察 (Tier 3) |
-
-### StatusLine
-
-StatusLine 多行显示 (v3.13.0+):
-
-```
-████████░░ 76% | main | ↑2↓0 | !3M +2A | 15m
-✓ Read ×12 | ✓ Edit ×3 | ✓ Bash ×5
-Tasks: 2/5 (40%) | → 1 active | 2 pending
-```
-
-**第1行**: 上下文使用率 | 分支 | ahead/behind | 文件统计 | 会话时长
-**第2行**: 工具使用统计 (Read/Edit/Bash/Grep)
-**第3行**: 任务进度 (完成/总数 | 进行中 | 待处理)
-**第4行**: Agent 状态 (如有运行中的 Agent)
-
-**手动配置** (如需要):
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "$HOME/.claude/plugins/marketplaces/lazyman-ian/dev-flow/scripts/statusline.sh",
-    "padding": 0
-  }
-}
-```
-
-### Task Management
-
-双向同步:
-```bash
-# 从 ledger 导出到 Task Management
-/dev-flow:tasks export
-
-# 从 Task Management 同步到 ledger
-/dev-flow:tasks sync
-```
+适用场景：plan 任务过多、context 受限、需要多轮 session 完成的情况。详见 `skills/implement-plan/references/ralph-loop-mode.md`。
 
 ---
 
@@ -1037,27 +589,24 @@ Tasks: 2/5 (40%) | → 1 active | 2 pending
 ### 检测优先级
 
 ```
-1. .dev-flow.json → 最高优先级（用户显式配置）
-2. 文件检测 → 自动推断
+1. .dev-flow.json（用户显式配置）→ 最高优先级
+2. 文件检测（自动推断）
    *.xcodeproj / Podfile / Package.swift → ios
-   build.gradle → android
-   package.json → web
-   其他 → general
+   build.gradle / AndroidManifest.xml   → android
+   package.json                         → web
+   其他                                 → general
 ```
 
-> **混合项目**（如 Svelte+Tauri 同时有 `package.json` 和 `Cargo.toml`）建议通过 `.dev-flow.json` 显式指定平台。
+混合项目（如 Svelte+Tauri）建议通过 `.dev-flow.json` 显式指定平台。
 
-### 内置平台
+### 内置平台命令
 
-| 平台 | 检测文件 | lint fix | lint check | test | verify |
-|------|---------|----------|------------|------|--------|
-| iOS | `*.xcodeproj`, `Podfile` | swiftlint --fix | swiftlint | xcodebuild test | swiftlint && xcodebuild build |
-| Android | `build.gradle` | ktlint -F | ktlint | ./gradlew test | ktlintCheck && ./gradlew assembleDebug |
-| Web | `package.json` | (自定义) | (自定义) | (自定义) | (自定义) |
+| 平台 | lint fix | lint check | verify |
+|------|----------|------------|--------|
+| iOS | `swiftlint --fix` | `swiftlint` | `swiftlint && xcodebuild build` |
+| Android | `ktlint -F` | `ktlint` | `ktlintCheck && ./gradlew assembleDebug` |
 
 ### 自定义平台
-
-通过 `.dev-flow.json` 可以为任何项目指定平台和命令，覆盖自动检测：
 
 ```json
 {
@@ -1072,128 +621,112 @@ Tasks: 2/5 (40%) | → 1 active | 2 pending
 }
 ```
 
-`.dev-flow.json` 中的 `platform` 字段同时影响：
-- `dev_config` 命令输出
-- 知识库注入（SessionStart 时加载对应平台的 pitfalls）
-- `dev_memory` 知识分类
+`platform` 字段同时影响：`dev_config` 命令输出、知识库注入（SessionStart 加载对应平台 pitfalls）、`dev_memory` 知识分类。
 
-### 扩展新平台 (开发者)
+### 扩展新平台
 
-1. `mcp-server/src/detector.ts` - 添加检测逻辑（`detectPlatformSimple()` 统一入口）
-2. `mcp-server/src/platforms/xxx.ts` - 实现命令配置
+1. `mcp-server/src/detector.ts` — 添加检测逻辑（`detectPlatformSimple()` 统一入口）
+2. `mcp-server/src/platforms/xxx.ts` — 实现命令配置
+
+---
+
+## 最佳实践
+
+### 任务粒度
+
+| 粒度 | 推荐做法 |
+|------|---------|
+| 小任务（< 3 文件） | 直接执行，不需要 plan |
+| 中任务（3-10 文件） | `/dev create-plan` → `/dev implement-plan` |
+| 大任务（> 10 文件） | 拆分为多个 TASK，Multi-Agent 协调 |
+
+### 提交频率
+
+推荐小步提交：完成一个功能点就 `/dev commit`。避免积累大量修改后一次性提交（增加 review 难度）。
+
+### Context 管理
+
+| 信号 | 行动 |
+|------|------|
+| Context > 70% | 更新 ledger → 准备 `/clear` |
+| Context > 85% | 立即更新 ledger → `/clear` |
+| 完成独立子任务 | 新 session |
+| Agent 开始重复 | 立即新 session |
+
+2 次修正失败 → `/clear` + 重写 prompt（含教训），不要在同一 session 反复修正。
+
+### VDD 实践
+
+```bash
+# 定义任务时包含验证命令
+"修复登录 bug。验证: npm test auth"
+
+# 完成后机器验证
+/dev-flow:verify  # exit code 0 = 真正完成
+```
+
+---
+
+## 常见问题
+
+### Q: dev_config 返回 "unknown"
+
+项目未初始化或不是内置平台。解决：
+
+```json
+{
+  "platform": "python",
+  "commands": {
+    "fix": "black .",
+    "check": "ruff . && mypy ."
+  }
+}
+```
+
+或在 Makefile 中定义 `fix:` 和 `check:` target，plugin 自动使用 `make fix/check`。
+
+### Q: 提交被 hook 阻止
+
+常见原因：lint check 失败 或 P0/P1 review 发现。
+
+```bash
+/dev-flow:verify  # 查看具体错误
+/dev-flow:commit  # 修复后重新提交
+```
+
+注意：`--no-verify` 被 commit-guard.sh 阻止，不可绕过。
+
+### Q: Ledger 状态不同步
+
+```bash
+/dev-flow:tasks sync  # 同步 ledger 和 Task Management
+```
+
+### Q: Multi-Agent 任务冲突
+
+```bash
+dev_coordinate(action="check_conflicts")  # 检查冲突
+dev_coordinate(action="replan")           # 重新规划（串行化冲突任务）
+```
+
+### Q: Knowledge Vault 条目写入失败
+
+质量门拒绝了过于模糊的条目。提供更具体的标题和内容（避免"这是一个陷阱"这类描述），并确保内容有足够的 Type-Token Ratio。
 
 ---
 
 ## 版本历史
 
-### v7.1.0 (2026-03-08)
-
-- **Autonomous Pipeline**: `/dev start --auto` 全自主流水线 — 需求 → spec → validate → plan → implement → review gate → PR，人类只在入口和出口介入
-- **spec-generator 重构**: 来源无关的纯函数，接受任意文本输入（Notion / 文件 / URL / 纯文本）
-- **spec-validator agent**: 调用确定性脚本（`validate-spec.sh` + `detect-escalation.sh`）验证 spec 质量，支持自愈修复
-- **validate-spec.sh**: 5 项质量检查（verify command / scope / 无歧义 / 验收标准 / 安全升级），exit 0/1/2
-- **detect-escalation.sh**: 5 条 L3 升级规则（auth / migration / deps / API breaking / infra），确定性检测
-- **Review Gate Loop**: implement-plan 完成后、PR 创建前的质量门禁循环（P0/P1 修复 → 重审，最多 3 轮）
-- **Proof Manifest 强制**: `.proof/{task-id}.json` 由 TaskCompleted hook 强制执行，无 proof 不能完成任务
-- **validate-agent 升级**: 集成 `detect-escalation.sh` 进行 L3 升级检测
-- **`/dev spec` 重构**: 变为 Notion 适配器，所有 spec 处理委托给 spec-generator
-
-### v6.0.0 (2026-02-27)
-
-- **Notion Pipeline**: 任务分拣（`/dev inbox`）、规格生成（`/dev spec`）、合并后状态更新 hook
-- **Memory 架构对齐**: Auto Memory 双向同步（`syncToMemoryMd`）、topic 文件输出、path-scoped pitfalls
-- **Rules 分发系统**: 12 个平台感知规则模板 + `/dev rules` 命令，`/dev init` 自动安装
-- **结构一致性**: 全部 5 个插件统一 hooks/scripts/ 路径、补齐 CLAUDE.md
-- **测试基础设施**: vitest 配置 + 6 个测试文件 98 个测试 + validate-plugins.sh + CI workflow
-- **Hook 系统升级**: post-edit-format 多格式化器分发、context-warning 策略压缩、session-end 清理
-- **安全扫描 skill**: 10 类 deny-rules 检测 + guardrails 参考
-- **Eval Harness skill**: 会话性能评估框架
-- **Search-First / Skill-Stocktake**: 搜索优先思维 + 技能审计
-- **Checkpoint 命令 / 迁移 & 技术债 checklist**: 手动检查点 + plan 模板增强
-- **Contributing 指南 + PR 模板**: 标准化贡献流程
-
-### v5.0.0 (2026-02-12)
-
-- **5-Gate Execution Pipeline**: 每个 plan task 经过 5 层质量门禁 — Fresh Subagent → Self-Review (11 点) → Spec Review → Quality Review → Batch Checkpoint
-- **brainstorm skill**: 独立的创意探索技能，苏格拉底式提问 + YAGNI 约束
-- **verify skill**: 内部技能，禁止未经验证的完成声明 (IDENTIFY → RUN → READ → VERIFY → CLAIM)
-- **spec-reviewer agent**: 验证实现与 plan 精确匹配
-- **自适应 Plan 粒度**: logic-task (2-5min，完整代码) + ui-task (5-15min，Figma 参考)
-- **`/dev finish` 命令**: 分支完成四选一 (merge/PR/keep/discard)
-- **CSO 优化**: 所有 skill 描述只保留触发条件
-- **api-implementer 吸收**: 移入 create-plan/references/api-template.md
-
-### v4.0.0 (2026-02-09)
-
-- **4-Tier Memory System**: 渐进式记忆 — Tier 0 (FTS5) → Tier 1 (Session 总结) → Tier 2 (ChromaDB) → Tier 3 (观察捕获)
-- **新 MCP 操作**: `dev_memory` 增加 save/search/get — 3 层搜索模式（轻量索引 → 完整内容）
-- **FTS5 同义词扩展**: 8 组默认同义词（concurrency、auth、crash 等），查询自动扩展
-- **Session 总结 (Stop hook)**: Haiku API 或 heuristic fallback（订阅用户无需 API key）
-- **周期性观察 (PostToolUse)**: 每 N 次工具调用自动分类为 decision/bugfix/feature/discovery
-- **ChromaDB 语义搜索**: 可选，graceful degradation（未安装时纯 FTS5）
-- **Setup hook 升级**: 新项目自动包含 `memory: { tier: 0 }` 配置
-- **Context Injector 增强**: 上次 session 总结注入（budget 2500 tokens）
-
-### v3.17.0 (2026-02-09)
-
-- **知识整合引擎**: `dev_memory` 工具，闭合 Distill → Consolidate → Inject 循环
-- **Smart Injection**: SessionStart 自动注入平台陷阱和任务相关知识 (~500 tokens)
-- **Reasoning 持久化**: 双写到 `thoughts/reasoning/` + FTS5 索引
-- **统一平台检测**: `detectPlatformSimple()` 统一 4 处检测逻辑，`.dev-flow.json` 优先级最高
-- **新命令**: /extract-knowledge 完整实现
-
-### v3.16.0 (2026-02-07)
-
-- **agent-team**: 通用 Agent Team 编排技能
-- **cross-platform-team**: 重构为扩展 agent-team
-- **evaluate-agent**: 跨 session 基线 + Task 指标集成
-
-### v3.13.0 (2026-01-27)
-
-- **VDD**: Verification-Driven Development
-- **Multi-Agent**: TaskCoordinator + HandoffHub
-- **Knowledge Base**: 跨项目知识库
-- **新命令**: /verify, /extract-knowledge
-- **新工具**: dev_coordinate, dev_handoff, dev_aggregate
-- **Hook 增强**: 平台知识加载, 绕过检测
-
-### v3.11.0
-
-- Meta-Iterate 自我迭代
-- Task Management 双向同步
-- Reasoning 记录
+| 版本 | 日期 | 主要变更 |
+|------|------|---------|
+| **v7.1.0** | 2026-03-08 | **Autonomous Pipeline**: `/dev start --auto` 全自主流水线；spec-generator 重构（纯函数）；spec-validator + 确定性脚本（`validate-spec.sh` + `detect-escalation.sh`）；Review Gate Loop；Proof Manifest 强制（TaskCompleted hook）；`/dev spec` 变为 Notion 适配器 |
+| **v7.0.0** | 2026-02-27 | **Closed-Loop Learning Engine**: Ledger v2（gate tracking + 结构化状态）；Adaptive Execution Engine（L1/L2/L3 决策）；Execution Report（`.proof/execution-report.md`）；泛化 scope 推断（`dev_defaults` 读 `.dev-flow.json` 或目录结构）；176 个测试 |
+| **v6.3.0** | 2026-02-22 | **Agentic Engineering**: Task Contracts + Proof Manifest；Decision Agent（Sonnet）；三层决策架构；Self-Healing Retry；Silent Execution；Auto-Resume（`.resume-directive.md`）；Context Diet（仅注入 critical 知识） |
+| **v6.0.0** | 2026-02-15 | **Notion Pipeline**（inbox + spec 适配器）；**Rules 分发系统**（12 个模板）；vitest + 98 个测试；Hook 系统升级；安全扫描 skill |
+| **v5.0.0** | 2026-02-12 | **5-Gate Execution Pipeline**（Fresh Subagent → Self-Review → Spec Review → Quality Review → Verify）；brainstorm skill；spec-reviewer agent；自适应 plan 粒度 |
+| **v4.0.0** | 2026-02-09 | **Knowledge Vault**（Markdown-first，SQLite FTS5，priority + decay）；quality gate；path-scoped pitfall 模板 |
+| **v3.13.0** | 2026-01-27 | VDD；Multi-Agent 协调；`dev_coordinate` / `dev_handoff` / `dev_aggregate` |
 
 ---
 
-## 贡献指南
-
-欢迎贡献！
-
-1. Fork 仓库
-2. 创建分支: `git checkout -b feature/xxx`
-3. 使用 dev-flow 工作流开发:
-   ```bash
-   /dev-flow:start CONTRIB-001 "添加 Python 支持"
-   # ... 开发 ...
-   /dev-flow:commit
-   /dev-flow:pr
-   ```
-4. 等待代码审查
-
-### 扩展平台
-
-最受欢迎的贡献是添加新平台支持:
-- Python (ruff, black, mypy)
-- Go (golangci-lint, gofmt)
-- Rust (clippy, rustfmt)
-- Node (eslint, prettier)
-
----
-
-## License
-
-MIT
-
----
-
-> 有问题？欢迎提 Issue: https://github.com/lazyman-ian/dev-flow/issues
+> 问题或建议：https://github.com/lazyman-ian/claude-plugins/issues

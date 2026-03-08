@@ -7,18 +7,25 @@
 - [Why dev-flow](#why-dev-flow)
 - [Quick Start](#quick-start)
 - [Core Workflow](#core-workflow)
+  - [Standard Flow](#standard-flow)
+  - [Autonomous Pipeline](#autonomous-pipeline) *(v7.1.0)* ★ NEW
+  - [Command Details](#command-details)
 - [Advanced Features](#advanced-features)
+  - [Agentic Engineering](#agentic-engineering) *(v6.3.0)*
+  - [5-Gate Execution Pipeline](#5-gate-execution-pipeline)
+  - [Review System](#review-system)
+  - [Knowledge Vault](#knowledge-vault)
   - [Ledger State Management](#ledger-state-management)
-  - [Knowledge Base](#knowledge-base)
-  - [Memory System](#memory-system)
-  - [Autonomous Pipeline](#autonomous-pipeline) *(v7.1.0)*
+  - [Multi-Agent Coordination](#multi-agent-coordination)
   - [Notion Pipeline](#notion-pipeline) *(v6.0.0)*
   - [Rules Distribution](#rules-distribution) *(v6.0.0)*
-  - [Multi-Agent Coordination](#multi-agent-coordination)
   - [Meta-Iterate Self-Improvement](#meta-iterate-self-improvement)
+  - [Ralph Loop](#ralph-loop)
+- [Platform Support](#platform-support)
 - [Best Practices](#best-practices)
 - [FAQ](#faq)
 - [Claude Code Integration](#claude-code-integration)
+- [Version History](#version-history)
 
 ---
 
@@ -32,15 +39,16 @@
 | Hand-write commit messages | Auto-generate conventional commits |
 | Manual PR creation | `/dev pr` auto-push + description + code review |
 | Manual code quality checks | `/dev verify` auto lint + test |
-| Context loss (session switches) | Ledger persists task state |
+| Context loss across sessions | Ledger persists task state |
 | Agent judges completion | VDD: exit code 0 judges completion |
+| Repetitive boilerplate | Autonomous Pipeline handles spec → plan → implement → PR |
 
 ### Core Value
 
-1. **Reduce repetition**: One command for lint → commit → push
+1. **Reduce repetition**: One command completes lint → commit → push
 2. **Maintain context**: Ledger persists state across sessions
-3. **Quality assurance**: Auto-run platform-specific checks
-4. **Knowledge accumulation**: Auto-record decisions, extract cross-project knowledge
+3. **Quality assurance**: Auto-run platform-specific checks at every gate
+4. **Autonomous execution**: `--auto` flag drives the full pipeline with human oversight only at entry and exit
 
 ---
 
@@ -63,9 +71,22 @@ claude plugins add /path/to/dev-flow
 /dev-flow:dev
 ```
 
-Example output:
+Expected output:
 ```
 STARTING|✅0|checkout
+```
+
+### Project Initialization
+
+Run once per project to create `.dev-flow.json` and `thoughts/` directories:
+
+```bash
+/dev-flow:init
+```
+
+For monorepo projects, set platform explicitly in `.dev-flow.json`:
+```json
+{ "platform": "monorepo" }
 ```
 
 ### 5-Minute Tutorial
@@ -83,11 +104,16 @@ STARTING|✅0|checkout
 /dev-flow:pr
 ```
 
+Or go fully autonomous:
+```bash
+/dev start "Implement user login with OAuth2" --auto
+```
+
 ---
 
 ## Core Workflow
 
-### Complete Flow
+### Standard Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -106,7 +132,7 @@ STARTING|✅0|checkout
 ┌─────────────────────────────────────────────────────────────────┐
 │                   /dev-flow:plan (optional)                      │
 │              Research → Design → Iterate → Generate plan         │
-│              v5.0: logic-task (2-5min) + ui-task (5-15min)       │
+│              logic-task (2-5min) + ui-task (5-15min)             │
 │              Output: thoughts/shared/plans/xxx.md                │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
@@ -118,8 +144,8 @@ STARTING|✅0|checkout
 ┌─────────────────────────────────────────────────────────────────┐
 │              /dev-flow:implement (5-Gate Pipeline)               │
 │    Per-task: Fresh Subagent → Self-Review (11-point)             │
-│              → Spec Review → Quality Review                      │
-│              → Batch Checkpoint (every N tasks)                   │
+│              → Spec Review → Quality Review → Verify             │
+│              verify pass → .proof/ → commit → next task          │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
@@ -150,455 +176,6 @@ STARTING|✅0|checkout
 │       release: Version suggestion → Tag → Release Notes          │
 └─────────────────────────────────────────────────────────────────┘
 ```
-
-### Command Details
-
-#### /dev-flow:start - Start Task
-
-```bash
-# Basic usage
-/dev-flow:start TASK-001 "Implement user login"
-
-# From existing branch
-/dev-flow:start --branch feature/auth
-```
-
-**Auto-executes**:
-1. Create branch `TASK-001-implement-user-login`
-2. Create Ledger `thoughts/ledgers/TASK-001-xxx.md`
-3. Set initial state
-
-#### /dev-flow:commit - Smart Commit
-
-```bash
-# Auto mode
-/dev-flow:commit
-
-# Specify scope
-/dev-flow:commit --scope auth
-
-# Specify type
-/dev-flow:commit --type fix
-```
-
-**Auto-executes**:
-1. `lint fix` - Auto-format code
-2. `lint check` - Validate no errors
-3. `git diff --stat` - Analyze changes
-4. `dev_defaults` - Infer scope
-5. `git commit` - Generate message (no Claude attribution)
-6. `dev_ledger` - Update state
-
-#### /dev-flow:pr - Create PR
-
-```bash
-# Auto mode
-/dev-flow:pr
-
-# Specify reviewers
-/dev-flow:pr --reviewer @team-lead
-```
-
-**Auto-executes**:
-1. Check uncommitted → auto `/dev-flow:commit`
-2. Check unpushed → `git push -u`
-3. Collect commit history
-4. Aggregate reasoning
-5. `gh pr create` (with description)
-6. Auto code review
-
-#### /dev-flow:verify - VDD Verification
-
-```bash
-# Full verification
-/dev-flow:verify
-
-# Test only
-/dev-flow:verify --test-only
-
-# Lint only
-/dev-flow:verify --lint-only
-```
-
-**VDD Principle**: Machine judges completion, not Agent.
-
-| Traditional | VDD |
-|-------------|-----|
-| "Fix this bug" | "Fix bug, `npm test auth` should pass" |
-| Agent says "done" | exit code 0 says "done" |
-
----
-
-## Advanced Features
-
-### Ledger State Management
-
-Ledger tracks task state across sessions.
-
-```bash
-# View current ledger
-/dev-flow:ledger status
-
-# Create new ledger
-/dev-flow:ledger create --branch TASK-001
-
-# Update state
-/dev-flow:ledger update --commit abc123 --message "Complete login UI"
-
-# Archive completed task
-/dev-flow:ledger archive TASK-001
-```
-
-**Ledger Structure**:
-```markdown
-# TASK-001: Implement user login
-
-## Goal
-Implement complete user login functionality
-
-## Constraints
-- Use JWT authentication
-- Support OAuth2
-
-## Key Decisions
-- [2026-01-27] Choose Firebase Auth
-
-## State
-- [x] Phase 1: UI Design
-- [→] Phase 2: API Integration
-- [ ] Phase 3: Testing
-
-## Open Questions
-- [ ] Refresh token strategy?
-```
-
-### Knowledge Base
-
-Per-project knowledge auto-accumulation and loading, stored in project-local SQLite DB.
-
-```bash
-# Extract knowledge from current project
-/dev-flow:extract-knowledge
-
-# Extract specific type
-/dev-flow:extract-knowledge --type pitfalls
-/dev-flow:extract-knowledge --type patterns
-/dev-flow:extract-knowledge --type discoveries
-```
-
-**Knowledge Storage**:
-```
-<project>/.claude/cache/artifact-index/
-└── context.db                # Per-project SQLite DB (single source of truth)
-                              # Tables: knowledge, reasoning, synonyms,
-                              #         session_summaries, observations
-```
-
-Auto-loads at session start, auto-retrieves relevant knowledge every 3rd prompt:
-```
-📚 ios pitfalls: 4 items
-```
-
-### Memory System
-
-4-tier progressive memory system, from zero-cost to semantic search:
-
-| Tier | Features | Token Cost | Dependencies |
-|------|----------|-----------|--------------|
-| 0 | FTS5 full-text search + save/search/get | 0 (pure SQLite) | None |
-| 1 | + Auto session summaries | ~$0.001/session | Optional API key |
-| 2 | + ChromaDB semantic search | Same as Tier 1 | + chromadb |
-| 3 | + Periodic observation capture | ~$0.005/session | Same as Tier 1 |
-
-#### Knowledge Loop
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Knowledge Loop                          │
-│                                                             │
-│  ┌──────────┐    auto-inject   ┌──────────────┐            │
-│  │SessionStart│───────────────▶│ System Prompt │            │
-│  │  hook     │  pitfalls +     │ (~2500 tokens)│            │
-│  └──────────┘  last summary    └──────┬───────┘            │
-│       ▲                               │                    │
-│       │                               ▼                    │
-│  ┌──────────────┐          ┌──────────────────┐            │
-│  │UserPromptSubmit│────────│  Skill / Agent   │            │
-│  │ auto-retrieve │ decay   │  auto query()    │            │
-│  │ every 3 prompts│scoring │  save on finding │            │
-│  └──────────────┘          └────────┬─────────┘            │
-│       ▲                             │                      │
-│       │                             ▼                      │
-│  ┌──────────┐              ┌──────────────────┐            │
-│  │ Per-proj  │◀────────────│  save() / prune  │            │
-│  │ SQLite DB │   save()    └──────────────────┘            │
-│  └──────────┘                       │                      │
-│       ▲                             ▼                      │
-│  ┌──────────┐              ┌──────────────────┐            │
-│  │ Stop hook │◀─────────── │   Session End    │            │
-│  │ auto-sum  │  Tier 1     └──────────────────┘            │
-│  └──────────┘                       │                      │
-│       ▲                             ▼                      │
-│  ┌──────────┐              ┌──────────────────┐            │
-│  │PostToolUse│◀─────────── │  Every N tools   │            │
-│  │ auto-obs  │  Tier 3     └──────────────────┘            │
-│  └──────────┘                                              │
-└─────────────────────────────────────────────────────────────┘
-```
-
-#### Automatic vs Manual
-
-| Operation | Trigger | Description |
-|-----------|---------|-------------|
-| Knowledge injection | **Auto** SessionStart | Injects pitfalls + task knowledge + last summary each session |
-| Knowledge retrieval | **Auto** UserPromptSubmit | Every 3rd prompt, auto-queries relevant knowledge with temporal decay scoring |
-| Skill/Agent query | **Auto** before work | debug/plan/implement/validate/review auto-query history |
-| Skill/Agent save | **Semi-auto** after work | Saves when non-obvious patterns discovered |
-| Session summary | **Auto** Stop hook | Tier 1+ auto-generates on session end |
-| Observation capture | **Auto** PostToolUse | Tier 3 auto-classifies every N tool calls |
-| TTL cleanup | **Auto** weekly | Removes entries with `access_count=0 AND >90 days` |
-| MEMORY.md trim | **Auto** | P0-P3 priority layered trim to keep MEMORY.md concise |
-| Knowledge consolidation | **Manual** consolidate | Run once after major feature completion |
-| Knowledge extraction | **Manual** extract | Run once for new project initialization |
-
-#### Storage Locations
-
-```
-<project>/
-├── .dev-flow.json                   # Memory config (tier, options)
-├── .claude/cache/artifact-index/
-│   └── context.db                   # Per-project SQLite DB (single source of truth)
-├── .git/claude/commits/<hash>/
-│   └── reasoning.md                 # Commit reasoning records
-└── thoughts/reasoning/
-    └── <hash>-reasoning.md          # Reasoning copy (git-tracked)
-```
-
-| Data | Storage Location | Lifecycle |
-|------|-----------------|-----------|
-| Knowledge entries | `context.db` → `knowledge` table | Persistent, cross-session. TTL: `access_count=0 AND >90 days` auto-pruned |
-| Reasoning records | `context.db` → `reasoning` table + files | Persistent, git-tracked |
-| Synonyms | `context.db` → `synonyms` table | Persistent, auto-seeded |
-| Session summaries | `context.db` → `session_summaries` table | Persistent, Tier 1+ |
-| Observations | `context.db` → `observations` table | Persistent, Tier 3 |
-
-#### Checking If It Works
-
-```bash
-# View memory status and statistics
-dev_memory(action='status')
-
-# List knowledge entries
-dev_memory(action='list')
-
-# Search specific knowledge
-dev_memory(action='search', query='concurrency')
-
-# Query SQLite directly
-sqlite3 .claude/cache/artifact-index/context.db "SELECT COUNT(*) FROM knowledge;"
-sqlite3 .claude/cache/artifact-index/context.db "SELECT id, title FROM session_summaries ORDER BY created_at_epoch DESC LIMIT 5;"
-sqlite3 .claude/cache/artifact-index/context.db "SELECT type, title FROM observations ORDER BY created_at_epoch DESC LIMIT 5;"
-
-# Check knowledge entry counts
-sqlite3 .claude/cache/artifact-index/context.db "SELECT type, COUNT(*) FROM knowledge GROUP BY type;"
-```
-
-#### Tier 0: FTS5 Full-Text Search (Default)
-
-Zero-cost, pure SQLite memory layer.
-
-**What it does**:
-- `save` — Save knowledge entries to `knowledge` table with automatic FTS5 indexing
-- `search` — Lightweight search returning ID + title list (no full text, saves tokens)
-- `get` — Retrieve full content by ID (search → get two-step pattern saves ~10x tokens)
-- `consolidate` — Extract knowledge from CLAUDE.md, ledgers, reasoning into database
-- SessionStart auto-injection: platform pitfalls + task-related knowledge + recent discoveries
-
-**Synonym expansion**: Searching `crash` auto-expands to `(crash OR error OR exception OR panic OR abort)`, 8 built-in mapping groups.
-
-**Data flow**:
-```
-User/Claude calls dev_memory(save) → knowledge table + FTS5 index
-SessionStart hook → FTS5 query → inject into system prompt (~2000 tokens)
-```
-
-**Best for**: All users. Zero configuration, zero cost.
-
-#### Tier 1: Auto Session Summaries
-
-Automatically generates structured summaries when a session ends, so the next session can quickly understand what was done.
-
-**What it does**:
-- Stop hook triggers when session ends
-- With API key → Haiku generates JSON summary (request/investigated/learned/completed/next_steps)
-- Without API key → heuristic fallback: extracts `completed` from `git log --oneline`, `investigated` from `git diff --stat`
-- Summary written to `session_summaries` table + FTS5 index
-- Next SessionStart auto-injects last summary (~500 tokens budget)
-
-**Data flow**:
-```
-Session ends → Stop hook → Haiku API / heuristic
-    → session_summaries table + FTS5
-    → Next SessionStart injects "Last time you were working on XXX, completed YYY, next step ZZZ"
-```
-
-**Best for**: Users who frequently switch sessions and want automatic context continuity.
-
-#### Tier 2: ChromaDB Semantic Search
-
-Adds vector semantic search on top of FTS5 keyword search — understands "similar meaning" not just "same words".
-
-**What it does**:
-- `save`/`consolidate` simultaneously writes to ChromaDB vector database (fire-and-forget, non-blocking)
-- `memorySearchAsync` hybrid search: ChromaDB semantic + FTS5 keyword, results deduplicated and merged
-- Graceful degradation when ChromaDB not installed → falls back to pure FTS5
-
-**Data flow**:
-```
-dev_memory(save) → knowledge table + FTS5 + ChromaDB vectors
-dev_memory(search) → FTS5 keyword search (sync, fast)
-                   + ChromaDB semantic search (async, accurate)
-                   → deduplicate & merge → return sorted results
-```
-
-**Dependency**: `pip install chromadb` (optional — not installing doesn't affect other features)
-
-**Best for**: Users with large knowledge bases (100+ entries) who need fuzzy semantic search.
-
-#### Tier 3: Periodic Observation Capture
-
-Automatically records Claude's work process — not just "what is known" but "what was done".
-
-**What it does**:
-- PostToolUse hook triggers after every tool call, incrementing a counter
-- Every N calls (default 10), triggers batch processing
-- With API key → Haiku classifies tool log into structured observations (type: decision/bugfix/feature/refactor/discovery)
-- Without API key → heuristic: Edit/Write → feature, Read-heavy → discovery
-- Observations written to `observations` table + FTS5 index
-
-**Data flow**:
-```
-Each tool call → PostToolUse hook → counter +1, tool info appended to log
-Nth call → read log → Haiku classification / heuristic classification
-        → observations table + FTS5
-        → searchable via search/query
-```
-
-**Best for**: Users who want to auto-accumulate project history and look up "how was this type of problem solved last time".
-
-#### New User Setup
-
-After installing dev-flow, `claude --init` automatically:
-
-1. Setup hook creates `.dev-flow.json` (includes `"memory": { "tier": 0 }`)
-2. First `dev_memory` call auto-creates SQLite tables and FTS5 indexes
-3. Default synonyms auto-seeded (8 groups: concurrency, auth, crash, etc.)
-
-**Zero configuration needed for Tier 0**.
-
-#### Existing User Migration
-
-If you already have `.dev-flow.json` (setup hook won't recreate it), add `memory` field manually:
-
-```json
-{
-  "platform": "ios",
-  "commands": { "fix": "...", "check": "..." },
-  "scopes": ["ui", "api"],
-  "memory": { "tier": 0 }
-}
-```
-
-> Not adding it is fine — `getMemoryConfig()` defaults to tier 0. Adding it enables explicit tier upgrades.
-
-#### Tier Upgrade Path
-
-```jsonc
-// Tier 1: Auto session summaries (Stop hook → Haiku API or heuristic)
-"memory": { "tier": 1, "sessionSummary": true }
-
-// Tier 2: Semantic search (requires: pip install chromadb)
-"memory": { "tier": 2, "sessionSummary": true, "chromadb": true }
-
-// Tier 3: Periodic capture (auto-classify every N tool uses)
-"memory": { "tier": 3, "sessionSummary": true, "chromadb": true, "periodicCapture": true, "captureInterval": 10 }
-```
-
-#### API Key Setup (Optional)
-
-Tier 1/3 Haiku calls need an API key, but **work without one** (heuristic fallback extracts summaries from git log):
-
-```bash
-# Option 1: Register API account (console.anthropic.com), add $5 credit
-export ANTHROPIC_API_KEY=sk-ant-...  # Add to ~/.zshrc
-
-# Option 2: No key (auto-uses heuristic mode — lower quality but zero cost)
-```
-
-#### Using MCP Tools
-
-```bash
-# Save knowledge
-dev_memory(action='save', text='@Sendable closures cannot capture mutable state', title='Swift concurrency pitfall', tags=['swift', 'concurrency'])
-
-# Search (lightweight, returns ID + title)
-dev_memory(action='search', query='concurrency pitfalls', limit=5)
-
-# Get full content
-dev_memory(action='get', ids=['knowledge-xxx'])
-
-# Consolidate historical knowledge
-dev_memory(action='consolidate')
-
-# Check status
-dev_memory(action='status')
-```
-
-#### Automatic Behaviors
-
-| Tier | Automatic Behavior | Trigger |
-|------|-------------------|---------|
-| 0 | SessionStart knowledge injection (~2500 tokens) | Every session start |
-| 0 | UserPromptSubmit auto-retrieval (temporal decay) | Every 3rd prompt |
-| 0 | TTL cleanup (`access_count=0 AND >90 days`) | Weekly |
-| 1 | Generate session summary to DB | Stop hook (session end) |
-| 2 | ChromaDB semantic index sync | On save/consolidate |
-| 3 | Batch observation capture + classify | Every N tool uses |
-
-#### Tips
-
-**Memory Maintenance**
-
-| Command | When to Use | Frequency |
-|---------|-------------|-----------|
-| `dev_memory(action='consolidate')` | Extract CLAUDE.md pitfalls, ledger decisions, reasoning patterns into DB | Run once after completing a major feature |
-| `/dev-flow:extract-knowledge` | Scan project files for reusable knowledge (first-time or after major version) | Run once for new projects / after major upgrades |
-
-> Daily use requires no manual calls — skills/agents auto-query and save knowledge, session summaries are generated automatically. The above two commands are only for periodic maintenance and one-time migrations.
-
-**Claude Code CLI**
-
-| Action | Command | Description |
-|--------|---------|-------------|
-| Initialize project | `claude` then `/init` | Triggers Setup hook, auto-creates `.dev-flow.json` (with memory config) |
-| Clear context | `/clear` | Use when context > 70%, ledger auto-restores state |
-| Compact context | `/compact` | Compress context keeping key info, auto-triggers PreCompact hook backup |
-| Check plugin status | `/plugins` | Verify dev-flow loaded correctly |
-| Check MCP tools | `claude mcp list` | Verify dev-flow MCP server connected |
-| Delegate mode | `Shift+Tab` | Restrict lead to coordination-only with 3+ teammates |
-| Reference file | `#filename` | Add file content to context, pairs well with memory queries |
-
-#### Database Schema
-
-All data in `.claude/cache/artifact-index/context.db`:
-
-| Table | Purpose | Tier |
-|-------|---------|------|
-| knowledge + knowledge_fts | Knowledge entries | 0 |
-| reasoning + reasoning_fts | Reasoning records | 0 |
-| synonyms | Synonym expansion (FTS5 query enhancement) | 0 |
-| session_summaries + _fts | Session summaries | 1 |
-| observations + _fts | Observation records | 3 |
 
 ### Autonomous Pipeline
 
@@ -677,16 +254,359 @@ All data in `.claude/cache/artifact-index/context.db`:
 | `--auto` propagation | Via prompt context (not CLI parsing), default off (backward compatible) |
 | Deterministic scripts | `validate-spec.sh` + `detect-escalation.sh`, zero token cost |
 | L3 escalation | Security/architecture is the only path that pulls in human mid-pipeline (false positives expected) |
-| Review Gate | **Pre-requisite** for PR creation, not a post-PR step |
-| Proof Manifest | `.proof/` enforced by TaskCompleted hook |
+| Review Gate | Pre-requisite for PR creation, not a post-PR step |
+| Proof Manifest | `.proof/` enforced by TaskCompleted hook — tasks cannot complete without it |
+
+### Command Details
+
+#### /dev-flow:start — Start Task
+
+```bash
+# Basic usage
+/dev-flow:start TASK-001 "Implement user login"
+
+# From existing branch
+/dev-flow:start --branch feature/auth
+```
+
+Auto-executes:
+1. Create branch `TASK-001-implement-user-login`
+2. Create Ledger `thoughts/ledgers/TASK-001-xxx.md`
+3. Set initial state
+
+#### /dev-flow:commit — Smart Commit
+
+```bash
+/dev-flow:commit              # Auto mode
+/dev-flow:commit --scope auth # Specify scope
+/dev-flow:commit --type fix   # Specify type
+```
+
+Auto-executes:
+1. `lint fix` — Auto-format code
+2. `lint check` — Validate no errors
+3. `git diff --stat` — Analyze changes
+4. `dev_defaults` — Infer scope
+5. `git commit` — Generate message (no Claude attribution)
+6. `dev_ledger` — Update state
+
+#### /dev-flow:pr — Create PR
+
+```bash
+/dev-flow:pr                       # Auto mode
+/dev-flow:pr --reviewer @team-lead # Specify reviewers
+```
+
+Auto-executes:
+1. Check uncommitted → auto `/dev-flow:commit`
+2. Check unpushed → `git push -u`
+3. Collect commit history
+4. Aggregate reasoning
+5. `gh pr create` (with description)
+6. Auto code review
+
+#### /dev-flow:verify — VDD Verification
+
+```bash
+/dev-flow:verify            # Full verification
+/dev-flow:verify --test-only
+/dev-flow:verify --lint-only
+```
+
+**VDD Principle**: Machine judges completion, not Agent.
+
+| Traditional | VDD |
+|-------------|-----|
+| "Fix this bug" | "Fix bug, `npm test auth` should pass" |
+| Agent says "done" | exit code 0 says "done" |
+
+---
+
+## Advanced Features
+
+### Agentic Engineering
+
+*(v6.3.0)* Three-layer decision architecture that enables autonomous execution without human intervention except at defined escalation points.
+
+#### Decision Architecture
+
+| Layer | Who | When | Cost |
+|-------|-----|------|------|
+| L1 Environment | hooks, verify exit code, scope check | Always | Zero |
+| L2 Decision Agent | Sonnet, fork context, runtime uncertainty | When L1 insufficient | Low |
+| L3 Human | PR review, security/architecture escalation | Rare | High |
+
+#### Continue vs Stop Signals
+
+**Continue** (ALL must be true):
+- verify passes (exit 0)
+- Changes within task scope (files listed in contract)
+- Context < 70%
+
+**Stop** (ANY triggers stop):
+- verify fails 2x after diagnosis
+- Changes outside declared scope
+- Context > 80%
+- Security/architecture decision (escalate to Human)
+
+#### Task Contracts + Proof Manifest
+
+Each plan task includes a `contract:` block with explicit acceptance criteria:
+
+```markdown
+## Task: Implement OAuth2 login
+contract:
+  - OAuth2 flow completes end-to-end
+  - Unit tests cover success + error paths
+  - verify: npm test auth (exit 0)
+autonomy: 1
+```
+
+On task completion, `.proof/{task-id}.json` is created:
+```json
+{
+  "verdict": "pass",
+  "commands": ["npm test auth"],
+  "diff_stats": { "files": 3, "insertions": 87 }
+}
+```
+
+The TaskCompleted hook enforces proof manifest existence — tasks cannot be marked complete without it.
+
+#### Self-Healing Retry
+
+```
+verify fail
+    → diagnose (read error output)
+    → fix code (NEVER modify verify command)
+    → re-verify
+        pass → continue + record guardrail in knowledge vault
+        fail → stop + escalate (max 2 attempts)
+```
+
+#### Silent Execution
+
+| Autonomy Level | Output |
+|----------------|--------|
+| Level 1 (milestone) | `[Task N/M] name done (X files, verify pass)` |
+| Level 2 (final only) | `Done: N/M tasks, X files, all pass. Proof: .proof/` |
+
+No explanatory text during implementation ("let me read...", "I'll now...").
+
+### 5-Gate Execution Pipeline
+
+Per-task quality gates in `/dev implement-plan`. Risk-adaptive: gates activate based on task complexity.
+
+#### Gate Matrix
+
+| Gate | low | medium | high |
+|------|-----|--------|------|
+| 0. Figma Pre-fetch | — | — | ✓ (ui-task) |
+| 1. Fresh Subagent | — | ✓ | ✓ |
+| 2. Self-Review (11-point) | ✓ | ✓ | ✓ |
+| 3. Spec Review | — | — | ✓ |
+| 3.5 UI Verify | — | — | ✓ (ui-task) |
+| 4. Quality Review | — | ✓ | ✓ |
+| 5. Verify (exit 0) | ✓ | ✓ | ✓ |
+
+#### Gate Descriptions
+
+| Gate | Agent/Skill | Purpose |
+|------|-------------|---------|
+| Figma Pre-fetch | Figma MCP (orchestrator) | Fetch design specs for ui-task, inject into subagent prompt |
+| Fresh Subagent | implement-agent | Context isolation, anti-corruption |
+| Self-Review | (built-in) | 11-point checklist before reporting done |
+| Spec Review | spec-reviewer | Implementation matches plan exactly |
+| UI Verify | ui-verify skill | Measure rendered CSS vs Figma specs |
+| Quality Review | code-reviewer | P0-P3 code quality check |
+| Batch Checkpoint | (orchestrator) | Pause every N tasks for coherence check |
+
+### Review System
+
+Multi-layer automated code review with P0-P3 severity, integrated at 4 workflow points.
+
+#### Severity Levels
+
+| Severity | Meaning | Action |
+|----------|---------|--------|
+| P0 | Critical: security/data loss | Blocks commit and PR |
+| P1 | High: functional regression | Blocks commit and PR |
+| P2 | Medium: code quality | Recorded in PR notes |
+| P3 | Low: style/suggestion | Recorded in PR notes |
+
+#### Integration Points
+
+```
+/dev commit           → code-reviewer (P0/P1 blocks commit)
+/dev commit --simplify → simplify → code-reviewer → commit
+/dev review           → dev-flow reviewer + specialist agents
+/dev pr               → dev-flow reviewer + specialist agents + GH comment
+Agent Team            → reviewer teammate (persistent, cross-module)
+```
+
+#### Review Gate Loop
+
+After implement-plan completes, before PR creation:
+
+```
+code-reviewer (full branch diff)
+    │
+    ├─ P0/P1 found → generate fix tasks → implement → re-review
+    │               (max 3 rounds)
+    │
+    ├─ P2/P3 only → record in PR notes
+    │
+    └─ clean → /dev pr
+```
+
+Review decisions are made by `code-reviewer` agent in isolated context (not main agent), preventing skip-bias.
+
+**Review Session Log**: `.git/claude/review-session-{branch}.md` — accumulates review context across commits, enabling cross-commit issue detection.
+
+### Knowledge Vault
+
+Markdown-first knowledge storage with SQLite FTS5 search index. Human-editable, git-tracked, session-injected.
+
+#### Vault Structure
+
+```
+thoughts/knowledge/
+├── pitfalls/      # Common pitfalls (auto-injected at session start)
+├── patterns/      # Reusable patterns
+├── decisions/     # Architecture decisions
+└── habits/        # Workflow habits
+```
+
+#### Entry Format
+
+Each `.md` file uses YAML frontmatter:
+
+```yaml
+---
+type: pitfall          # pitfall | pattern | decision | habit
+priority: critical     # critical | important | reference
+platform: ios          # ios | android | web | general
+tags: [swift, concurrency]
+created: 2026-01-15
+access_count: 0
+---
+
+# @Sendable Closures Cannot Capture Mutable State
+
+Swift concurrency rule: @Sendable closures passed across actor boundaries
+must not capture var-declared properties...
+```
+
+#### Priority + Decay Scoring
+
+- Score: `priority_weight × temporal_decay(30-day half-life)`
+- Auto-promote: `access_count >= 3` → critical
+- Auto-demote: `important + 0 access + >90 days` → reference
+- Auto-archive: `reference + 0 access + >90 days` → `.archive/`
+
+#### Read vs Write
+
+**Write triggers** (all pass through quality gate + smart dedup):
+- Stop hook (session end)
+- Commit time
+- AI proactive save (non-obvious pattern found)
+- User manual save
+
+**Read**:
+- SessionStart injects `priority='critical'` entries only (context diet)
+- On-demand: `dev_memory(action='search', query='...')`
+
+#### Quality Gate
+
+Rejects vague entries using regex + Type-Token Ratio (no LLM cost). Must pass before writing to vault.
+
+#### MCP Tool Usage
+
+```bash
+# Save knowledge
+dev_memory(action='save', text='@Sendable closures cannot capture mutable state',
+           title='Swift concurrency pitfall', tags=['swift', 'concurrency'])
+
+# Search (lightweight, returns file paths + titles)
+dev_memory(action='search', query='concurrency pitfalls', limit=5)
+
+# Get full content by ID
+dev_memory(action='get', ids=['pitfalls/swift-sendable'])
+
+# Check status and entry counts
+dev_memory(action='status')
+```
+
+#### Configuration
+
+```json
+{
+  "memory": {
+    "vault": "thoughts/knowledge"
+  }
+}
+```
+
+### Ledger State Management
+
+Ledger tracks task state across sessions.
+
+```bash
+/dev-flow:ledger status           # View current ledger
+/dev-flow:ledger create --branch TASK-001
+/dev-flow:ledger update --commit abc123 --message "Complete login UI"
+/dev-flow:ledger archive TASK-001
+```
+
+**Ledger Structure**:
+```markdown
+# TASK-001: Implement user login
+
+## Goal
+Implement complete user login functionality
+
+## Constraints
+- Use JWT authentication
+- Support OAuth2
+
+## Key Decisions
+- [2026-01-27] Choose Firebase Auth
+
+## State
+- [x] Phase 1: UI Design (verified: npm test auth ✓)
+- [→] Phase 2: API Integration
+- [ ] Phase 3: Testing
+
+## Open Questions
+- [ ] Refresh token strategy?
+```
+
+### Multi-Agent Coordination
+
+Complex tasks auto-decomposed to multiple agents.
+
+```bash
+# Plan task decomposition
+dev_coordinate(action="plan", task="Implement complete auth system")
+
+# Create handoff between agents
+dev_handoff(action="create", from="plan-agent", to="implement-agent")
+
+# Aggregate results for PR
+dev_aggregate(sources=["agent-1", "agent-2"])
+```
+
+| Tool | Function |
+|------|----------|
+| `dev_coordinate` | Task planning, dispatch, conflict detection |
+| `dev_handoff` | Inter-agent handoff documents |
+| `dev_aggregate` | Aggregate multi-agent results |
 
 ### Notion Pipeline
 
 Pull tasks from Notion databases, generate specs, and automate the requirements-to-implementation pipeline.
 
 #### Configuration
-
-Add Notion config in `.dev-flow.json`:
 
 ```json
 {
@@ -705,21 +625,17 @@ Add Notion config in `.dev-flow.json`:
 #### Full Pipeline
 
 ```
-Notion DB → /dev inbox → select task → /dev spec → generate spec
-    → human confirm → /dev create-plan → /dev implement-plan
+Notion DB → /dev inbox → select task → /dev spec → SPEC.md
+    → spec-validator → /dev create-plan → validate-agent
+    → /dev implement-plan (--auto continues automatically)
 ```
 
 #### /dev inbox — Task Triage
 
 ```bash
-# View all tasks
-/dev inbox
-
-# Filter by priority
-/dev inbox --priority High
-
-# Filter by platform
-/dev inbox --platform iOS
+/dev inbox                   # All tasks
+/dev inbox --priority High   # Filter by priority
+/dev inbox --platform iOS    # Filter by platform
 ```
 
 Example output:
@@ -730,22 +646,15 @@ Example output:
 | 2 | Dark mode support   | Medium   | Android  | To Do       |
 ```
 
-Select a task to automatically chain to `/dev spec`.
-
 #### /dev spec — Spec Generation
 
 ```bash
-# From Notion task
-/dev spec {page_id}
-
-# From clipboard
-/dev spec --from-clipboard
-
-# Interactive input
-/dev spec --interactive
+/dev spec {page_id}          # From Notion task
+/dev spec --from-clipboard   # From clipboard
+/dev spec --interactive      # Interactive input
 ```
 
-**Auto-executes**:
+Auto-executes:
 1. Extract content to plain text (Notion MCP / clipboard / interactive)
 2. Delegate to `spec-generator` (source-agnostic pure function): classify → template → SPEC.md
 3. Auto-trigger `spec-validator` for quality verification
@@ -756,23 +665,12 @@ Select a task to automatically chain to `/dev spec`.
 
 Platform-aware rule templates auto-installed to `.claude/rules/`.
 
-#### Usage
-
 ```bash
-# List all available templates
-/dev rules list
-
-# Auto-detect platform and install matching rules
-/dev rules install
-
-# Install all templates regardless of platform
-/dev rules install --all
-
-# Show diff between installed rules and templates
-/dev rules diff
-
-# Update installed rules to latest template versions
-/dev rules sync
+/dev rules list          # List all available templates
+/dev rules install       # Auto-detect platform and install matching rules
+/dev rules install --all # Install all templates regardless of platform
+/dev rules diff          # Show diff between installed rules and templates
+/dev rules sync          # Update installed rules to latest template versions
 ```
 
 #### Available Templates (12)
@@ -790,6 +688,7 @@ Platform-aware rule templates auto-installed to `.claude/rules/`.
 | `security.md` | Global | Security rules |
 | `performance.md` | Global | Performance optimization |
 | `agent-rules.md` | Global | Agent behavior rules |
+| `agentic-engineering.md` | Global | Agentic execution principles |
 
 #### Install Logic
 
@@ -800,46 +699,18 @@ Platform-aware rule templates auto-installed to `.claude/rules/`.
 
 > `/dev init` automatically calls `/dev rules install` — no manual setup needed.
 
-### Multi-Agent Coordination
-
-Complex tasks auto-decomposed to multiple agents.
-
-```bash
-# View task decomposition
-dev_coordinate(action="plan", task="Implement complete auth system")
-
-# Create handoff
-dev_handoff(action="create", from="plan-agent", to="implement-agent")
-
-# Aggregate results
-dev_aggregate(sources=["agent-1", "agent-2"])
-```
-
-**Coordination Tools**:
-
-| Tool | Function |
-|------|----------|
-| `dev_coordinate` | Task planning, dispatch, conflict detection |
-| `dev_handoff` | Inter-agent handoff documents |
-| `dev_aggregate` | Aggregate multi-agent results |
-
 ### Meta-Iterate Self-Improvement
 
 Analyze session performance, continuously optimize prompts.
 
 ```bash
-# Complete 5-phase flow
-/dev-flow:meta-iterate
-
-# Execute single phase
-/dev-flow:meta-iterate evaluate --recent 20
-/dev-flow:meta-iterate diagnose
-/dev-flow:meta-iterate propose
-/dev-flow:meta-iterate apply  # requires approval
-/dev-flow:meta-iterate verify
-
-# Discover new skill opportunities
-/dev-flow:meta-iterate discover
+/dev-flow:meta-iterate                        # Complete 5-phase flow
+/dev-flow:meta-iterate evaluate --recent 20  # Evaluate recent sessions
+/dev-flow:meta-iterate diagnose              # Diagnose failure patterns
+/dev-flow:meta-iterate propose               # Propose improvements
+/dev-flow:meta-iterate apply                 # Apply (requires approval)
+/dev-flow:meta-iterate verify                # Verify improvement
+/dev-flow:meta-iterate discover              # Discover new skill opportunities
 ```
 
 **5-Phase Flow**:
@@ -847,188 +718,18 @@ Analyze session performance, continuously optimize prompts.
 evaluate → diagnose → propose → [approve] → apply → verify
 ```
 
----
+### Ralph Loop
 
-## Best Practices
-
-### 1. Task Granularity
-
-| Size | Recommendation |
-|------|----------------|
-| Small (< 3 files) | Execute directly, no plan needed |
-| Medium (3-10 files) | `/dev-flow:plan` → `/dev-flow:implement` |
-| Large (> 10 files) | Split into multiple TASKs, Multi-Agent |
-
-### 2. Commit Frequency
+An alternative implementation mode using Stop hook re-injection for iterative task completion.
 
 ```bash
-# Recommended: Small commits
-/dev-flow:commit  # Commit after each feature point
-
-# Not recommended: Batch commits
-# Accumulate changes then commit all at once
+# Generate Ralph prompt from plan
+/dev ralph-implement [plan-path]
 ```
 
-### 3. Context Management
+The bridge command reads the plan, extracts tasks and contracts, and generates a Ralph prompt for Stop hook-driven execution.
 
-| Signal | Action |
-|--------|--------|
-| Context > 70% | Update ledger → `/clear` |
-| Complete subtask | New session |
-| Agent repeating | New session |
-
-### 4. VDD Practice
-
-```bash
-# Include verification in task definition
-"Fix login bug, verify: npm test auth should pass"
-
-# Auto-verify after completion
-/dev-flow:verify
-# exit code 0 → truly done
-```
-
-### 5. Knowledge Accumulation
-
-```bash
-# Weekly knowledge extraction
-/dev-flow:extract-knowledge
-
-# Record pitfalls immediately in CLAUDE.md
-## Known Pitfalls
-- session.save() is async, must await
-```
-
----
-
-## FAQ
-
-### Q: dev_config returns "unknown"
-
-**Cause**: Project not configured and not iOS/Android/Web
-
-**Solution** (recommended: `.dev-flow.json`, configures both platform and commands):
-
-```json
-{
-  "platform": "python",
-  "commands": {
-    "fix": "black .",
-    "check": "ruff . && mypy ."
-  }
-}
-```
-
-> The `platform` field also affects knowledge injection and `dev_memory` classification.
-
-Or create `Makefile`:
-```makefile
-fix:
-	black .
-check:
-	ruff . && mypy .
-```
-
-### Q: Ledger out of sync
-
-**Solution**:
-```bash
-# Sync ledger with Task Management
-/dev-flow:tasks sync
-```
-
-### Q: Commit blocked by hook
-
-**Common causes**:
-- `--no-verify` is blocked
-- lint check failed
-
-**Solution**:
-```bash
-# Fix issues first
-/dev-flow:verify
-
-# Then commit
-/dev-flow:commit
-```
-
-### Q: Multi-Agent task conflict
-
-**Solution**:
-```bash
-# Check conflicts
-dev_coordinate(action="check_conflicts")
-
-# Replan
-dev_coordinate(action="replan")
-```
-
----
-
-## Claude Code Integration
-
-### Recommended Rules
-
-dev-flow works best with these rules:
-
-| Rule | Function |
-|------|----------|
-| `agentic-coding.md` | Context management + discovery capture |
-| `command-tools.md` | Tools first, reduce Bash |
-| `verification-driven.md` | VDD principles |
-| `context-budget.md` | Context budget management |
-| `failure-detection.md` | Loop/bypass detection |
-
-### Hooks Integration
-
-dev-flow auto-enables these hooks:
-
-| Hook | Trigger | Function |
-|------|---------|----------|
-| PreToolUse | Before `git commit` | Block raw git commit, enforce /dev commit |
-| UserPromptSubmit | User sends prompt | Auto-retrieve relevant knowledge every 3rd prompt (temporal decay scoring) |
-| Setup | First init | Configure dev-flow environment + memory |
-| SessionStart | Resume session | Load ledger + platform knowledge + last summary |
-| PreCompact | Before compact | Backup transcript |
-| Stop | Session end | Generate session summary (Tier 1+) |
-| PostToolUse | After tool use | Tool counter + reminders + periodic capture (Tier 3) |
-
-### StatusLine
-
-StatusLine multi-line display (v3.13.0+):
-
-```
-████████░░ 76% | main | ↑2↓0 | !3M +2A | 15m
-✓ Read ×12 | ✓ Edit ×3 | ✓ Bash ×5
-Tasks: 2/5 (40%) | → 1 active | 2 pending
-```
-
-**Line 1**: Context usage | Branch | ahead/behind | File stats | Session duration
-**Line 2**: Tool usage stats (Read/Edit/Bash/Grep)
-**Line 3**: Task progress (completed/total | active | pending)
-**Line 4**: Agent status (if any agents running)
-
-**Manual configuration** (if needed):
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "$HOME/.claude/plugins/marketplaces/lazyman-ian/dev-flow/scripts/statusline.sh",
-    "padding": 0
-  }
-}
-```
-
-### Task Management
-
-Bidirectional sync:
-```bash
-# Export from ledger to Task Management
-/dev-flow:tasks export
-
-# Sync from Task Management to ledger
-/dev-flow:tasks sync
-```
+Reference: `skills/implement-plan/references/ralph-loop-mode.md`
 
 ---
 
@@ -1040,7 +741,7 @@ Bidirectional sync:
 1. .dev-flow.json → Highest priority (explicit user config)
 2. File-based detection → Auto-infer
    *.xcodeproj / Podfile / Package.swift → ios
-   build.gradle → android
+   build.gradle / AndroidManifest.xml → android
    package.json → web
    Otherwise → general
 ```
@@ -1049,15 +750,13 @@ Bidirectional sync:
 
 ### Built-in Platforms
 
-| Platform | Detection | lint fix | lint check | test | verify |
-|----------|-----------|----------|------------|------|--------|
-| iOS | `*.xcodeproj`, `Podfile` | swiftlint --fix | swiftlint | xcodebuild test | swiftlint && xcodebuild build |
-| Android | `build.gradle` | ktlint -F | ktlint | ./gradlew test | ktlintCheck && ./gradlew assembleDebug |
-| Web | `package.json` | (custom) | (custom) | (custom) | (custom) |
+| Platform | Detection | lint fix | lint check | verify |
+|----------|-----------|----------|------------|--------|
+| iOS | `*.xcodeproj`, `Podfile` | swiftlint --fix | swiftlint | swiftlint && xcodebuild build |
+| Android | `build.gradle` | ktlint -F | ktlint | ktlintCheck && ./gradlew assembleDebug |
+| Web | `package.json` | (custom) | (custom) | (custom) |
 
 ### Custom Platform
-
-Use `.dev-flow.json` to specify platform and commands for any project, overriding auto-detection:
 
 ```json
 {
@@ -1072,15 +771,182 @@ Use `.dev-flow.json` to specify platform and commands for any project, overridin
 }
 ```
 
-The `platform` field in `.dev-flow.json` also affects:
-- `dev_config` command output
-- Knowledge injection (SessionStart loads platform-specific pitfalls)
-- `dev_memory` knowledge classification
+The `platform` field also affects knowledge injection (SessionStart loads platform-specific pitfalls).
 
 ### Extend New Platform (Developers)
 
-1. `mcp-server/src/detector.ts` - Add detection logic (`detectPlatformSimple()` unified entry point)
-2. `mcp-server/src/platforms/xxx.ts` - Implement command config
+1. `mcp-server/src/detector.ts` — Add detection logic (`detectPlatformSimple()` unified entry)
+2. `mcp-server/src/platforms/xxx.ts` — Implement command config
+
+---
+
+## Best Practices
+
+### 1. Task Granularity
+
+| Size | Recommendation |
+|------|----------------|
+| Small (< 3 files) | Execute directly, no plan needed |
+| Medium (3-10 files) | `/dev-flow:plan` → `/dev-flow:implement` |
+| Large (> 10 files) | Split into multiple TASKs, Multi-Agent |
+| Full feature | `/dev start --auto` for autonomous execution |
+
+### 2. Commit Frequency
+
+```bash
+# Recommended: Small commits
+/dev-flow:commit  # Commit after each feature point
+
+# Not recommended: Accumulate large changes then commit all at once
+```
+
+### 3. Context Management
+
+| Signal | Action |
+|--------|--------|
+| Context > 70% | Update ledger → `/clear` |
+| Complete subtask | New session |
+| Agent repeating | New session |
+
+Ledger auto-restores state on session resume.
+
+### 4. VDD Practice
+
+Always include a verification command in task definitions:
+
+```bash
+"Fix login bug, verify: npm test auth should pass"
+
+/dev-flow:verify  # exit code 0 = truly done
+```
+
+### 5. Knowledge Accumulation
+
+```bash
+# Extract knowledge after major feature completion
+dev_memory(action='consolidate')
+
+# Knowledge auto-saves from Stop hook — no manual action needed for daily use
+```
+
+---
+
+## FAQ
+
+### Q: dev_config returns "unknown"
+
+**Cause**: Project not configured and not iOS/Android/Web.
+
+**Solution** (recommended: `.dev-flow.json`):
+
+```json
+{
+  "platform": "python",
+  "commands": {
+    "fix": "black .",
+    "check": "ruff . && mypy ."
+  }
+}
+```
+
+Or create a `Makefile` with `fix:` and `check:` targets.
+
+### Q: Ledger out of sync
+
+```bash
+/dev-flow:tasks sync
+```
+
+### Q: Commit blocked by hook
+
+**Common causes**: lint check failed, or `--no-verify` attempted (always blocked).
+
+**Solution**:
+```bash
+/dev-flow:verify  # Fix issues first
+/dev-flow:commit  # Then commit
+```
+
+### Q: Multi-Agent task conflict
+
+```bash
+dev_coordinate(action="check_conflicts")
+dev_coordinate(action="replan")
+```
+
+### Q: Autonomous Pipeline stops mid-run
+
+The pipeline stops at L3 escalation points (security/architecture decisions). Check the ledger for the escalation reason:
+
+```bash
+/dev-flow:ledger status
+```
+
+Resolve the flagged concern and resume with `/dev implement-plan`.
+
+### Q: Knowledge vault entries not appearing at session start
+
+Only `priority='critical'` entries are injected at session start (context diet). To check entries:
+
+```bash
+dev_memory(action='status')
+dev_memory(action='search', query='your topic')
+```
+
+---
+
+## Claude Code Integration
+
+### Hooks Integration
+
+dev-flow auto-enables these hooks:
+
+| Hook | Trigger | Function |
+|------|---------|----------|
+| PreToolUse | Before `git commit` | Block raw git commit, enforce /dev commit |
+| PreToolUse | Before `git commit` (chained) | Pre-commit knowledge pitfall check |
+| SessionStart | Resume session | Warn if not initialized + load ledger + inject critical knowledge + detect resume directive |
+| UserPromptSubmit | User sends prompt | Auto-retrieve relevant knowledge (temporal decay scoring) |
+| PreCompact | Before compact | Backup transcript |
+| Stop | Session end | Save session learnings to knowledge vault (quality-gate filtered) |
+| PostToolUse | After tool use | Tool counter + dev reminders |
+| TaskCompleted | Task marked done | Enforce proof manifest existence |
+| SubagentStart | Subagent spawns | Inject platform context |
+
+### Recommended Rules
+
+dev-flow works best with:
+
+| Rule | Function |
+|------|----------|
+| `agentic-engineering.md` | Autonomous execution principles |
+| `verification-driven.md` | VDD principles |
+| `failure-detection.md` | Loop/bypass detection |
+| `scope-control.md` | Prevent scope drift |
+| `workflow.md` | Context management |
+
+### StatusLine
+
+Multi-line display:
+
+```
+████████░░ 76% | main | ↑2↓0 | !3M +2A | 15m
+✓ Read ×12 | ✓ Edit ×3 | ✓ Bash ×5
+Tasks: 2/5 (40%) | → 1 active | 2 pending
+```
+
+**Line 1**: Context usage | Branch | ahead/behind | File stats | Session duration
+**Line 2**: Tool usage stats
+**Line 3**: Task progress
+**Line 4**: Agent status (if agents running)
+
+### Task Management
+
+Bidirectional sync:
+```bash
+/dev-flow:tasks export  # Export from ledger to Task Management
+/dev-flow:tasks sync    # Sync from Task Management to ledger
+```
 
 ---
 
@@ -1088,86 +954,50 @@ The `platform` field in `.dev-flow.json` also affects:
 
 ### v7.1.0 (2026-03-08)
 
-- **Autonomous Pipeline**: `/dev start --auto` fully autonomous pipeline — requirements → spec → validate → plan → implement → review gate → PR, human only at entry and exit
-- **spec-generator refactor**: Source-agnostic pure function, accepts any text input (Notion / file / URL / plain text)
-- **spec-validator agent**: Calls deterministic scripts (`validate-spec.sh` + `detect-escalation.sh`) for spec quality validation with self-healing
-- **validate-spec.sh**: 5 quality checks (verify command / scope / no ambiguity / acceptance criteria / security escalation), exit 0/1/2
-- **detect-escalation.sh**: 5 L3 escalation rules (auth / migration / deps / API breaking / infra), deterministic detection
-- **Review Gate Loop**: Post-implementation, pre-PR quality gate loop (P0/P1 fix → re-review, max 3 rounds)
-- **Proof Manifest enforcement**: `.proof/{task-id}.json` enforced by TaskCompleted hook — tasks cannot complete without it
-- **validate-agent upgrade**: Integrated `detect-escalation.sh` for L3 escalation detection
+- **Autonomous Pipeline**: `/dev start --auto` — requirements → spec → validate → plan → implement → review gate → PR, human only at entry and exit
+- **spec-generator refactor**: Source-agnostic pure function (Notion / file / URL / plain text)
+- **spec-validator agent**: Calls `validate-spec.sh` (5 checks) + `detect-escalation.sh` (5 rules) with self-healing
+- **Review Gate Loop**: Post-implement, pre-PR quality gate (P0/P1 fix → re-review, max 3 rounds)
+- **Proof Manifest enforcement**: TaskCompleted hook blocks completion without `.proof/{task-id}.json`
 - **`/dev spec` refactor**: Now a Notion adapter, all spec processing delegated to spec-generator
+
+### v7.0.0 (2026-03-01)
+
+- **Closed-Loop Learning Engine**: Ledger v2 with gate tracking + retry counts + timestamps
+- **Adaptive Execution Engine**: L1/L2/L3 decision architecture, task contracts, proof manifests
+- **Execution Report**: `.proof/execution-report.md` from ledger gate data (task completion, gate pass rates, self-healing stats)
+
+### v6.3.0 (2026-02-28)
+
+- **Agentic Engineering**: Task contracts, proof manifests, decision-agent routing
+- **Self-Healing Retry**: verify fail → diagnose → fix → re-verify (max 2)
+- **Silent Execution**: No explanatory text during implementation
+- **Auto-Resume**: `thoughts/ledgers/.resume-directive.md` + SessionStart injection
 
 ### v6.0.0 (2026-02-27)
 
-- **Notion Pipeline**: Task triage (`/dev inbox`), spec generation (`/dev spec`), post-merge status update hook
-- **Memory Architecture Alignment**: Auto Memory bidirectional sync (`syncToMemoryMd`), topic file output, path-scoped pitfalls
-- **Rules Distribution**: 9 platform-aware rule templates + `/dev rules` command, `/dev init` auto-install
-- **Structure Consistency**: All 5 plugins unified hooks/scripts/ path, added missing CLAUDE.md
-- **Test Infrastructure**: vitest config + 6 test files 98 tests + validate-plugins.sh + CI workflow
-- **Hook System Upgrade**: post-edit-format multi-formatter dispatch, context-warning strategic compaction, session-end cleanup
-- **Security Scan Skill**: 10-category deny-rules detection + guardrails reference
-- **Eval Harness Skill**: Session performance evaluation framework
-- **Search-First / Skill-Stocktake**: Search-first thinking + skill audit
-- **Checkpoint Command / Migration & Tech-Debt Checklists**: Manual checkpoints + plan template enhancement
-- **Contributing Guide + PR Template**: Standardized contribution workflow
+- **Notion Pipeline**: `/dev inbox` (task triage) + `/dev spec` (spec generation) + post-merge hook
+- **Knowledge Vault**: Markdown-first `thoughts/knowledge/` + SQLite FTS5 + priority/decay scoring
+- **Rules Distribution**: 12 platform-aware rule templates + `/dev rules` command
+- **Test Infrastructure**: vitest + 176 tests across 12 files + validate-plugins.sh + CI
 
 ### v5.0.0 (2026-02-12)
 
-- **5-Gate Execution Pipeline**: Per-task quality gates — Fresh Subagent → Self-Review (11-point) → Spec Review → Quality Review → Batch Checkpoint
-- **brainstorm skill**: Independent pre-creative-work exploration via Socratic questioning
-- **verify skill**: Internal skill enforcing "no completion claims without fresh verification evidence"
-- **spec-reviewer agent**: Verifies implementation matches plan exactly
-- **Adaptive Plan Granularity**: logic-task (2-5min, complete code) + ui-task (5-15min, Figma design_ref)
-- **`/dev finish` command**: Branch completion with 4 options (merge/PR/keep/discard)
-- **CSO Optimization**: All skill descriptions rewritten to state only triggering conditions
-- **api-implementer absorbed**: Moved to create-plan/references/api-template.md
+- **5-Gate Execution Pipeline**: Fresh Subagent → Self-Review → Spec Review → Quality Review → Verify
+- **brainstorm skill**: Socratic questioning for design exploration
+- **verify skill**: Internal skill enforcing no completion claims without verification evidence
+- **Adaptive Plan Granularity**: logic-task (2-5min) + ui-task (5-15min)
 
-### v4.0.0 (2026-02-09)
+### v4.0.0–v3.x (2026-01-27 to 2026-02-09)
 
-- **4-Tier Memory System**: Progressive memory — Tier 0 (FTS5) → Tier 1 (Session summaries) → Tier 2 (ChromaDB) → Tier 3 (Observation capture)
-- **New MCP Actions**: `dev_memory` adds save/search/get — 3-layer search (lightweight index → full content)
-- **FTS5 Synonym Expansion**: 8 default synonym groups (concurrency, auth, crash, etc.), auto-expands queries
-- **Session Summary (Stop hook)**: Haiku API or heuristic fallback (subscription users need no API key)
-- **Periodic Observations (PostToolUse)**: Auto-classify every N tool uses as decision/bugfix/feature/discovery
-- **ChromaDB Semantic Search**: Optional, graceful degradation (pure FTS5 when not installed)
-- **Setup Hook Upgrade**: New projects auto-include `memory: { tier: 0 }` config
-- **Context Injector Enhanced**: Last session summary injection (budget 2500 tokens)
-
-### v3.17.0 (2026-02-09)
-
-- **Knowledge Consolidation Engine**: `dev_memory` tool, closed-loop Distill → Consolidate → Inject
-- **Smart Injection**: SessionStart auto-injects platform pitfalls and task-related knowledge (~500 tokens)
-- **Reasoning Persistence**: Dual-write to `thoughts/reasoning/` + FTS5 index
-- **Unified Platform Detection**: `detectPlatformSimple()` consolidates 4 detection implementations, `.dev-flow.json` takes highest priority
-- **New Command**: /extract-knowledge fully implemented
-
-### v3.16.0 (2026-02-07)
-
-- **agent-team**: Generic Agent Team orchestration skill
-- **cross-platform-team**: Refactored to extend agent-team
-- **evaluate-agent**: Cross-session baselines + Task metrics integration
-
-### v3.13.0 (2026-01-27)
-
-- **VDD**: Verification-Driven Development
-- **Multi-Agent**: TaskCoordinator + HandoffHub
-- **Knowledge Base**: Cross-project knowledge repository
-- **New Commands**: /verify, /extract-knowledge
-- **New Tools**: dev_coordinate, dev_handoff, dev_aggregate
-- **Hook Enhancement**: Platform knowledge loading, bypass detection
-
-### v3.11.0
-
-- Meta-Iterate self-improvement
-- Task Management bidirectional sync
-- Reasoning records
+- v4.0.0: Memory system (later superseded by Markdown-first vault in v6.0.0)
+- v3.17.0: Knowledge consolidation engine, smart injection
+- v3.16.0: agent-team, cross-platform-team, evaluate-agent
+- v3.13.0: VDD, Multi-Agent coordination, Knowledge Base
 
 ---
 
 ## Contributing
-
-Contributions welcome!
 
 1. Fork the repo
 2. Create branch: `git checkout -b feature/xxx`
@@ -1180,13 +1010,7 @@ Contributions welcome!
    ```
 4. Wait for code review
 
-### Extend Platforms
-
-Most welcome contributions are new platform support:
-- Python (ruff, black, mypy)
-- Go (golangci-lint, gofmt)
-- Rust (clippy, rustfmt)
-- Node (eslint, prettier)
+Most welcome contributions: new platform support (Python, Go, Rust, Node).
 
 ---
 
