@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Auto-pipeline state file helper — sourced by other hooks/scripts
-# State file: .claude/cache/.auto-pipeline-{task_id}.json
+# State file: .claude/state/pipeline/{task_id}.json
 
 set -o pipefail
 
 auto_state_init() {
   local project_dir="$1" task_id="$2" source_text="$3"
-  local cache_dir="$project_dir/.claude/cache"
-  local state_file="$cache_dir/.auto-pipeline-${task_id}.json"
+  local state_dir="$project_dir/.claude/state/pipeline"
+  local state_file="$state_dir/${task_id}.json"
 
-  mkdir -p "$cache_dir"
+  mkdir -p "$state_dir"
 
   local now
   now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -31,10 +31,10 @@ EOF
 
 auto_state_read() {
   local project_dir="$1" task_id="${2:-}"
-  local cache_dir="$project_dir/.claude/cache"
+  local state_dir="$project_dir/.claude/state/pipeline"
 
   if [[ -n "$task_id" ]]; then
-    local state_file="$cache_dir/.auto-pipeline-${task_id}.json"
+    local state_file="$state_dir/${task_id}.json"
     if [[ -f "$state_file" ]]; then
       cat "$state_file"
       return 0
@@ -45,7 +45,7 @@ auto_state_read() {
   # No task_id: find newest active state file
   local newest=""
   local newest_time=0
-  for f in "$cache_dir"/.auto-pipeline-*.json; do
+  for f in "$state_dir"/*.json; do
     [[ -f "$f" ]] || continue
     [[ "$f" == *.done.json ]] && continue
     local mtime
@@ -65,8 +65,8 @@ auto_state_read() {
 
 auto_state_advance() {
   local project_dir="$1" task_id="$2" stage="$3"
-  local cache_dir="$project_dir/.claude/cache"
-  local state_file="$cache_dir/.auto-pipeline-${task_id}.json"
+  local state_dir="$project_dir/.claude/state/pipeline"
+  local state_file="$state_dir/${task_id}.json"
 
   [[ -f "$state_file" ]] || return 1
 
@@ -80,9 +80,9 @@ auto_state_advance() {
 
 auto_state_cleanup() {
   local project_dir="$1" task_id="$2"
-  local cache_dir="$project_dir/.claude/cache"
-  local state_file="$cache_dir/.auto-pipeline-${task_id}.json"
-  local done_file="$cache_dir/.auto-pipeline-${task_id}.done.json"
+  local state_dir="$project_dir/.claude/state/pipeline"
+  local state_file="$state_dir/${task_id}.json"
+  local done_file="$state_dir/${task_id}.done.json"
 
   if [[ -f "$state_file" ]]; then
     jq '.current_stage = "done"' "$state_file" > "$done_file" 2>/dev/null && rm -f "$state_file"

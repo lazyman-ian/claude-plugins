@@ -114,7 +114,7 @@ Runs when a session begins. Cannot block. Output becomes context for Claude.
 ```bash
 # Git status + active tasks
 git_status=$(git status --short 2>/dev/null || echo "")
-active_ledger=$(ls thoughts/ledgers/CONTINUITY_CLAUDE-*.md 2>/dev/null | head -1)
+active_ledger=$(cat .claude/state/context.json 2>/dev/null | jq -r '.active_ledger // empty')
 
 echo "Git: $git_status"
 if [[ -n "$active_ledger" ]]; then

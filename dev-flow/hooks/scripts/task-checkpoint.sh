@@ -1,6 +1,9 @@
 #!/bin/bash
 set -o pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/registry.sh"
+
 INPUT=$(cat)
 TASK_SUBJECT=$(echo "$INPUT" | jq -r '.task_subject // empty' 2>/dev/null || echo "")
 TASK_ID=$(echo "$INPUT" | jq -r '.task_id // empty' 2>/dev/null || echo "")
@@ -9,12 +12,12 @@ TASK_ID=$(echo "$INPUT" | jq -r '.task_id // empty' 2>/dev/null || echo "")
 [[ -z "$TASK_SUBJECT" ]] && { echo '{"continue":true}'; exit 0; }
 
 project_dir="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
-LEDGER_DIR="$project_dir/thoughts/ledgers"
 
-[[ ! -d "$LEDGER_DIR" ]] && { echo '{"continue":true}'; exit 0; }
-
-# Find active ledger (most recent CONTINUITY_CLAUDE-*.md)
-LEDGER=$(ls -t "$LEDGER_DIR"/CONTINUITY_CLAUDE-*.md 2>/dev/null | head -1)
+# Find active ledger via registry
+LEDGER=$(registry_resolve "$project_dir" 2>/dev/null || true)
+if [[ -n "$LEDGER" && ! "$LEDGER" = /* ]]; then
+  LEDGER="$project_dir/$LEDGER"
+fi
 [[ -z "$LEDGER" || ! -f "$LEDGER" ]] && { echo '{"continue":true}'; exit 0; }
 
 TIMESTAMP=$(date -u +"%H:%M")

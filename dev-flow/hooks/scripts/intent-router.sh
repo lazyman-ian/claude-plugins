@@ -8,6 +8,9 @@
 
 set -o pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/registry.sh"
+
 INPUT=$(cat)
 USER_PROMPT=$(echo "$INPUT" | jq -r '.user_prompt // empty' 2>/dev/null || echo "")
 
@@ -16,7 +19,7 @@ USER_PROMPT=$(echo "$INPUT" | jq -r '.user_prompt // empty' 2>/dev/null || echo 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
 # Skip intent routing in auto pipeline mode
-for _f in "$PROJECT_DIR/.claude/cache/"/.auto-pipeline-*.json; do
+for _f in "$PROJECT_DIR/.claude/state/pipeline/"*.json; do
   [[ -f "$_f" ]] || continue
   [[ "$_f" == *.done.json ]] && continue
   _auto=$(jq -r '.auto // empty' "$_f" 2>/dev/null)
@@ -31,7 +34,7 @@ LOWER=$(echo "$USER_PROMPT" | tr '[:upper:]' '[:lower:]')
 # --- Category: Implementation ---
 if echo "$LOWER" | grep -qE '(implement|build|create|add|新增|实现|添加|修改).*(feature|module|component|function|功能|模块)'; then
   # Inject active plan summary if exists
-  PLANS_DIR="$PROJECT_DIR/thoughts/shared/plans"
+  PLANS_DIR="$PROJECT_DIR/thoughts/plans"
   if [[ -d "$PLANS_DIR" ]]; then
     ACTIVE_PLAN=$(ls -t "$PLANS_DIR"/*.md 2>/dev/null | head -1)
     if [[ -n "$ACTIVE_PLAN" ]]; then
@@ -40,10 +43,9 @@ if echo "$LOWER" | grep -qE '(implement|build|create|add|新增|实现|添加|�
       CONTEXT="[intent:implementation] Active plan: $PLAN_NAME (status: $PLAN_STATUS). Consider /dev implement-plan if plan exists."
     fi
   fi
-  # Also check ledger
-  LEDGER_DIR="$PROJECT_DIR/thoughts/ledgers"
-  if [[ -d "$LEDGER_DIR" ]] && [[ -z "$CONTEXT" ]]; then
-    ACTIVE_LEDGER=$(ls -t "$LEDGER_DIR"/TASK-*.md 2>/dev/null | head -1)
+  # Also check registry for active ledger
+  if [[ -z "$CONTEXT" ]]; then
+    ACTIVE_LEDGER=$(registry_resolve "$PROJECT_DIR" 2>/dev/null || true)
     if [[ -n "$ACTIVE_LEDGER" ]]; then
       CONTEXT="[intent:implementation] Active ledger: $(basename "$ACTIVE_LEDGER"). Check ledger state before starting."
     fi
@@ -62,12 +64,12 @@ elif echo "$LOWER" | grep -qE '(how|why|what|explain|research|understand|了解|
 
 # --- Category: Planning ---
 elif echo "$LOWER" | grep -qE '(plan|design|architect|brainstorm|规划|设计|方案|计划)'; then
-  PLANS_DIR="$PROJECT_DIR/thoughts/shared/plans"
+  PLANS_DIR="$PROJECT_DIR/thoughts/plans"
   PLAN_COUNT=0
   if [[ -d "$PLANS_DIR" ]]; then
     PLAN_COUNT=$(ls "$PLANS_DIR"/*.md 2>/dev/null | wc -l | tr -d ' ')
   fi
-  CONTEXT="[intent:planning] $PLAN_COUNT existing plan(s) in thoughts/shared/plans/. Use /dev create-plan or /dev brainstorm."
+  CONTEXT="[intent:planning] $PLAN_COUNT existing plan(s) in thoughts/plans/. Use /dev create-plan or /dev brainstorm."
 
 # --- Category: Commit/PR workflow ---
 elif echo "$LOWER" | grep -qE '(/dev|/commit|/pr|commit|提交|合并)'; then

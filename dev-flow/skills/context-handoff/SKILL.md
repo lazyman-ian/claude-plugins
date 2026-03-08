@@ -72,7 +72,7 @@ dev_ledger(action="status")    → get plan_path and current task info
 
 Write to `thoughts/ledgers/.resume-directive.md`:
 ```markdown
-plan: [plan path, e.g. thoughts/shared/plans/PLAN-xxx.md]
+plan: [plan path, e.g. thoughts/plans/PLAN-xxx.md]
 task: [current task title and number, e.g. "Task 3/7: Implement auth service"]
 remaining: [count of remaining tasks]
 autonomy: [level from plan frontmatter, e.g. "Level 2 — batch checkpoint"]

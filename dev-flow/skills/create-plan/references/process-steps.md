@@ -157,7 +157,7 @@ Get buy-in on structure before writing details.
 ### 4a. Ensure Directory Exists
 
 ```bash
-mkdir -p thoughts/shared/plans
+mkdir -p thoughts/plans
 ```
 
 ### 4b. Create Plan File
@@ -220,7 +220,7 @@ Interactive mode (no state file) unchanged — still requires user approval.
 
 ```
 I've created the initial implementation plan at:
-`thoughts/shared/plans/YYYY-MM-DD-description.md`
+`thoughts/plans/YYYY-MM-DD-description.md`
 
 Please review:
 - Are phases properly scoped?

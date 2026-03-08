@@ -5,6 +5,9 @@
 # Relaxed strict mode: -e can cause issues with git commands in non-git dirs
 set -o pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/registry.sh"
+
 INPUT=$(cat)
 
 # Safe JSON parsing with fallbacks

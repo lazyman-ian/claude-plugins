@@ -9,7 +9,7 @@ Validate a plan's technology choices against current best practices (2024-2025).
 ### 1. Read Plan
 
 ```bash
-cat thoughts/shared/plans/<plan-file>.md
+cat thoughts/plans/<plan-file>.md
 ```
 
 ### 2. Extract Tech Choices
@@ -116,6 +116,6 @@ dev_ledger(action="update", content="Validation: [status]")
 ## Examples
 
 ```bash
-/dev-flow:validate thoughts/shared/plans/2025-01-10-auth.md
+/dev-flow:validate thoughts/plans/2025-01-10-auth.md
 /dev-flow:validate                  # Validate most recent plan
 ```

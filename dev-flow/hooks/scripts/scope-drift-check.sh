@@ -14,18 +14,14 @@ FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null |
 [[ -z "$FILE_PATH" ]] && exit 0
 
 project_dir="${CLAUDE_PROJECT_DIR:-$(git -C "$(dirname "$FILE_PATH")" rev-parse --show-toplevel 2>/dev/null || pwd)}"
-PLANS_DIR="$project_dir/thoughts/shared/plans"
+PLANS_DIR="$project_dir/thoughts/plans"
 [[ ! -d "$PLANS_DIR" ]] && exit 0
 
-# Cache file: keyed by branch name hash
+# Cache file: per-project in .claude/state/cache/ (no hash)
+CACHE_DIR="$project_dir/.claude/state/cache"
+mkdir -p "$CACHE_DIR"
 CURRENT_BRANCH=$(git -C "$project_dir" branch --show-current 2>/dev/null)
-if [[ -n "$CURRENT_BRANCH" ]]; then
-  BRANCH_HASH=$(echo "$CURRENT_BRANCH" | (shasum 2>/dev/null || sha1sum) | cut -c1-12)
-else
-  # Detached HEAD: fall back to dir hash
-  BRANCH_HASH=$(echo "$project_dir" | /usr/bin/sed 's|/|-|g' | tail -c 32)
-fi
-CACHE_FILE="/tmp/claude-scope-targets-${BRANCH_HASH}.txt"
+CACHE_FILE="$CACHE_DIR/scope-targets.txt"
 
 # Find active plan (status != completed)
 _find_active_plan() {

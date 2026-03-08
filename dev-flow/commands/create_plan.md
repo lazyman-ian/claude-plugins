@@ -24,7 +24,7 @@ Create detailed implementation plans through research and iteration.
 1. **Context Gathering** - Read all mentioned files completely
 2. **Research** - Spawn parallel agents to explore codebase
 3. **Structure** - Propose plan outline, get feedback
-4. **Write** - Create plan at `thoughts/shared/plans/YYYY-MM-DD-*.md`
+4. **Write** - Create plan at `thoughts/plans/YYYY-MM-DD-*.md`
 5. **Iterate** - Refine until approved
 
 ## Output

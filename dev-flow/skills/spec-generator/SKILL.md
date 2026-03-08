@@ -2,7 +2,7 @@
 name: spec-generator
 description: >-
   Generates structured implementation specs from task descriptions or requirements documents.
-  Classifies as Feature/Bug, fills appropriate template, and saves to thoughts/shared/specs/.
+  Classifies as Feature/Bug, fills appropriate template, and saves to thoughts/specs/.
   This skill should be used when the user wants to generate a spec, create implementation requirements, or document task details.
   Triggers on "generate spec", "create spec", "write spec",
   "生成规格", "创建规格", "写规格", "需求文档", "实现规格", "任务规格".
@@ -68,7 +68,7 @@ Incorporate relevant pitfalls into Open Questions or Technical Approach.
 ### Step 6: Save Spec
 
 ```
-Write thoughts/shared/specs/SPEC-{id}.md
+Write thoughts/specs/SPEC-{id}.md
 ```
 
 Where `{id}` is a short slug from the title (e.g., `login-redesign`).
@@ -78,11 +78,11 @@ Where `{id}` is a short slug from the title (e.g., `login-redesign`).
 Spawn spec-validator agent on the saved spec:
 
 ```
-Task(spec-validator, spec_path="thoughts/shared/specs/SPEC-{id}.md")
+Task(spec-validator, spec_path="thoughts/specs/SPEC-{id}.md")
 ```
 
 **If spec-validator returns VALIDATED**:
-- Auto-invoke `/dev create-plan thoughts/shared/specs/SPEC-{id}.md`
+- Auto-invoke `/dev create-plan thoughts/specs/SPEC-{id}.md`
 
 **If spec-validator returns NEEDS_HUMAN**:
 - Output the spec content

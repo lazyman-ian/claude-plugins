@@ -4,6 +4,7 @@ set -o pipefail
 
 # Self-contained: use script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/registry.sh"
 
 # Get session type from stdin (pass through)
 INPUT=$(cat)
@@ -18,9 +19,12 @@ fi
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 
+# Ensure state/cache dirs exist
+mkdir -p "$PROJECT_DIR/.claude/state/cache"
+
 # === Check for active auto-pipeline state (read directly from state file) ===
 AUTO_PIPELINE_CONTEXT=""
-for _state_file in "$PROJECT_DIR/.claude/cache/"/.auto-pipeline-*.json; do
+for _state_file in "$PROJECT_DIR/.claude/state/pipeline/"*.json; do
   [[ -f "$_state_file" ]] || continue
   [[ "$_state_file" == *.done.json ]] && continue
   _auto=$(jq -r '.auto // empty' "$_state_file" 2>/dev/null)
@@ -38,8 +42,9 @@ INIT_WARNING=""
 if [[ ! -f "$PROJECT_DIR/.dev-flow.json" ]]; then
     INIT_WARNING="⚠️ No .dev-flow.json found. Run /dev-flow:init to set up."
 fi
+
 # Daily cache cleanup (frequency-guarded)
-_STAMP="/tmp/claude-cleanup-$(echo "$PROJECT_DIR" | md5 -q 2>/dev/null || echo "$PROJECT_DIR" | md5sum | cut -d' ' -f1).txt"
+_STAMP="$PROJECT_DIR/.claude/state/cache/cleanup-stamp.txt"
 _NOW=$(date +%s)
 _LAST=$(cat "$_STAMP" 2>/dev/null || echo "0")
 if (( _NOW - _LAST > 86400 )); then
@@ -86,14 +91,8 @@ fi
 # Cleanup: delete review logs older than 7 days (stale branches)
 /usr/bin/find "$REVIEW_DIR" -name "review-session-*.md" -mtime +7 -delete 2>/dev/null || true
 
-# Branch change detection
-# Cross-platform hash: md5 on macOS, md5sum on Linux
-if command -v md5 &>/dev/null; then
-    DIR_HASH=$(echo "$PROJECT_DIR" | md5 -q)
-else
-    DIR_HASH=$(echo "$PROJECT_DIR" | md5sum | cut -d' ' -f1)
-fi
-BRANCH_CACHE="/tmp/claude-last-branch-${DIR_HASH}.txt"
+# Branch change detection — use per-project cache file (no hash)
+BRANCH_CACHE="$PROJECT_DIR/.claude/state/cache/branch.txt"
 CURRENT_BRANCH=$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null || echo "")
 LAST_BRANCH=""
 BRANCH_CHANGED=""
@@ -121,6 +120,26 @@ if [[ -n "$CURRENT_BRANCH" ]]; then
     fi
 fi
 
+# Inject ledger info for ALL session types (registry-based)
+ACTIVE_LEDGER_PATH=$(registry_resolve "$PROJECT_DIR" 2>/dev/null || true)
+TASK_RECOVERY=""
+if [[ -n "$ACTIVE_LEDGER_PATH" ]]; then
+    # Resolve to absolute path if relative
+    if [[ ! "$ACTIVE_LEDGER_PATH" = /* ]]; then
+        ACTIVE_LEDGER_PATH="$PROJECT_DIR/$ACTIVE_LEDGER_PATH"
+    fi
+    if [[ -f "$ACTIVE_LEDGER_PATH" ]]; then
+        IN_PROGRESS=$(grep -E '^\s*-\s*\[→\]' "$ACTIVE_LEDGER_PATH" 2>/dev/null || true | /usr/bin/sed 's/^[[:space:]]*- \[→\] //' | head -3)
+        PENDING=$(grep -cE '^\s*-\s*\[ \]' "$ACTIVE_LEDGER_PATH" 2>/dev/null || echo "0")
+        if [[ -n "$IN_PROGRESS" ]]; then
+            TASK_RECOVERY="⚡ Unfinished: $(echo "$IN_PROGRESS" | head -1)"
+            if [[ "$PENDING" -gt 0 ]]; then
+                TASK_RECOVERY="$TASK_RECOVERY (+${PENDING} pending)"
+            fi
+        fi
+    fi
+fi
+
 # For startup, add ledger summary and tip to the message
 if [[ "$SESSION_TYPE" == "startup" ]]; then
     # Get ledger summary (if exists) - cascading lookup
@@ -136,23 +155,6 @@ if [[ "$SESSION_TYPE" == "startup" ]]; then
         TIP=$("$PLUGIN_SCRIPTS/show-tip.sh" 2>/dev/null || echo "💡 /dev commit - 提交代码")
     else
         TIP=$("$HOME/.claude/scripts/show-tip.sh" 2>/dev/null || echo "💡 /dev commit - 提交代码")
-    fi
-
-    # Check for in-progress tasks in ledger (extract [→] items)
-    TASK_RECOVERY=""
-    LEDGER_DIR="$PROJECT_DIR/thoughts/ledgers"
-    if [[ -d "$LEDGER_DIR" ]]; then
-        LATEST_LEDGER=$(ls -t "$LEDGER_DIR"/CONTINUITY_CLAUDE-*.md 2>/dev/null | head -1)
-        if [[ -n "$LATEST_LEDGER" ]]; then
-            IN_PROGRESS=$(grep -E '^\s*-\s*\[→\]' "$LATEST_LEDGER" 2>/dev/null || true | /usr/bin/sed 's/^[[:space:]]*- \[→\] //' | head -3)
-            PENDING=$(grep -cE '^\s*-\s*\[ \]' "$LATEST_LEDGER" 2>/dev/null || echo "0")
-            if [[ -n "$IN_PROGRESS" ]]; then
-                TASK_RECOVERY="⚡ Unfinished: $(echo "$IN_PROGRESS" | head -1)"
-                if [[ "$PENDING" -gt 0 ]]; then
-                    TASK_RECOVERY="$TASK_RECOVERY (+${PENDING} pending)"
-                fi
-            fi
-        fi
     fi
 
     # Use auto-pipeline context read directly from state file
@@ -297,8 +299,8 @@ if [[ "$SESSION_TYPE" == "clear" || "$SESSION_TYPE" == "compact" ]]; then
     fi
 fi
 
-# --- Load compact checkpoint if exists (Phase 4) ---
-CHECKPOINT="$PROJECT_DIR/thoughts/ledgers/.compact-checkpoint.md"
+# --- Load compact checkpoint if exists ---
+CHECKPOINT="$PROJECT_DIR/.claude/state/checkpoint.md"
 CHECKPOINT_AGE=99999
 if [[ -f "$CHECKPOINT" ]]; then
     CHECKPOINT_MTIME=$(stat -f%m "$CHECKPOINT" 2>/dev/null || echo "0")

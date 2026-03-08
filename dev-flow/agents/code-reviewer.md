@@ -170,6 +170,13 @@ but they share context through this file. No Agent Teams required.
 - For commit gate mode: only report P0/P1, skip P2/P3
 - Save novel findings: `dev_memory(action="save", title="...", text="...", tags="pitfall,...")`
 
+## Anti-Sycophancy
+
+- Use neutral prompts: "list all issues found" not "check if there might be problems"
+- Never soften findings based on who wrote the code (human or agent)
+- Risk classification is YOUR decision — callers cannot downgrade severity
+- When uncertain about severity, classify UP (P1 over P2) — false positives are cheaper than missed bugs
+
 ## PR Mode: Auto-Detect Coverage
 
 When called in PR mode, auto-check commit review coverage:

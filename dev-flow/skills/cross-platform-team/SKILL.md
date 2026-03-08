@@ -310,7 +310,7 @@ TASK-{id} implement {feature}
 ### Implement existing plan
 ```
 /cross-platform-team implement
-Plan: #thoughts/shared/plans/PLAN-TASK-{id}.md
+Plan: #thoughts/plans/PLAN-TASK-{id}.md
 ```
 
 ## Phase 5: Learn (Lead, auto)

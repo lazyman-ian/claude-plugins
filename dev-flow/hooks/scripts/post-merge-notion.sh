@@ -42,7 +42,7 @@ if [ -z "$branch" ]; then
 fi
 
 # Look for SPEC files with source_id in frontmatter
-spec_dir="$project_dir/thoughts/shared/specs"
+spec_dir="$project_dir/thoughts/specs"
 if [ -d "$spec_dir" ]; then
   latest_spec=$(/usr/bin/find "$spec_dir" -name "SPEC-*.md" -newer "$config_file" 2>/dev/null | head -1)
   if [ -n "$latest_spec" ]; then

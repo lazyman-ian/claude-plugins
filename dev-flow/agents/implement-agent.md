@@ -85,3 +85,4 @@ The orchestrator reads `gates` from the handoff and calls `dev_ledger(action='ta
 - Do NOT report completion with known issues
 - Do NOT output explanatory text during implementation
 - Do NOT ask "should I continue?" or "how should I proceed?"
+- Do NOT make technology choices — plan specifies libraries, versions, APIs. If plan is ambiguous, escalate to decision-agent, never guess

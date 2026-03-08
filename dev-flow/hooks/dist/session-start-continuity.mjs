@@ -80,32 +80,66 @@ function getUnmarkedHandoffs() {
     return [];
   }
 }
+// Find active ledger via .claude/state/context.json registry, fallback to mtime scan
+function findActiveLedger(projectDir) {
+  // 1. Try registry: read .claude/state/context.json
+  const registryPath = path.join(projectDir, ".claude", "state", "context.json");
+  if (fs.existsSync(registryPath)) {
+    try {
+      const registry = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
+      if (registry && registry.branches) {
+        // Get current branch via git
+        let branch = "";
+        try {
+          branch = execSync(`git -C "${projectDir}" branch --show-current`, { encoding: "utf-8", timeout: 2e3 }).trim();
+        } catch {}
+        if (branch && registry.branches[branch] && registry.branches[branch].ledger) {
+          const ledgerRelPath = registry.branches[branch].ledger;
+          const ledgerAbsPath = path.isAbsolute(ledgerRelPath)
+            ? ledgerRelPath
+            : path.join(projectDir, ledgerRelPath);
+          if (fs.existsSync(ledgerAbsPath)) {
+            return ledgerAbsPath;
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // 2. Fallback: scan thoughts/ledgers/*.md by mtime (any .md, not hidden)
+  const ledgerDir = path.join(projectDir, "thoughts", "ledgers");
+  if (!fs.existsSync(ledgerDir)) return null;
+
+  const ledgerFiles = fs.readdirSync(ledgerDir)
+    .filter((f) => f.endsWith(".md") && !f.startsWith("."))
+    .sort((a, b) => {
+      const statA = fs.statSync(path.join(ledgerDir, a));
+      const statB = fs.statSync(path.join(ledgerDir, b));
+      return statB.mtime.getTime() - statA.mtime.getTime();
+    });
+
+  if (ledgerFiles.length === 0) return null;
+  return path.join(ledgerDir, ledgerFiles[0]);
+}
 async function main() {
   const input = JSON.parse(await readStdin());
   const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
   const sessionType = input.source || input.type;
-  const ledgerDir = path.join(projectDir, "thoughts", "ledgers");
-  if (!fs.existsSync(ledgerDir)) {
-    console.log(JSON.stringify({ result: "continue" }));
-    return;
-  }
-  const ledgerFiles = fs.readdirSync(ledgerDir).filter((f) => f.startsWith("CONTINUITY_CLAUDE-") && f.endsWith(".md")).sort((a, b) => {
-    const statA = fs.statSync(path.join(ledgerDir, a));
-    const statB = fs.statSync(path.join(ledgerDir, b));
-    return statB.mtime.getTime() - statA.mtime.getTime();
-  });
+
+  const ledgerPath = findActiveLedger(projectDir);
+
   let message = "";
   let additionalContext = "";
-  if (ledgerFiles.length > 0) {
-    const mostRecent = ledgerFiles[0];
-    const ledgerPath = path.join(ledgerDir, mostRecent);
+  if (ledgerPath) {
+    const ledgerName = path.basename(ledgerPath);
     pruneLedger(ledgerPath);
     const ledgerContent = fs.readFileSync(ledgerPath, "utf-8");
     const goalMatch = ledgerContent.match(/## Goal\n([\s\S]*?)(?=\n## |$)/);
     const nowMatch = ledgerContent.match(/- Now: ([^\n]+)/);
     const goalSummary = goalMatch ? goalMatch[1].trim().split("\n")[0].substring(0, 100) : "No goal found";
     const currentFocus = nowMatch ? nowMatch[1].trim() : "Unknown";
-    const sessionName = mostRecent.replace("CONTINUITY_CLAUDE-", "").replace(".md", "");
+    // Derive session name from ledger filename (no prefix stripping needed)
+    const sessionName = ledgerName.replace(/\.md$/, "");
     const handoffDir = path.join(projectDir, "thoughts", "shared", "handoffs", sessionName);
     const latestHandoff = getLatestHandoff(handoffDir);
     if (sessionType === "startup") {
@@ -119,76 +153,46 @@ async function main() {
       }
       startupMsg += " (run /dev ledger to continue)";
       message = startupMsg;
+      // Also inject additionalContext for startup
+      additionalContext = `Continuity ledger loaded from ${ledgerName}:\n\n${ledgerContent}`;
     } else {
       console.error(`\u2713 Ledger loaded: ${sessionName} \u2192 ${currentFocus}`);
-      message = `[${sessionType}] Loaded: ${mostRecent} | Goal: ${goalSummary} | Focus: ${currentFocus}`;
-      if (sessionType === "clear" || sessionType === "compact") {
-        additionalContext = `Continuity ledger loaded from ${mostRecent}:
-
-${ledgerContent}`;
-        const unmarkedHandoffs = getUnmarkedHandoffs();
-        if (unmarkedHandoffs.length > 0) {
-          additionalContext += `
-
----
-
-## Unmarked Session Outcomes
-
-`;
-          additionalContext += `The following handoffs have no outcome marked. Consider marking them to improve future session recommendations:
-
-`;
-          for (const h of unmarkedHandoffs) {
-            const taskLabel = h.task_number ? `task-${h.task_number}` : "handoff";
-            const summaryPreview = h.task_summary ? h.task_summary.substring(0, 60) + "..." : "(no summary)";
-            additionalContext += `- **${h.session_name}/${taskLabel}** (ID: \`${h.id.substring(0, 8)}\`): ${summaryPreview}
-`;
-          }
-          additionalContext += `
-To mark an outcome:
-\`\`\`bash
-uv run python scripts/artifact_mark.py --handoff <ID> --outcome SUCCEEDED|PARTIAL_PLUS|PARTIAL_MINUS|FAILED
-\`\`\`
-`;
+      message = `[${sessionType}] Loaded: ${ledgerName} | Goal: ${goalSummary} | Focus: ${currentFocus}`;
+      additionalContext = `Continuity ledger loaded from ${ledgerName}:\n\n${ledgerContent}`;
+      const unmarkedHandoffs = getUnmarkedHandoffs();
+      if (unmarkedHandoffs.length > 0) {
+        additionalContext += `\n\n---\n\n## Unmarked Session Outcomes\n\n`;
+        additionalContext += `The following handoffs have no outcome marked. Consider marking them to improve future session recommendations:\n\n`;
+        for (const h of unmarkedHandoffs) {
+          const taskLabel = h.task_number ? `task-${h.task_number}` : "handoff";
+          const summaryPreview = h.task_summary ? h.task_summary.substring(0, 60) + "..." : "(no summary)";
+          additionalContext += `- **${h.session_name}/${taskLabel}** (ID: \`${h.id.substring(0, 8)}\`): ${summaryPreview}\n`;
         }
-        if (latestHandoff) {
-          const handoffPath = path.join(handoffDir, latestHandoff.filename);
-          const handoffContent = fs.readFileSync(handoffPath, "utf-8");
-          const handoffLabel = latestHandoff.isAutoHandoff ? "Latest auto-handoff" : "Latest task handoff";
-          additionalContext += `
-
----
-
-${handoffLabel} (${latestHandoff.filename}):
-`;
-          additionalContext += `Status: ${latestHandoff.status}${latestHandoff.isAutoHandoff ? "" : ` | Task: ${latestHandoff.taskNumber}`}
-
-`;
-          const truncatedHandoff = handoffContent.length > 2e3 ? handoffContent.substring(0, 2e3) + "\n\n[... truncated, read full file if needed]" : handoffContent;
-          additionalContext += truncatedHandoff;
-          const allHandoffs = fs.readdirSync(handoffDir).filter((f) => (f.startsWith("task-") || f.startsWith("auto-handoff-")) && f.endsWith(".md")).sort((a, b) => {
-            const statA = fs.statSync(path.join(handoffDir, a));
-            const statB = fs.statSync(path.join(handoffDir, b));
-            return statB.mtime.getTime() - statA.mtime.getTime();
+        additionalContext += `\nTo mark an outcome:\n\`\`\`bash\nuv run python scripts/artifact_mark.py --handoff <ID> --outcome SUCCEEDED|PARTIAL_PLUS|PARTIAL_MINUS|FAILED\n\`\`\`\n`;
+      }
+      if (latestHandoff) {
+        const handoffPath = path.join(handoffDir, latestHandoff.filename);
+        const handoffContent = fs.readFileSync(handoffPath, "utf-8");
+        const handoffLabel = latestHandoff.isAutoHandoff ? "Latest auto-handoff" : "Latest task handoff";
+        additionalContext += `\n\n---\n\n${handoffLabel} (${latestHandoff.filename}):\n`;
+        additionalContext += `Status: ${latestHandoff.status}${latestHandoff.isAutoHandoff ? "" : ` | Task: ${latestHandoff.taskNumber}`}\n\n`;
+        const truncatedHandoff = handoffContent.length > 2e3 ? handoffContent.substring(0, 2e3) + "\n\n[... truncated, read full file if needed]" : handoffContent;
+        additionalContext += truncatedHandoff;
+        const allHandoffs = fs.readdirSync(handoffDir).filter((f) => (f.startsWith("task-") || f.startsWith("auto-handoff-")) && f.endsWith(".md")).sort((a, b) => {
+          const statA = fs.statSync(path.join(handoffDir, a));
+          const statB = fs.statSync(path.join(handoffDir, b));
+          return statB.mtime.getTime() - statA.mtime.getTime();
+        });
+        if (allHandoffs.length > 1) {
+          additionalContext += `\n\n---\n\nAll handoffs in ${handoffDir}:\n`;
+          allHandoffs.forEach((f) => {
+            additionalContext += `- ${f}\n`;
           });
-          if (allHandoffs.length > 1) {
-            additionalContext += `
-
----
-
-All handoffs in ${handoffDir}:
-`;
-            allHandoffs.forEach((f) => {
-              additionalContext += `- ${f}
-`;
-            });
-          }
         }
       }
     }
   } else {
     if (sessionType !== "startup") {
-      // Removed console.error to avoid stderr pollution in hook execution
       message = `[${sessionType}] No ledger found. Consider running /dev ledger to track session state.`;
     }
   }

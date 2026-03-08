@@ -8,6 +8,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, statSy
 import { join, basename } from 'path';
 import type { GateRecord, DecisionRecord, LedgerTaskEntry } from './ledger-types';
 import { memorySave } from './memory';
+import { registerBranch, unregisterBranch, lookupBranch, fallbackLedgerScan } from './registry';
 
 const LEDGERS_DIR = 'thoughts/ledgers';
 const ARCHIVE_DIR = 'thoughts/ledgers/archive';
@@ -299,24 +300,40 @@ function getTaskFromBranch(branch: string): string | null {
 
 function findActiveLedger(): LedgerInfo | null {
   const cwd = getCwd();
+
+  // 1. Registry lookup
+  const entry = lookupBranch(cwd);
+  if (entry) {
+    const absPath = join(cwd, entry.ledger);
+    if (existsSync(absPath)) return parseLedger(absPath);
+  }
+
+  // 2. Branch→taskId→prefix match fallback
   const branch = getCurrentBranch();
   const taskId = getTaskFromBranch(branch);
 
-  if (!taskId) return null;
-
-  const ledgersPath = join(cwd, LEDGERS_DIR);
-  if (!existsSync(ledgersPath)) return null;
-
-  // First try exact prefix match, then case-insensitive
-  let files = readdirSync(ledgersPath).filter(f => f.startsWith(taskId) && f.endsWith('.md') && !f.startsWith('.'));
-  if (files.length === 0) {
-    const lowerTaskId = taskId.toLowerCase();
-    files = readdirSync(ledgersPath).filter(f => f.toLowerCase().startsWith(lowerTaskId) && f.endsWith('.md') && !f.startsWith('.'));
+  if (taskId) {
+    const ledgersPath = join(cwd, LEDGERS_DIR);
+    if (existsSync(ledgersPath)) {
+      let files = readdirSync(ledgersPath).filter(f => f.startsWith(taskId) && f.endsWith('.md') && !f.startsWith('.'));
+      if (files.length === 0) {
+        const lowerTaskId = taskId.toLowerCase();
+        files = readdirSync(ledgersPath).filter(f => f.toLowerCase().startsWith(lowerTaskId) && f.endsWith('.md') && !f.startsWith('.'));
+      }
+      if (files.length > 0) {
+        return parseLedger(join(ledgersPath, files[0]));
+      }
+    }
   }
-  if (files.length === 0) return null;
 
-  const ledgerPath = join(ledgersPath, files[0]);
-  return parseLedger(ledgerPath);
+  // 3. Last resort: fallback scan by mtime
+  const rel = fallbackLedgerScan(cwd);
+  if (rel) {
+    const absPath = join(cwd, rel);
+    if (existsSync(absPath)) return parseLedger(absPath);
+  }
+
+  return null;
 }
 
 function parseLedger(path: string): LedgerInfo {
@@ -482,6 +499,7 @@ ${desc}
 `;
 
   writeFileSync(filePath, template);
+  registerBranch(cwd, branchName, join(LEDGERS_DIR, fileName), taskId);
 
   return {
     success: true,
@@ -751,6 +769,7 @@ export function ledgerArchive(taskId?: string): LedgerResult {
 
     writeFileSync(destPath, content);
     execSync(`rm "${srcPath}"`);
+    unregisterBranch(cwd, getCurrentBranch());
 
     return {
       success: true,
@@ -803,7 +822,7 @@ export function ledgerSearch(keyword: string): LedgerResult {
  */
 export function loadCompactCheckpoint(): string | null {
   const cwd = getCwd();
-  const checkpointPath = join(cwd, LEDGERS_DIR, '.compact-checkpoint.md');
+  const checkpointPath = join(cwd, '.claude/state/checkpoint.md');
   if (!existsSync(checkpointPath)) return null;
 
   try {

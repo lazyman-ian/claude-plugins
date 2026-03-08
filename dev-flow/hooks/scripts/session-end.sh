@@ -13,7 +13,7 @@ if [[ -z "$PROJECT_DIR" ]]; then
 fi
 
 # Ensure sessions directory exists
-SESSIONS_DIR="${PROJECT_DIR}/.claude/sessions"
+SESSIONS_DIR="${PROJECT_DIR}/.claude/state/sessions"
 mkdir -p "$SESSIONS_DIR" 2>/dev/null || true
 
 # Timestamp for filename

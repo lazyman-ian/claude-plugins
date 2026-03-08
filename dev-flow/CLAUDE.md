@@ -157,7 +157,8 @@ ls -l hooks/dist/*.mjs
 
 ### Continuity System
 
-- **Ledgers**: `thoughts/ledgers/CONTINUITY_CLAUDE-*.md` - Track task state across sessions
+- **Ledgers**: `thoughts/ledgers/TASK-XXX.md` - Track task state across sessions
+- **Registry**: `.claude/state/context.json` - Active ledger registry, avoids CONTINUITY_CLAUDE-* filename pattern
 - **Task Sync**: Bridge ledger state with Claude Code Task Management tools
 - Stored in git for persistence
 
@@ -319,7 +320,7 @@ dev_config → python|fix:black .|check:ruff .|scopes:api,models|src:custom
 - **Three-Layer Decision Architecture**: L1 Environment auto-judge → L2 Decision Agent (Sonnet) → L3 Human (PR only)
 - **Self-Healing Retry**: verify fail → diagnose → fix implementation (never modify verify command) → re-verify (max 2)
 - **Silent Execution**: No explanatory text during implementation; output only at milestones or final
-- **Auto-Resume**: Auto-pipeline state file (`.claude/cache/.auto-pipeline-{task_id}.json`) injected by SessionStart
+- **Auto-Resume**: Auto-pipeline state file (`.claude/state/pipeline/{task_id}.json`) injected by SessionStart
 - **Context Diet**: SessionStart injects only `priority='critical'` knowledge entries
 
 ### Ralph Loop Integration

@@ -9,30 +9,30 @@
 
 set -o pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/registry.sh"
+
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || echo "")
 
 [[ -z "$FILE_PATH" ]] && echo '{"decision":"ask"}' && exit 0
 
 project_dir="${CLAUDE_PROJECT_DIR:-$(git -C "$(dirname "$FILE_PATH")" rev-parse --show-toplevel 2>/dev/null || pwd)}"
-PLANS_DIR="$project_dir/thoughts/shared/plans"
-CACHE_DIR="$project_dir/.claude/cache"
+PLANS_DIR="$project_dir/thoughts/plans"
+CACHE_DIR="$project_dir/.claude/state/cache"
+mkdir -p "$CACHE_DIR"
 
-# Compute branch hash (same as scope-drift-check.sh)
+# Shared scope cache file (compatible with scope-drift-check.sh)
 CURRENT_BRANCH=$(git -C "$project_dir" branch --show-current 2>/dev/null)
-if [[ -n "$CURRENT_BRANCH" ]]; then
-  BRANCH_HASH=$(echo "$CURRENT_BRANCH" | (shasum 2>/dev/null || sha1sum) | cut -c1-12)
-else
-  BRANCH_HASH=$(echo "$project_dir" | /usr/bin/sed 's|/|-|g' | tail -c 32)
-fi
-SCOPE_CACHE_FILE="/tmp/claude-scope-targets-${BRANCH_HASH}.txt"
+SCOPE_CACHE_FILE="$CACHE_DIR/scope-targets.txt"
 
 # Find the active plan path
 ACTIVE_PLAN=""
 
-# 1. Check auto-pipeline state file
-if [[ -d "$CACHE_DIR" ]]; then
-  for state_file in "$CACHE_DIR"/.auto-pipeline-*.json; do
+# 1. Check auto-pipeline state files
+STATE_DIR="$project_dir/.claude/state/pipeline"
+if [[ -d "$STATE_DIR" ]]; then
+  for state_file in "$STATE_DIR"/*.json; do
     [[ -f "$state_file" && "$state_file" != *.done.json ]] || continue
     plan_path=$(jq -r '.plan_path // empty' "$state_file" 2>/dev/null || echo "")
     if [[ -n "$plan_path" && -f "$plan_path" ]]; then
@@ -42,21 +42,21 @@ if [[ -d "$CACHE_DIR" ]]; then
   done
 fi
 
-# 2. Check ledger for plan reference
+# 2. Check registry for active ledger plan reference
 if [[ -z "$ACTIVE_PLAN" ]]; then
-  LEDGER_DIR="$project_dir/thoughts/ledgers"
-  if [[ -d "$LEDGER_DIR" ]]; then
-    while IFS= read -r ledger_file; do
-      # Look for plan path references like thoughts/shared/plans/xxx.md
-      plan_ref=$(grep -m1 'thoughts/shared/plans/.*\.md' "$ledger_file" 2>/dev/null | grep -oE 'thoughts/shared/plans/[^[:space:]"'"'"']+\.md' | head -1)
+  LEDGER_PATH=$(registry_resolve "$project_dir" 2>/dev/null || true)
+  if [[ -n "$LEDGER_PATH" ]]; then
+    if [[ ! "$LEDGER_PATH" = /* ]]; then
+      LEDGER_PATH="$project_dir/$LEDGER_PATH"
+    fi
+    if [[ -f "$LEDGER_PATH" ]]; then
+      plan_ref=$(grep -m1 'thoughts/plans/.*\.md\|thoughts/shared/plans/.*\.md' "$LEDGER_PATH" 2>/dev/null \
+        | grep -oE 'thoughts/(shared/)?plans/[^[:space:]"'"'"']+\.md' | head -1)
       if [[ -n "$plan_ref" ]]; then
         candidate="$project_dir/$plan_ref"
-        if [[ -f "$candidate" ]]; then
-          ACTIVE_PLAN="$candidate"
-          break
-        fi
+        [[ -f "$candidate" ]] && ACTIVE_PLAN="$candidate"
       fi
-    done < <(ls -t "$LEDGER_DIR"/CONTINUITY_CLAUDE-*.md 2>/dev/null)
+    fi
   fi
 fi
 

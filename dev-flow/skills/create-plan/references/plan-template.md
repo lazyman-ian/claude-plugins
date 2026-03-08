@@ -4,7 +4,7 @@ Complete template for implementation plans.
 
 ## File Location
 
-`thoughts/shared/plans/YYYY-MM-DD-ENG-XXXX-description.md`
+`thoughts/plans/YYYY-MM-DD-ENG-XXXX-description.md`
 
 ## Template
 

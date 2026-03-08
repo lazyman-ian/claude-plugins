@@ -63,8 +63,8 @@ if [ -z "$COMPLETED" ] && [ -z "$REQUEST" ] && [ -z "$INVESTIGATED" ]; then
 fi
 
 # --- Write .last-session.json (always) ---
-CACHE_DIR="${CWD}/.claude/cache"
-mkdir -p "$CACHE_DIR" 2>/dev/null
+STATE_DIR="${CWD}/.claude/state"
+mkdir -p "$STATE_DIR" 2>/dev/null
 NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 jq -n \
@@ -87,7 +87,7 @@ jq -n \
     next_steps: $next_steps,
     files_modified: $files,
     created_at: $created_at
-  }' > "$CACHE_DIR/.last-session.json" 2>/dev/null
+  }' > "$STATE_DIR/last-session.json" 2>/dev/null
 
 # --- MEMORY.md: fallback write + trimming ---
 ENCODED_PATH=$(echo "$CWD" | /usr/bin/sed 's|/|-|g')

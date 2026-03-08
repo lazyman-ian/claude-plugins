@@ -1,5 +1,5 @@
 ---
-description: Implement technical plans from thoughts/shared/plans with verification
+description: Implement technical plans from thoughts/plans with verification
 ---
 
 # /implement_plan - Plan Implementation
@@ -9,7 +9,7 @@ Implement approved technical plans with verification.
 ## Usage
 
 ```bash
-/implement_plan thoughts/shared/plans/YYYY-MM-DD-feature.md
+/implement_plan thoughts/plans/YYYY-MM-DD-feature.md
 ```
 
 ## Execution Modes

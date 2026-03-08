@@ -40,26 +40,26 @@ if [ ! -f "$db_path" ]; then
   exit 0
 fi
 
+# Ensure state dir exists
+mkdir -p "$project_dir/.claude/state"
+
 # Check if MEMORY.md was manually edited since last sync
 # Compare mtime of MEMORY.md vs a sync marker file
-sync_marker="$project_dir/.claude/cache/.memory-sync-marker"
+sync_marker="$project_dir/.claude/state/memory-sync-marker"
 
 if [ -f "$sync_marker" ] && [ "$memory_md" -nt "$sync_marker" ]; then
   # MEMORY.md was edited after last sync — flag it for context-injector.ts
   # Write a flag file that context-injector picks up on next dev_memory call
-  flag_file="$project_dir/.claude/cache/.memory-human-edited"
-  mkdir -p "$(dirname "$flag_file")"
+  flag_file="$project_dir/.claude/state/memory-human-edited"
   echo "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$flag_file" 2>/dev/null
 fi
 
 # Touch sync marker to record this sync time
-mkdir -p "$(dirname "$sync_marker")"
 touch "$sync_marker"
 
 # Write knowledge injection filter: only critical priority at session start
 # session-start-continuity.sh reads this policy via SQL WHERE priority='critical'
-filter_file="$project_dir/.claude/cache/.knowledge-filter.json"
-mkdir -p "$(dirname "$filter_file")"
+filter_file="$project_dir/.claude/state/knowledge-filter.json"
 echo '{"inject_priority":"critical"}' > "$filter_file" 2>/dev/null || true
 
 echo '{"continue": true}'

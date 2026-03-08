@@ -13,7 +13,7 @@ INPUT=$(cat)
 TASK_ID=$(echo "$INPUT" | jq -r '.task_id // empty' 2>/dev/null || echo "")
 
 project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-PLANS_DIR="$project_dir/thoughts/shared/plans"
+PLANS_DIR="$project_dir/thoughts/plans"
 
 [[ ! -d "$PLANS_DIR" ]] && { echo '{"continue":true}'; exit 0; }
 
@@ -43,17 +43,15 @@ else
   INTERVAL=5
 fi
 
-# Counter file: keyed by branch name hash (separate counters per pipeline/branch)
-CURRENT_BRANCH=$(git -C "$project_dir" branch --show-current 2>/dev/null)
-if [[ -n "$CURRENT_BRANCH" ]]; then
-  BRANCH_HASH=$(echo "$CURRENT_BRANCH" | (shasum 2>/dev/null || sha1sum) | cut -c1-12)
-else
-  # Detached HEAD: fall back to dir hash
-  BRANCH_HASH=$(echo "$project_dir" | /usr/bin/sed 's|/|-|g' | tail -c 32)
-fi
-COUNTER_FILE="/tmp/claude-batch-checkpoint-${BRANCH_HASH}.txt"
+# Counter file: per-project in .claude/state/cache/ (no hash)
+CACHE_DIR="$project_dir/.claude/state/cache"
+mkdir -p "$CACHE_DIR"
+COUNTER_FILE="$CACHE_DIR/batch-counter.txt"
 
-# Read counter; detect plan change and reset if needed
+# Current branch for reset detection
+CURRENT_BRANCH=$(git -C "$project_dir" branch --show-current 2>/dev/null)
+
+# Read counter; detect plan/branch change and reset if needed
 COUNT=0
 if [[ -f "$COUNTER_FILE" ]]; then
   STORED_BRANCH=$(sed -n '1p' "$COUNTER_FILE" 2>/dev/null || echo "")

@@ -1,0 +1,12 @@
+[
+  {
+    "id": "t1",
+    "description": "Test task",
+    "targetFiles": [
+      "file1.ts"
+    ],
+    "dependencies": [],
+    "agentId": "agent-001",
+    "status": "in_progress"
+  }
+]

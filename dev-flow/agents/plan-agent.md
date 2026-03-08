@@ -35,7 +35,7 @@ Create comprehensive implementation plans by:
 - Define phases and order
 
 ### 4. Plan Writing
-- Write to `thoughts/shared/plans/YYYY-MM-DD-<description>.md`
+- Write to `thoughts/plans/YYYY-MM-DD-<description>.md`
 - Include specific file paths and code changes
 - Define both automated and manual success criteria
 - List what's NOT in scope
@@ -84,7 +84,7 @@ Create comprehensive implementation plans by:
 ## Output
 
 When the plan file is written:
-1. Confirm the plan file path: "Plan written to `thoughts/shared/plans/YYYY-MM-DD-<description>.md`"
+1. Confirm the plan file path: "Plan written to `thoughts/plans/YYYY-MM-DD-<description>.md`"
 2. State the phase count and first recommended action: "X phases defined. Run `/implement-plan` to begin execution."
 3. If called from brainstorm context: summarize the key design decision made during planning in 1-2 sentences.
 
