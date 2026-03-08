@@ -114,14 +114,35 @@ dev_ledger(action="create", taskId="TASK-XXX", branch="<branch>")
 
 ### Step 8: (可选) 全自动流水线
 
-如果带 `--auto` 参数，在创建分支和 ledger 后，自动依次执行：
+如果带 `--auto` 参数，在创建分支和 ledger 后：
 
+**8.0 初始化状态文件**
+
+Source `dev-flow/hooks/scripts/auto-pipeline-state.sh`，调用：
+```bash
+auto_state_init("$PROJECT_DIR", "TASK-XXX", "$source_text")
 ```
-1. 生成 spec (同 --spec，跳过用户确认)
-2. 创建实现计划 → /dev-flow:plan --from-spec
-3. 执行实现 → /dev-flow:implement-plan (autonomy level 2)
-4. 创建 PR → /dev-flow:pr
+写入 `.claude/cache/.auto-pipeline-TASK-XXX.json`：
+```json
+{ "auto": true, "task_id": "TASK-XXX", "current_stage": "spec", ... }
 ```
+
+**8.1 管道阶段** — 每个阶段读状态文件决定行为，不依赖 LLM context：
+
+| 阶段 | 动作 | 状态文件更新 |
+|------|------|-------------|
+| spec | 生成 spec (跳过用户确认) | `current_stage → "plan"`, 写 `spec_path` |
+| plan | 创建实现计划 (跳过交互审批) | `current_stage → "validate"`, 写 `plan_path` |
+| validate | validate-agent 验证技术选型 | `current_stage → "implement"` |
+| implement | 5-gate pipeline 执行 | `current_stage → "review"` |
+| review | Review Gate Loop (独立阶段) | `current_stage → "pr"` |
+| pr | /dev pr | `current_stage → "done"`, rename `.done.json` |
+
+**8.2 Auto 模式检测**
+
+各 skill/agent 检测 auto 模式：读 `.claude/cache/.auto-pipeline-{task_id}.json`
+- 存在且 `auto: true` → 跳过确认，自动链接到下一阶段
+- 不存在 → 正常交互模式
 
 不带 `--auto` 时，每个步骤需手动触发（行为与原有流程一致）。
 
