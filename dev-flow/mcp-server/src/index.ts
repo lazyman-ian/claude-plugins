@@ -547,7 +547,7 @@ function fullStatus(verbose: boolean = false) {
   const hasPR = workflow.git.prState === 'OPEN';
   if (hasPR) {
     const pr = getPRStatus();
-    const analysis = analyzeChanges('origin/master', project.type);
+    const analysis = analyzeChanges(`origin/${getDefaultBranch()}`, project.type);
     const draft = pr.isDraft ? 'DRAFT' : 'READY';
     const builds = pr.isDraft ? 'OFF' : 'ON';
     const rec = analysis.recommendation === 'should_build' ? '✅BUILD' :
@@ -586,7 +586,7 @@ function fixCommands() {
   if (customConfig) {
     return { content: [{ type: 'text', text: customConfig.commands.fix }] };
   }
-  if (hasMakefileTargets(['fix'])) {
+  if (hasMakefileTargets()) {
     return { content: [{ type: 'text', text: 'make fix' }] };
   }
 
@@ -614,7 +614,7 @@ function checkStatus() {
       return { content: [{ type: 'text', text: '❌' }] };
     }
   }
-  if (hasMakefileTargets(['check'])) {
+  if (hasMakefileTargets()) {
     try {
       const { execSync } = require('child_process');
       execSync('make check', { stdio: 'pipe' });
@@ -642,7 +642,7 @@ function nextCommand() {
   const project = getCached('project', CACHE_TTL.project, detectProjectType);
   const workflow = getCached('workflow', CACHE_TTL.git, getWorkflowStatus);
 
-  const quality = getCached('quality_check', CACHE_TTL.quality, () => {
+  const qualityErrors = getCached('quality', CACHE_TTL.quality, () => {
     if (project.type === 'ios') {
       return ios.runSwiftLint(project.srcDir).errors;
     } else if (project.type === 'android') {
@@ -651,7 +651,11 @@ function nextCommand() {
     return 0;
   });
 
-  if (quality > 0) {
+  if (qualityErrors > 0) {
+    // Check custom config first
+    const customConfig = loadProjectConfig();
+    if (customConfig) return { content: [{ type: 'text', text: customConfig.commands.fix }] };
+    if (hasMakefileTargets()) return { content: [{ type: 'text', text: 'make fix' }] };
     const cmds = project.type === 'ios'
       ? ios.getFixCommands(project)
       : android.getFixCommands();
@@ -661,7 +665,7 @@ function nextCommand() {
   // Smart PR_OPEN suggestions based on build control
   if (workflow.phase === 'PR_OPEN') {
     const pr = getPRStatus();
-    const analysis = analyzeChanges('origin/master', project.type);
+    const analysis = analyzeChanges(`origin/${getDefaultBranch()}`, project.type);
 
     if (pr.isDraft) {
       // Draft PR - suggest based on changes
