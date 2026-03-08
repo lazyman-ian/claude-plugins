@@ -131,7 +131,7 @@ function dbInsertKnowledge(entry: KnowledgeEntry & { priority?: string }): boole
   if (!existsSync(dbPath)) return false;
 
   const priority = entry.priority || 'important';
-  const sql = `INSERT OR IGNORE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed, priority) VALUES ('${esc(entry.id)}', '${esc(entry.type)}', '${esc(entry.platform)}', '${esc(entry.title)}', '${esc(entry.problem)}', '${esc(entry.solution)}', '${esc(entry.sourceProject)}', '${esc(entry.sourceSession)}', '${esc(entry.createdAt)}', '${esc(entry.filePath)}', 0, NULL, '${esc(priority)}');`;
+  const sql = `INSERT OR REPLACE INTO knowledge (id, type, platform, title, problem, solution, source_project, source_session, created_at, file_path, access_count, last_accessed, priority) VALUES ('${esc(entry.id)}', '${esc(entry.type)}', '${esc(entry.platform)}', '${esc(entry.title)}', '${esc(entry.problem)}', '${esc(entry.solution)}', '${esc(entry.sourceProject)}', '${esc(entry.sourceSession)}', '${esc(entry.createdAt)}', '${esc(entry.filePath)}', 0, NULL, '${esc(priority)}');`;
 
   try {
     execSync(`sqlite3 "${dbPath}" "${sql}"`, { encoding: 'utf-8', timeout: 3000 });
@@ -759,9 +759,10 @@ export function reindexVault(): { indexed: number; message: string } {
   const dbPath = getDbPath();
   let indexed = 0;
 
-  // Clear existing knowledge entries that came from vault
+  // Clear all knowledge entries (we're about to reindex all vault files)
+  // Using a full DELETE avoids shell/SQL injection from vaultPath interpolation
   try {
-    execSync(`sqlite3 "${dbPath}" "DELETE FROM knowledge WHERE file_path LIKE '%${vaultPath.replace(/'/g, "''")}%';"`, {
+    execSync(`sqlite3 "${dbPath}" "DELETE FROM knowledge;"`, {
       encoding: 'utf-8', timeout: 5000,
     });
     // Rebuild FTS index

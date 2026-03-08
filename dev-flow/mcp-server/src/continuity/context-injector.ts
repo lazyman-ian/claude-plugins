@@ -91,7 +91,7 @@ function loadPlatformPitfalls(platform: string, maxChars: number): string {
   if (!existsSync(dbPath)) return '';
   // SQL injection prevention: double single quotes (sqlite3 CLI has no parameterized queries)
   const safePlatform = platform.replace(/'/g, "''");
-  const sql = `SELECT title, substr(problem,1,100) FROM knowledge WHERE type='pitfall' AND platform='${safePlatform}' ORDER BY created_at DESC LIMIT 5;`;
+  const sql = `SELECT title, substr(problem,1,100) FROM knowledge WHERE type='pitfall' AND platform='${safePlatform}' AND priority='critical' ORDER BY created_at DESC LIMIT 5;`;
   try {
     const result = execSync(`sqlite3 -separator $'\\t' "${dbPath}" "${sql}"`, {
       encoding: 'utf-8', timeout: 3000,
