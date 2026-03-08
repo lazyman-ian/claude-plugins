@@ -14,6 +14,15 @@ USER_PROMPT=$(echo "$INPUT" | jq -r '.user_prompt // empty' 2>/dev/null || echo 
 [[ -z "$USER_PROMPT" ]] && exit 0
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+
+# Skip intent routing in auto pipeline mode
+for _f in "$PROJECT_DIR/.claude/cache/"/.auto-pipeline-*.json; do
+  [[ -f "$_f" ]] || continue
+  [[ "$_f" == *.done.json ]] && continue
+  _auto=$(jq -r '.auto // empty' "$_f" 2>/dev/null)
+  [[ "$_auto" == "true" ]] && exit 0
+done
+
 CONTEXT=""
 
 # Lowercase for matching

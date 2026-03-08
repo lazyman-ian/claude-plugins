@@ -73,30 +73,9 @@ auto_state_advance() {
   local tmp_file="${state_file}.tmp"
   jq --arg stage "$stage" '.current_stage = $stage' "$state_file" > "$tmp_file" 2>/dev/null && mv "$tmp_file" "$state_file"
 
-  # Write resume directive
-  local plan_path
-  plan_path=$(jq -r '.plan_path // empty' "$state_file" 2>/dev/null)
-  local ledger_dir="$project_dir/thoughts/ledgers"
-  mkdir -p "$ledger_dir"
-
-  local resume_cmd
-  case "$stage" in
-    spec)     resume_cmd="/dev spec" ;;
-    plan)     resume_cmd="/dev create-plan" ;;
-    validate) resume_cmd="/dev validate" ;;
-    implement) resume_cmd="/dev implement-plan ${plan_path}" ;;
-    review)   resume_cmd="/dev review" ;;
-    pr)       resume_cmd="/dev pr" ;;
-    done)     auto_state_cleanup "$project_dir" "$task_id"; return 0 ;;
-    *)        resume_cmd="" ;;
-  esac
-
-  cat > "$ledger_dir/.resume-directive.md" <<EOF
-[AUTO-PIPELINE] Task: ${task_id}, Stage: ${stage}
-Plan: ${plan_path}
-Command: ${resume_cmd}
-Proceed without confirmation — this is an autonomous pipeline.
-EOF
+  if [[ "$stage" == "done" ]]; then
+    auto_state_cleanup "$project_dir" "$task_id"
+  fi
 }
 
 auto_state_cleanup() {
@@ -108,7 +87,4 @@ auto_state_cleanup() {
   if [[ -f "$state_file" ]]; then
     jq '.current_stage = "done"' "$state_file" > "$done_file" 2>/dev/null && rm -f "$state_file"
   fi
-
-  # Remove resume directive
-  rm -f "$project_dir/thoughts/ledgers/.resume-directive.md"
 }

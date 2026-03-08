@@ -18,6 +18,21 @@ fi
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 
+# === Check for active auto-pipeline state (read directly from state file) ===
+AUTO_PIPELINE_CONTEXT=""
+for _state_file in "$PROJECT_DIR/.claude/cache/"/.auto-pipeline-*.json; do
+  [[ -f "$_state_file" ]] || continue
+  [[ "$_state_file" == *.done.json ]] && continue
+  _auto=$(jq -r '.auto // empty' "$_state_file" 2>/dev/null)
+  if [[ "$_auto" == "true" ]]; then
+    _stage=$(jq -r '.current_stage // empty' "$_state_file" 2>/dev/null)
+    _task_id=$(jq -r '.task_id // empty' "$_state_file" 2>/dev/null)
+    _plan_path=$(jq -r '.plan_path // empty' "$_state_file" 2>/dev/null)
+    AUTO_PIPELINE_CONTEXT="[AUTO-PIPELINE] Task: ${_task_id}, Stage: ${_stage}\nPlan: ${_plan_path}\nProceed without confirmation — this is an autonomous pipeline."
+    break
+  fi
+done
+
 # === Check project setup ===
 INIT_WARNING=""
 if [[ ! -f "$PROJECT_DIR/.dev-flow.json" ]]; then
@@ -140,12 +155,8 @@ if [[ "$SESSION_TYPE" == "startup" ]]; then
         fi
     fi
 
-    # Check for resume directive (written by context-handoff skill)
-    RESUME_DIRECTIVE=""
-    RESUME_FILE="$PROJECT_DIR/thoughts/ledgers/.resume-directive.md"
-    if [[ -f "$RESUME_FILE" ]]; then
-        RESUME_DIRECTIVE=$(head -5 "$RESUME_FILE" 2>/dev/null | tr '\n' ' ' | /usr/bin/sed 's/[[:space:]]\+/ /g')
-    fi
+    # Use auto-pipeline context read directly from state file
+    RESUME_DIRECTIVE="$AUTO_PIPELINE_CONTEXT"
 
     # Check PR status for merged PRs (suggest archive)
     PR_STATUS_MSG=""
